@@ -1,0 +1,236 @@
+the-bigger-interview/agent-preset/preset.json
+  s_1744fb8d60f46d::t_a6fe084a2b76d9 1-17
+the-bigger-interview/scripts/info.sh
+  s_1744fb8d60f46d::t_e2d602fa095770 1-18
+the-bigger-interview/evaluation/scenario.json
+  s_1744fb8d60f46d::t_bed0d7f6363589 1-3,5-16,19-121
+  s_1744fb8d60f46d::t_c2f6321ba3ad0d 4
+  s_1744fb8d60f46d::t_fb6686bc3770b5 17-18
+the-bigger-interview/scripts/validate_local.py
+  s_1744fb8d60f46d::t_b3d232c46565c2 10,91,124-127,375,377-385,387-389
+  s_1744fb8d60f46d::t_fbf91f79f3a7b4 250-309,359-362,416
+  s_1744fb8d60f46d::t_f8449ff6b51d33 145-155,157,166
+  s_1744fb8d60f46d::t_bb5025da7a9dc2 7,99-121,376
+  s_1744fb8d60f46d::t_19a5eb56f27436 1-6,8-9,11-19,26-90,92-98,122-123,128-133,139-142,176-179,204-216,310-346,364-374,386,390-412,414-415,417-418,447-464,479,484,496-511
+  s_1744fb8d60f46d::t_d15cdb3952671e 134-138,143-144,156,158-165,167-175
+  s_1744fb8d60f46d::t_811844c5c97636 180,194-203
+  s_1744fb8d60f46d::t_b6f1b97560b042 20-25,181-193,419-446
+  s_1744fb8d60f46d::t_be2818cc7153a2 347-354,363
+  s_1744fb8d60f46d::t_a6fe084a2b76d9 217-249,355-358
+  s_1744fb8d60f46d::t_5aa48368549e08 413,485-495
+  s_1744fb8d60f46d::t_4833c111b21071 465-478
+  s_1744fb8d60f46d::t_e2e2cf7211b1b7 480-483
+README.md
+  s_1744fb8d60f46d::t_7afa958346328a 2-6
+the-bigger-interview/scripts/reconcile.py
+  s_1744fb8d60f46d::t_5aa48368549e08 595-616,659-671,1164-1166
+  s_1744fb8d60f46d::t_04ace7b53d9b17 618,623,632
+  s_1744fb8d60f46d::t_f3554302a5b7a1 33-42,693-705,1180,1224
+  s_1744fb8d60f46d::t_4cd54472e87b41 9,315-316,318-320,335,362-366,381,484-499,505-523,525,529-533,535,537-540,544-545,559-563,566-584,626-630,641-651,763,768-772,785,793-794,1161,1211-1215
+  s_1744fb8d60f46d::t_d15cdb3952671e 25,217-221,225-301,1167-1171,1199-1205
+  s_1744fb8d60f46d::t_c91d167295123b 1144-1158
+  s_1744fb8d60f46d::t_095f5cb2fea223 708-712
+  s_1744fb8d60f46d::t_e862fe05cd998c 2,27,857-931,1006-1010,1013,1049-1124,1185,1189,1253-1268
+  s_1744fb8d60f46d::t_a6fe084a2b76d9 26,717,799-856,932-985,988-1005,1011-1012,1014-1048,1125-1127,1181-1184,1187-1188,1190,1239-1252,1269
+  s_1744fb8d60f46d::t_978b5130c43a71 28-32,317,337-358,384-387
+  s_1744fb8d60f46d::t_9650af87c39552 157-160
+  s_1744fb8d60f46d::t_2fd5a0a298c219 500-504,524,526-528,534,536
+  s_1744fb8d60f46d::t_cb19440d0e96b9 1,3-8,10-24,43-156,161-216,222-224,302-314,321-334,336,359-361,367-380,382-383,388-483,541-543,546-558,564-565,585-594,617,619-622,624-625,631,633-640,652-658,672-692,706-707,713-716,718-762,764-767,773-784,786-792,795-798,986-987,1128-1143,1159-1160,1162-1163,1172-1179,1186,1191-1198,1206-1210,1216-1223,1225-1238,1270-1292
+the-bigger-interview/scripts/init.sh
+  s_1744fb8d60f46d::t_d1ac4ad1900537 28-31
+  s_1744fb8d60f46d::t_cffd348c7dca4b 73
+  s_1744fb8d60f46d::t_7950eca89fb9c3 103-105
+  s_1744fb8d60f46d::t_19a5eb56f27436 1-27,32-61,63-65,67,69-72,74-102,106-127,133
+  s_1744fb8d60f46d::t_697c1d44cf903b 128-132
+  s_1744fb8d60f46d::t_811844c5c97636 62,66,68
+the-bigger-interview/Caddyfile
+  s_1744fb8d60f46d::t_9e9c76cfac8b52 1-61
+the-bigger-interview/compose.gym.yml
+  s_1744fb8d60f46d::t_a6fe084a2b76d9 193
+  s_1744fb8d60f46d::t_922b5ec9d6798e 155
+  s_1744fb8d60f46d::t_4cd54472e87b41 108
+  s_1744fb8d60f46d::t_7afa958346328a 6-15,18-20,23-25,28-30,33-35,38-40,43-45,48-59,62-107,109,111-118,142-148,150-154,156-177,179-186,188-191,196-198,220-223
+  s_1744fb8d60f46d::t_5aa48368549e08 119-141,187
+  s_1744fb8d60f46d::t_7950eca89fb9c3 1-5,16-17,21-22,26-27,31-32,36-37,41-42,46-47,60-61,149,178
+  s_1744fb8d60f46d::t_9650af87c39552 195
+  s_1744fb8d60f46d::t_be2818cc7153a2 110
+  s_1744fb8d60f46d::t_a83dd6b8b68b5a 194,199-219
+  s_1744fb8d60f46d::t_d15cdb3952671e 192
+the-bigger-interview/scripts/eval.sh
+  s_1744fb8d60f46d::t_a83dd6b8b68b5a 1-15
+the-bigger-interview/local_registry/.gitkeep
+  s_1744fb8d60f46d::t_7afa958346328a 1
+the-bigger-interview/scripts/update_dataset.py
+  s_1744fb8d60f46d::t_e2e2cf7211b1b7 10,134-135
+  s_1744fb8d60f46d::t_9650af87c39552 1-9,11-133,136-145
+the-bigger-interview/scripts/up.sh
+  s_1744fb8d60f46d::t_4d2d913ce87aea 20-22
+  s_1744fb8d60f46d::t_e2d602fa095770 1-6,8-19,23-55
+  s_1744fb8d60f46d::t_aff589264222d4 7
+the-bigger-interview/evaluation/grader-preset.json
+  s_1744fb8d60f46d::t_fb6686bc3770b5 1-19
+the-bigger-interview/scripts/license_metadata.py
+  s_1744fb8d60f46d::t_667078fd113461 1-106
+the-bigger-interview/scripts/license-check.sh
+  s_1744fb8d60f46d::t_667078fd113461 1-18
+the-bigger-interview/Justfile
+  s_1744fb8d60f46d::t_e2d602fa095770 1-33,38-52,54-69
+  s_1744fb8d60f46d::t_a83dd6b8b68b5a 34-37
+  s_1744fb8d60f46d::t_2de0ebba1b0a21 53
+the-bigger-interview/evaluation/grader-prompt.md
+  s_1744fb8d60f46d::t_bed0d7f6363589 1-31,38-42
+  s_1744fb8d60f46d::t_bbebf81708a064 32-37
+the-bigger-interview/scripts/logs.sh
+  s_1744fb8d60f46d::t_e2d602fa095770 1-12
+the-bigger-interview/expected-mcp-tools.json
+  s_1744fb8d60f46d::t_04ace7b53d9b17 3-19,23-27
+  s_1744fb8d60f46d::t_d15cdb3952671e 1-2,20-22,28-30
+the-bigger-interview/scripts/check.sh
+  s_1744fb8d60f46d::t_19a5eb56f27436 1-3,5-10,18
+  s_1744fb8d60f46d::t_83942136829ed1 4
+  s_1744fb8d60f46d::t_bc87673b202768 17
+  s_1744fb8d60f46d::t_2de0ebba1b0a21 14-15
+  s_1744fb8d60f46d::t_5a5df52fdbe4cf 16
+  s_1744fb8d60f46d::t_b3d232c46565c2 11-13
+the-bigger-interview/scripts/down.sh
+  s_1744fb8d60f46d::t_e2d602fa095770 1-8
+the-bigger-interview/scripts/lib.sh
+  s_1744fb8d60f46d::t_667078fd113461 1-55
+the-bigger-interview/docker-compose.tracecat.yml
+  s_1744fb8d60f46d::t_9b85aad7cfab12 18,115,136,193,303,376,408,518,576,613
+  s_1744fb8d60f46d::t_9e9c76cfac8b52 1-17,19-114,116-135,137-192,194-302,304-375,377-407,409-517,519-575,577-612,614-731
+the-bigger-interview/images.env
+  s_1744fb8d60f46d::t_7afa958346328a 1-2,5-11
+  s_1744fb8d60f46d::t_9b85aad7cfab12 3-4
+the-bigger-interview/agent-preset/prompt.md
+  s_1744fb8d60f46d::t_a6fe084a2b76d9 1-28
+the-bigger-interview/scripts/eval_runner.py
+  s_1744fb8d60f46d::t_efb1c9cd373dc4 1-735
+the-bigger-interview/config/server.conf
+  s_1744fb8d60f46d::t_7afa958346328a 1-4
+the-bigger-interview/scripts/stale-check.sh
+  s_1744fb8d60f46d::t_19a5eb56f27436 1-7,9-12,14-18,36-47,69-74
+  s_1744fb8d60f46d::t_e0a47ab002ffe2 8,13,48,50,60,65,75-79
+  s_1744fb8d60f46d::t_9575cc7a92e110 19-35,61,64
+  s_1744fb8d60f46d::t_8d254d16ad1ffe 49,51-59,62-63,66-68
+the-bigger-interview/scripts/tracecat-seed.sh
+  s_1744fb8d60f46d::t_baf8b91fc9928f 35,74
+  s_1744fb8d60f46d::t_667078fd113461 1-8,83-90
+  s_1744fb8d60f46d::t_f3554302a5b7a1 15,18,44-56
+  s_1744fb8d60f46d::t_e2e2cf7211b1b7 10,12-14,16-17,19,21-33,57-71,76-77,79-80,82
+  s_1744fb8d60f46d::t_e197ac80943a6b 9,11,20,34,36-43,72-73,75,78,81
+the-bigger-interview/upstream.lock.json
+  s_1744fb8d60f46d::t_0ff90b5e3c98f2 14-15
+  s_1744fb8d60f46d::t_7afa958346328a 1-3,9-13,16-32,73-74
+  s_1744fb8d60f46d::t_9b85aad7cfab12 4-8,33-72
+the-bigger-interview/scripts/splunk-healthcheck.sh
+  s_1744fb8d60f46d::t_667078fd113461 1-7,9-12,17-26,37-38
+  s_1744fb8d60f46d::t_4cd54472e87b41 8,13-16,27-36,39,42-45,47-50,58-82
+  s_1744fb8d60f46d::t_b3d232c46565c2 40-41,46,51-57
+the-bigger-interview/README.md
+  s_1744fb8d60f46d::t_9650af87c39552 1-3,8-50,79,85-131,151-162
+  s_1744fb8d60f46d::t_5a5df52fdbe4cf 139-140
+  s_1744fb8d60f46d::t_5aa48368549e08 80-84,136-138
+  s_1744fb8d60f46d::t_978b5130c43a71 132-135
+  s_1744fb8d60f46d::t_a6fe084a2b76d9 4-5,141-147
+  s_1744fb8d60f46d::t_27d41b801e21ab 6-7,51-78,148-150
+the-bigger-interview/.env.example
+  s_1744fb8d60f46d::t_7afa958346328a 1-31,33-35,37,39-42,44-82,86-98
+  s_1744fb8d60f46d::t_cffd348c7dca4b 43
+  s_1744fb8d60f46d::t_811844c5c97636 32,36,38
+  s_1744fb8d60f46d::t_7950eca89fb9c3 83-85
+the-bigger-interview/scripts/status.sh
+  s_1744fb8d60f46d::t_e2d602fa095770 1-19
+the-bigger-interview/tests/test_license_metadata.py
+  s_1744fb8d60f46d::t_210ce81d46d1a0 57-79
+  s_1744fb8d60f46d::t_9650af87c39552 1-39,41,51-56
+  s_1744fb8d60f46d::t_d1ac4ad1900537 40,42-50
+the-bigger-interview/scripts/reconcile-run.sh
+  s_1744fb8d60f46d::t_4d2d913ce87aea 12
+  s_1744fb8d60f46d::t_e2d602fa095770 1-11,13-28
+the-bigger-interview/scripts/update_upstreams.py
+  s_1744fb8d60f46d::t_46b2010dde5053 121,126-127
+  s_1744fb8d60f46d::t_d0eff03a20c2b6 100-120,122-125,128-134
+  s_1744fb8d60f46d::t_4328d3dca1ff0a 190-196
+  s_1744fb8d60f46d::t_9650af87c39552 1-99,135-189,197-226
+the-bigger-interview/scripts/reset.sh
+  s_1744fb8d60f46d::t_e2d602fa095770 1-13
+the-bigger-interview/config/authorize.conf
+  s_1744fb8d60f46d::t_be2818cc7153a2 1-4
+the-bigger-interview/scripts/rotate-license.sh
+  s_1744fb8d60f46d::t_9650af87c39552 1-45
+the-bigger-interview/.gitattributes
+  s_1744fb8d60f46d::t_75f4ecf66fc93d 3-4
+  s_1744fb8d60f46d::t_7afa958346328a 1-2
+.gitignore
+  s_1744fb8d60f46d::t_7afa958346328a 160-163,165
+  s_1744fb8d60f46d::t_a83dd6b8b68b5a 164
+the-bigger-interview/scripts/splunk-mcp-compat.py
+  s_1744fb8d60f46d::t_5aa48368549e08 1-35,45-87
+  s_1744fb8d60f46d::t_b5f61c51df0d63 36-44
+the-bigger-interview/expected-counts.json
+  s_1744fb8d60f46d::t_7afa958346328a 1-10
+the-bigger-interview/tests/test_eval_runner.py
+  s_1744fb8d60f46d::t_44ace770f366c7 123
+  s_1744fb8d60f46d::t_d36f3f98cd1f02 230-310
+  s_1744fb8d60f46d::t_35e8784ac82873 1-122,124-229
+the-bigger-interview/scripts/wait.sh
+  s_1744fb8d60f46d::t_e2d602fa095770 1-27
+the-bigger-interview/scripts/doctor.sh
+  s_1744fb8d60f46d::t_4833c111b21071 53-54
+  s_1744fb8d60f46d::t_8619248b8cf486 49-52,55
+  s_1744fb8d60f46d::t_19a5eb56f27436 1-31,33-38,40,47-48,56-57,67-72
+  s_1744fb8d60f46d::t_e2e2cf7211b1b7 32,39,41-46,58-66
+the-bigger-interview/assets/splunk-mcp-server_200.tgz
+  s_1744fb8d60f46d::t_1bc6ae01f41bdb 1-3
+the-bigger-interview/vendor/dataset.manifest.sha256
+  s_1744fb8d60f46d::t_ac211564e3df5d 1-17
+the-bigger-interview/vendor/soc-dataset-thebiggerinterview/.gitignore
+  s_1744fb8d60f46d::t_09ec073a08a7a0 1-3
+the-bigger-interview/vendor/soc-dataset-thebiggerinterview/Dockerfile
+  s_1744fb8d60f46d::t_c76d37803d7154 1-27
+the-bigger-interview/vendor/soc-dataset-thebiggerinterview/LICENSE
+  s_1744fb8d60f46d::t_db6ff50cbad705 1-28
+the-bigger-interview/vendor/soc-dataset-thebiggerinterview/LICENSE-DATA
+  s_1744fb8d60f46d::t_7b894b46ab3774 1-46
+the-bigger-interview/vendor/soc-dataset-thebiggerinterview/conf/indexes.conf
+  s_1744fb8d60f46d::t_dd7c2f7f098cb9 1-6
+the-bigger-interview/vendor/soc-dataset-thebiggerinterview/conf/inputs.conf
+  s_1744fb8d60f46d::t_2df11fa8efa63b 1-31
+the-bigger-interview/vendor/soc-dataset-thebiggerinterview/conf/props.conf
+  s_1744fb8d60f46d::t_3f34d7610b4b37 1-43
+the-bigger-interview/vendor/soc-dataset-thebiggerinterview/entrypoint.sh
+  s_1744fb8d60f46d::t_9098f14d91b00d 1-41
+the-bigger-interview/vendor/soc-dataset-thebiggerinterview/logs/cloudtrail/cloudtrail-001.json.gz
+  s_1744fb8d60f46d::t_cc61e739198582 1-3
+the-bigger-interview/vendor/soc-dataset-thebiggerinterview/logs/edr/edr-001.json.gz
+  s_1744fb8d60f46d::t_ea205d2c0a7957 1-3
+the-bigger-interview/vendor/soc-dataset-thebiggerinterview/logs/github_audit/github_audit-001.json.gz
+  s_1744fb8d60f46d::t_5905dc6046024f 1-3
+the-bigger-interview/vendor/soc-dataset-thebiggerinterview/logs/k8s_audit/k8s_audit-001.json.gz
+  s_1744fb8d60f46d::t_77351cb70ae2c5 1-3
+the-bigger-interview/vendor/soc-dataset-thebiggerinterview/logs/k8s_audit/k8s_audit-002.json.gz
+  s_1744fb8d60f46d::t_b09b8d71ff5743 1-3
+the-bigger-interview/vendor/soc-dataset-thebiggerinterview/logs/k8s_audit/k8s_audit-003.json.gz
+  s_1744fb8d60f46d::t_43361b0174f67c 1-3
+the-bigger-interview/vendor/soc-dataset-thebiggerinterview/logs/k8s_audit/k8s_audit-004.json.gz
+  s_1744fb8d60f46d::t_7484a3d0c2ff8e 1-3
+the-bigger-interview/vendor/soc-dataset-thebiggerinterview/logs/k8s_audit/k8s_audit-005.json.gz
+  s_1744fb8d60f46d::t_61ea27d178cc08 1-3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "006918e07f732610907f7bc27d9c81d68f3a79f7",
+  "prompts": {},
+  "sessions": {
+    "s_1744fb8d60f46d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a06894-23fe-76e3-8972-a8c4c07d403d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Chris Lo <46541035+topher-lo@users.noreply.github.com>"
+    }
+  }
+}

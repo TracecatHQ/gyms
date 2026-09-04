@@ -1,0 +1,24 @@
+{
+  "name": "Gym 002 SOC T1 Analyst",
+  "slug": "gym-002-soc-t1-analyst",
+  "description": "Managed by Gym 002. Triages the local BOTSv3 case queue with DuckDB over the gym's MinIO evidence bucket.",
+  "model_selection": "organization_default",
+  "actions": [
+    "core.cases.add_case_tag",
+    "core.cases.create_case",
+    "core.cases.create_comment",
+    "core.cases.get_case",
+    "core.cases.search_cases",
+    "core.cases.update_case",
+    "core.duckdb.execute_sql",
+    "tools.urlscan.get_result",
+    "tools.urlscan.lookup_url",
+    "tools.urlscan.search_scans"
+  ],
+  "namespaces": [],
+  "tool_approvals": {},
+  "agents": {"enabled": false, "subagents": []},
+  "retries": 3,
+  "enable_thinking": true,
+  "enable_internet_access": false
+}

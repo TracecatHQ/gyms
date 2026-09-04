@@ -1,0 +1,14 @@
+*
+!src/
+!src/**
+!data/
+!data/**
+!ANALYST_INSTRUCTIONS.md
+!agent-preset.json
+!gym.lock.json
+!images/control/Dockerfile
+
+# The BOTSv3 corpus is supplied to the bootstrap container by a read-only
+# Compose bind mount. It must never enter a Docker build context or layer.
+assets/
+*.zip

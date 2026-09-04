@@ -1,0 +1,30 @@
+001/src/gymctl/evaluate.py
+  s_43f637057f18c0::t_39db2ad9bda465 27-28,53-58
+001/PROVENANCE.md
+  s_43f637057f18c0::t_39db2ad9bda465 8-9
+001/benchmark/README.md
+  s_43f637057f18c0::t_39db2ad9bda465 15
+001/src/gymctl/validate.py
+  s_43f637057f18c0::t_39db2ad9bda465 105,110
+  s_43f637057f18c0::t_eedfb419cf97cf 113-116
+001/gym.lock.json
+  s_43f637057f18c0::t_c4ae5fc07bf103 77
+001/src/gymctl/reconcile.py
+  s_43f637057f18c0::t_39db2ad9bda465 33-34,1069,1079-1080,1155-1156,1167-1168
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "e6617ed7895c53def60684b460a8687d229cb0c1",
+  "prompts": {},
+  "sessions": {
+    "s_43f637057f18c0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a06c8c-b3fa-71c2-86b0-3a16ec3f2183",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Chris Lo <46541035+topher-lo@users.noreply.github.com>"
+    }
+  }
+}

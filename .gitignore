@@ -157,6 +157,11 @@ ENV/
 env.bak/
 venv.bak/
 
+# Gym-local generated state
+001/.state/
+001/eval-results/
+.refactor-backup/
+
 # Spyder project settings
 .spyderproject
 .spyproject

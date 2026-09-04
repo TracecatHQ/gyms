@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "classification": "gym-owned",
+  "default_runs": 3,
+  "investigator_timeout_seconds": 2700,
+  "judge_timeout_seconds": 300,
+  "investigation_prompt_file": "investigation-prompt.md",
+  "investigator_preset_slug": "gym-001-soc-analyst",
+  "judge": {
+    "model_provider": "openai",
+    "model_name": "gpt-5.6-sol",
+    "preset_slug": "gym-001-evaluation-grader"
+  }
+}

@@ -1,0 +1,113 @@
+.gitignore
+  s_1744fb8d60f46d::t_a83dd6b8b68b5a 164
+  s_1744fb8d60f46d::t_7afa958346328a 160-163
+README.md
+  s_1744fb8d60f46d::t_7afa958346328a 2-6
+  s_1744fb8d60f46d::t_a52a87dfbc9eaa 1
+  s_1744fb8d60f46d::t_edaf9fae31c55d 7-9
+  s_1744fb8d60f46d::t_9aac7b1a130fdf 10-12
+.gitmodules
+  s_1744fb8d60f46d::t_5326031d31ded8 1-3
+001/assets/splunk-mcp-server_200.tgz
+  s_1744fb8d60f46d::t_a25ee61329f575 1-3
+001/benchmark/harness/grader-prompt.md
+  s_1744fb8d60f46d::t_38f01b4fcde715 1-42
+001/images/control/Dockerfile
+  s_1744fb8d60f46d::t_c528d656ef1f58 1-27
+001/images/splunk/Dockerfile
+  s_1744fb8d60f46d::t_c9c6ebaf7f45ff 1-39
+001/images/splunk/conf/authorize.conf
+  s_1744fb8d60f46d::t_2e591c7acfedb9 1-4
+001/images/splunk/conf/server.conf
+  s_1744fb8d60f46d::t_5ed4a5234770f2 1-4
+001/images/splunk/entrypoint.sh
+  s_1744fb8d60f46d::t_ce6133a444184f 1-53
+001/src/gymctl/config.py
+  s_1744fb8d60f46d::t_ffa5503618a8d1 1-179
+001/src/gymctl/host.py
+  s_1744fb8d60f46d::t_fefa6fdc0f64c4 1-464
+001/src/gymctl/license.py
+  s_1744fb8d60f46d::t_cfefd76901b529 1-106
+001/tests/unit/test_config.py
+  s_1744fb8d60f46d::t_2077e5fd2cbdb2 1-46
+001/upstream/dataset
+  s_1744fb8d60f46d::t_a1cf5c0a51ae28 1
+001/upstream/tracecat/Caddyfile
+  s_1744fb8d60f46d::t_f5658e90030744 1-61
+001/upstream/tracecat/docker-compose.yml
+  s_1744fb8d60f46d::t_bc437544374ae8 1-731
+001/.dockerignore
+  s_1744fb8d60f46d::t_ca1e7013ba3fbd 1-9
+001/.env.example
+  s_1744fb8d60f46d::t_3a85e50c6686a0 1-98
+001/.gitattributes
+  s_1744fb8d60f46d::t_329a0b3696feaa 1-2
+001/Justfile
+  s_1744fb8d60f46d::t_8732fda6e90d1f 1-65
+001/PROVENANCE.md
+  s_1744fb8d60f46d::t_ca78be3b24f058 1-15
+001/README.md
+  s_1744fb8d60f46d::t_57ee5bf63b1380 1-71
+001/benchmark/README.md
+  s_1744fb8d60f46d::t_695007a02c7202 1-19
+001/benchmark/harness/evaluation.json
+  s_1744fb8d60f46d::t_ecb4fabed9349a 1-14
+001/benchmark/harness/grader-preset.json
+  s_1744fb8d60f46d::t_9cf7637d794c16 1-19
+001/benchmark/harness/investigation-prompt.md
+  s_1744fb8d60f46d::t_33025587516c3b 1-18
+001/benchmark/harness/investigator-preset.json
+  s_1744fb8d60f46d::t_67042434e9ede5 1-17
+001/benchmark/harness/investigator-prompt.md
+  s_1744fb8d60f46d::t_f7e3ed8a66ced4 1-39
+001/benchmark/scorecard.json
+  s_1744fb8d60f46d::t_d16899e690f553 1-135
+001/compose.override.yml
+  s_1744fb8d60f46d::t_5e490591f8c9c9 1-194
+001/gym.lock.json
+  s_1744fb8d60f46d::t_567fc0a674a8bd 1-110
+001/images/splunk/conf/limits.conf
+  s_1744fb8d60f46d::t_4623054cb5cfd1 1-5
+001/images/splunk/healthcheck.sh
+  s_1744fb8d60f46d::t_392ca09ad697dd 1-82
+001/src/gymctl/__init__.py
+  s_1744fb8d60f46d::t_8a77f05eeff9ed 1-5
+001/src/gymctl/__main__.py
+  s_1744fb8d60f46d::t_02aebc2a1a10a9 1-5
+001/src/gymctl/cli.py
+  s_1744fb8d60f46d::t_5a78cc7b8c9c2c 1-98
+001/src/gymctl/evaluate.py
+  s_1744fb8d60f46d::t_a3b924aa4aeb80 1-780
+001/src/gymctl/mcp_proxy.py
+  s_1744fb8d60f46d::t_3894852651cea1 1-187
+001/src/gymctl/reconcile.py
+  s_1744fb8d60f46d::t_d3c718a8574811 1-1296
+001/src/gymctl/seed.py
+  s_1744fb8d60f46d::t_b69ab6dbbf6a97 1-70
+001/src/gymctl/update_dataset.py
+  s_1744fb8d60f46d::t_ecc2177ded2f7b 1-50
+001/src/gymctl/update_upstreams.py
+  s_1744fb8d60f46d::t_5c22db3792aee6 1-89
+001/src/gymctl/validate.py
+  s_1744fb8d60f46d::t_e98f05b0ac2978 1-159
+001/tests/unit/test_evaluate.py
+  s_1744fb8d60f46d::t_ec6bdedcadc598 1-357
+001/tests/unit/test_license.py
+  s_1744fb8d60f46d::t_91d6a5c7ecc586 1-75
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "b8a8ebe5346b323661854eb102b7b7ce92bcb2c3",
+  "prompts": {},
+  "sessions": {
+    "s_1744fb8d60f46d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a06894-23fe-76e3-8972-a8c4c07d403d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Chris Lo <46541035+topher-lo@users.noreply.github.com>"
+    }
+  }
+}

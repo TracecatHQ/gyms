@@ -1,0 +1,29 @@
+{
+  "name": "Gym 002 SOC T1 Analyst",
+  "slug": "gym-002-soc-t1-analyst",
+  "description": "Managed by Gym 002. Investigates one BOTSv3 alert case using its exact MinIO evidence object.",
+  "prompt_file": "investigator-prompt.md",
+  "model_selection": "organization_default",
+  "actions": [
+    "core.cases.add_case_tag",
+    "core.cases.create_comment",
+    "core.cases.get_case",
+    "core.cases.search_cases",
+    "core.cases.update_case",
+    "core.duckdb.execute_sql",
+    "tools.urlscan.get_result",
+    "tools.urlscan.get_screenshot",
+    "tools.urlscan.search_scans",
+    "tools.virustotal.lookup_domain",
+    "tools.virustotal.lookup_file_hash",
+    "tools.virustotal.lookup_ip_address",
+    "tools.virustotal.lookup_url"
+  ],
+  "namespaces": [],
+  "tool_approvals": {},
+  "mcp_integrations": [],
+  "agents": {"enabled": false, "subagents": []},
+  "retries": 3,
+  "enable_thinking": true,
+  "enable_internet_access": false
+}

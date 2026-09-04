@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "classification": "gym-owned",
+  "investigator_timeout_seconds": 2700,
+  "judge_timeout_seconds": 300,
+  "max_attempts": 3,
+  "investigation_prompt_file": "../agent/investigation-prompt.md",
+  "investigator_preset_slug": "gym-002-soc-t1-analyst",
+  "judge": {
+    "model_provider": "openai",
+    "model_name": "gpt-5.6-sol",
+    "preset_slug": "gym-002-evaluation-grader"
+  },
+  "base_validation_gates": [
+    "Determination matches the hidden true-positive or false-positive outcome",
+    "Investigation successfully queried the case's exact evidence object with DuckDB",
+    "Case was updated with a bounded evidence-based determination and at least one event_ref"
+  ],
+  "enrichment_validation_gates": {
+    "urlscan": "Applicable IOC was successfully enriched using a read-only URLscan search or result lookup",
+    "virustotal": "Applicable IOC was successfully enriched using the matching VirusTotal lookup"
+  },
+  "required_enrichments": {
+    "guardduty:ec2-coinminer-dns": ["urlscan", "virustotal"],
+    "guardduty:c2-contact": ["urlscan", "virustotal"],
+    "wiz_defend:linux-rce-c2": ["urlscan", "virustotal"],
+    "defender_cloud:linux-suspicious-network": ["urlscan", "virustotal"],
+    "sigma:web-password-spray": ["urlscan", "virustotal"],
+    "sigma:web-password-spray-repeat-01": ["urlscan", "virustotal"]
+  }
+}

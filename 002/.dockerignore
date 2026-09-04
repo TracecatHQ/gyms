@@ -1,11 +1,11 @@
 *
 !src/
 !src/**
-!data/
-!data/**
-!ANALYST_INSTRUCTIONS.md
-!agent-preset.json
+!benchmark/
+!benchmark/**
 !gym.lock.json
+!images/
+!images/control/
 !images/control/Dockerfile
 
 # The BOTSv3 corpus is supplied to the bootstrap container by a read-only

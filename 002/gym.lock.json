@@ -2,22 +2,10 @@
   "schema_version": 2,
   "gym": {"id": "002", "display_name": "BOTSv3 analyst", "compose_project": "tracecat-gym-002", "component_version": "1"},
   "sources": {
-    "tracecat": {"classification": "upstream-verbatim", "repository": "TracecatHQ/tracecat", "tag": "1.0.0-beta.52-rc.22", "tag_object": "d9b2d2c3a8072eac1e2e372d8087afc713e335dd", "commit": "555605728a0e4e7513c771782da009e152f6bd1e", "published_at": "2026-09-03T20:14:58Z", "compose_sha256": "b926d4edf9143b9430947a9819c72b768bd91396aa2ae05f40cd00b4e15ad77c", "caddyfile_sha256": "d2e26bf9f5d3dc6b3d1d8f795bc34d72436f14ec8ee709f06fc05156407b8772"},
     "lab": {"classification": "ported", "repository": "TracecatHQ/automations", "path": "labs/botsv3", "ported_at": "2026-09-04"}
   },
   "artifacts": {"botsv3": {"classification": "user-supplied", "path": "assets/botsv3-20260904T130332Z-1-001.zip", "sha256": "6cb50794622525c1823ae27a8d40a718aaab62b2d665bbb06584ec5a2163d70f", "archive_bytes": 117688518, "member_count": 71, "member_bytes": 117652792, "record_count": 489968, "bucket": "botsv3"}},
   "images": {
-    "upstream": {
-      "caddy": {"source_ref": "caddy:2.10.2-alpine", "digest": "sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d"},
-      "tracecat": {"source_ref": "ghcr.io/tracecathq/tracecat:1.0.0-beta.52-rc.22", "digest": "sha256:a1efce2a90593a269bc23a0ff555df53990f786c9e5dca30ea6249b3c76f1ea2"},
-      "tracecat_ui": {"source_ref": "ghcr.io/tracecathq/tracecat-ui:1.0.0-beta.52-rc.22", "digest": "sha256:089fb7c4f9b55dcf3da19262ba4c9ea7be21aab7150aff19da4d0e5a3be30c29"},
-      "postgres": {"source_ref": "postgres:16", "digest": "sha256:f1c3376c26f2609ab9f29f71f824103fe2fcd8ee0346485cb6122a4f93df6f94"},
-      "temporal_postgres": {"source_ref": "postgres:13", "digest": "sha256:4689940c683801b4ab839ab3b0a0a3555a5fe425371422310944e89eca7d8068"},
-      "temporal": {"source_ref": "temporalio/auto-setup:1.27.1", "digest": "sha256:b76fb70af37ef50084d97e1559822ab223ed59e74ac9e3679f4930b5e34d7eee"},
-      "temporal_ui": {"source_ref": "temporalio/ui:latest", "digest": "sha256:eef301146e60fad34b47adaecfae4149016e34b2d44ba94fca5fd8e5441f182a"},
-      "minio": {"source_ref": "minio/minio:RELEASE.2025-09-07T16-13-09Z", "digest": "sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e"},
-      "redis": {"source_ref": "redis:7-alpine", "digest": "sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf"}
-    },
-    "local": {"control": {"classification": "gym-owned", "repository": "tracecat-gyms/gym-002-control", "future_repository": "ghcr.io/tracecathq/gym-002-control"}}
+    "local": {"control": {"classification": "gym-owned", "repository": "tracecat-gyms/gym-002-control", "future_repository": "ghcr.io/tracecathq/gym-002-control", "input_sha256": "3e8deede0f58f4217d69fc473919d294a778ea923cfb7c768a8cf13f60affdd7"}}
   }
 }

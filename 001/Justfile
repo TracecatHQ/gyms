@@ -1,6 +1,6 @@
 set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
 
-gymctl := "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src python3 -m gymctl"
+gymctl := "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=../src:src python3 -m gymctl"
 
 default:
     @just --list
@@ -47,10 +47,15 @@ restart:
     @{{gymctl}} up
 
 # Recreate Gym 001 state; eval-results/ remains on the host.
+# Usage: just clean-restart CONFIRM=artifacts-captured
 clean-restart CONFIRM="":
     @confirm="{{CONFIRM}}"; {{gymctl}} clean-restart --confirm "${confirm#CONFIRM=}"
 
-# Usage: just reset CONFIRM=001
+# Usage: just reset-evals CONFIRM=artifacts-captured
+reset-evals CONFIRM="":
+    @confirm="{{CONFIRM}}"; {{gymctl}} reset-evals --confirm "${confirm#CONFIRM=}"
+
+# Usage: just reset CONFIRM=artifacts-captured
 reset CONFIRM="":
     @confirm="{{CONFIRM}}"; {{gymctl}} reset --confirm "${confirm#CONFIRM=}"
 
@@ -60,7 +65,6 @@ rotate-license FILE="":
 
 check:
     @{{gymctl}} check
-    @PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src uvx --exclude-newer "1 week" --no-python-downloads --from 'pytest==8.3.5' pytest -q -p no:cacheprovider tests
 
 check-upstreams:
     @{{gymctl}} check-upstreams

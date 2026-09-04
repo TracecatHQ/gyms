@@ -1,8 +1,17 @@
 # Provenance
 
-- Lab behavior, seed CSVs, generator, evaluator contract, and skills were ported on 2026-09-04 from `TracecatHQ/automations` at `labs/botsv3`.
-- `assets/botsv3-20260904T130332Z-1-001.zip` is the user-supplied canonical dataset artifact. It is tracked with Git LFS and locked in `gym.lock.json`.
-- `upstream/tracecat/docker-compose.yml` and `Caddyfile` are verbatim from the Tracecat release pinned in `gym.lock.json`.
-- `compose.override.yml`, `src/gymctl`, image metadata, and local runtime documentation are Gym 002-owned port code.
+| Path | Classification | Notes |
+|---|---|---|
+| `../upstream/tracecat/` | `upstream-verbatim` | Shared exact Tracecat Compose and Caddy files pinned in `../platform.lock.json`. |
+| `assets/botsv3-20260904T130332Z-1-001.zip` | `user-supplied` | Canonical Git LFS dataset artifact locked in `gym.lock.json`. |
+| `benchmark/scenario/alerts.csv` | `ported-derived` | Analyst-visible 34-alert projection ported from `TracecatHQ/automations/labs/botsv3`. |
+| `benchmark/agent/` | `ported-and-gym-owned` | Seven incident-response skills plus the case-native investigator prompt and preset. |
+| `benchmark/evals/` | `ported-and-gym-owned` | Hidden public-writeup answers/outcomes and the new 34-case binary grader contract. |
+| `tools/update_dataset.py` | `ported-derived` | Deterministic generator for the visible alert and hidden evaluation CSVs. |
+| `src/gym_plugin/`, `images/`, `compose.override.yml`, `Justfile` | `gym-owned` | Gym-specific packaging and lifecycle behavior. |
+| `../src/gymctl/`, `../compose/tracecat.override.yml`, `../config/tracecat.env.example` | `gym-owned` | Shared runtime and Tracecat Compose/environment layer. |
 
-This port does not alter any live Tracecat Labs workspace or remote AWS bucket. It removes the runtime dependency on both.
+The port does not alter a live Tracecat Labs workspace or a remote AWS bucket.
+Hidden outcomes never enter analyst-visible case payloads or investigator
+sessions. URLscan and VirusTotal are live Tracecat integrations configured by
+the operator and are never populated from repository secrets.

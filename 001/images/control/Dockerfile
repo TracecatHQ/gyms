@@ -18,10 +18,12 @@ LABEL org.opencontainers.image.title="Tracecat Gym 001 control plane" \
       org.tracecat.gym.tracecat.version="${TRACECAT_VERSION}"
 
 USER root
-COPY --chown=apiuser:apiuser src/ /opt/gym/src/
+COPY --from=gymctl --chown=apiuser:apiuser . /opt/gym/src/gymctl/
+COPY --chown=apiuser:apiuser src/gym_plugin/ /opt/gym/src/gym_plugin/
 COPY --chown=apiuser:apiuser benchmark/ /opt/gym/benchmark/
 COPY --chown=apiuser:apiuser gym.lock.json /opt/gym/gym.lock.json
 USER apiuser
 
-ENV PYTHONPATH="/opt/gym/src:/app/packages/tracecat-admin:/app"
+ENV GYM_ROOT="/opt/gym" \
+    PYTHONPATH="/opt/gym/src:/app/packages/tracecat-admin:/app"
 ENTRYPOINT ["/app/.venv/bin/python", "-m", "gymctl"]

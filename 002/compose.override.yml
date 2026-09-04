@@ -1,45 +1,9 @@
-name: tracecat-gym-002
-
 x-tracecat-enterprise: &tracecat-enterprise
   ENTERPRISE_EDITION: "true"
   TRACECAT__EE_MULTI_TENANT: "true"
   TRACECAT__FEATURE_FLAGS: agent-channels,agent-fs-persistence,ai-ranking,workflow-concurrency-limits
 
 services:
-  caddy:
-    image: ${IMAGE_CADDY:?missing pinned IMAGE_CADDY}
-    container_name: !reset null
-    ports: !override ["127.0.0.1:${PUBLIC_APP_PORT}:${PUBLIC_APP_PORT}"]
-    volumes: !reset []
-    environment: {GYM_CADDYFILE_B64: "${GYM_CADDYFILE_B64:?missing pristine Caddyfile payload}"}
-    entrypoint: ["/bin/sh", "-ec"]
-    command: ["printf '%s' \"$$GYM_CADDYFILE_B64\" | base64 -d > /tmp/Caddyfile; exec caddy run --config /tmp/Caddyfile --adapter caddyfile"]
-  api:
-    image: ${IMAGE_TRACECAT:?missing pinned IMAGE_TRACECAT}
-    container_name: !reset null
-    environment: {<<: *tracecat-enterprise}
-    volumes: !reset []
-  worker: {image: "${IMAGE_TRACECAT:?missing pinned IMAGE_TRACECAT}", environment: {<<: *tracecat-enterprise}}
-  executor:
-    image: ${IMAGE_TRACECAT:?missing pinned IMAGE_TRACECAT}
-    environment: {<<: *tracecat-enterprise}
-    volumes: !override [sandbox-cache:/var/lib/tracecat/sandbox-cache]
-  agent-worker: {image: "${IMAGE_TRACECAT:?missing pinned IMAGE_TRACECAT}", environment: {<<: *tracecat-enterprise}}
-  litellm: {image: "${IMAGE_TRACECAT:?missing pinned IMAGE_TRACECAT}", environment: {<<: *tracecat-enterprise}}
-  agent-executor:
-    image: ${IMAGE_TRACECAT:?missing pinned IMAGE_TRACECAT}
-    environment: {<<: *tracecat-enterprise}
-    volumes: !override [sandbox-cache:/var/lib/tracecat/sandbox-cache]
-  mcp: {image: "${IMAGE_TRACECAT:?missing pinned IMAGE_TRACECAT}", environment: {<<: *tracecat-enterprise}}
-  ui: {image: "${IMAGE_TRACECAT_UI:?missing pinned IMAGE_TRACECAT_UI}", container_name: !reset null}
-  postgres_db: {image: "${IMAGE_POSTGRES:?missing pinned IMAGE_POSTGRES}", container_name: !reset null}
-  migrations: {image: "${IMAGE_TRACECAT:?missing pinned IMAGE_TRACECAT}", container_name: !reset null, environment: {<<: *tracecat-enterprise}}
-  temporal_postgres_db: {image: "${IMAGE_TEMPORAL_POSTGRES:?missing pinned IMAGE_TEMPORAL_POSTGRES}", container_name: !reset null}
-  temporal: {image: "${IMAGE_TEMPORAL:?missing pinned IMAGE_TEMPORAL}", container_name: !reset null}
-  temporal_ui: {image: "${IMAGE_TEMPORAL_UI:?missing pinned IMAGE_TEMPORAL_UI}", container_name: !reset null}
-  minio: {image: "${IMAGE_MINIO:?missing pinned IMAGE_MINIO}", container_name: !reset null}
-  redis: {image: "${IMAGE_REDIS:?missing pinned IMAGE_REDIS}", container_name: !reset null}
-
   dataset-seed:
     image: ${GYM_CONTROL_IMAGE:?missing Gym 002 control image}
     profiles: [bootstrap]
@@ -93,3 +57,19 @@ services:
     depends_on:
       api: {condition: service_healthy}
       dataset-seed: {condition: service_completed_successfully}
+
+  eval-runner:
+    image: ${GYM_CONTROL_IMAGE:?missing Gym 002 control image}
+    profiles: [evaluation]
+    restart: "no"
+    networks: [core]
+    environment:
+      TRACEcat_INTERNAL_API_URL: http://api:8000
+      TRACEcat_PUBLIC_APP_URL: ${PUBLIC_APP_URL}
+      TRACEcat_TENANT_EMAIL: ${TRACEcat_TENANT_EMAIL}
+      TRACEcat_TENANT_PASSWORD: ${TRACEcat_TENANT_PASSWORD}
+    volumes:
+      - ${GYM_ROOT:?missing GYM_ROOT}/eval-results:/opt/gym/eval-results
+    command: [internal-eval]
+    depends_on:
+      api: {condition: service_healthy}

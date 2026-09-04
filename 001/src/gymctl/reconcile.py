@@ -30,7 +30,8 @@ MCP_APP_NAME = "Splunk_MCP_Server"
 MCP_APP_VERSION = "2.0.0"
 MCP_TOOLS_ENDPOINT = "/servicesNS/admin/Splunk_MCP_Server/mcp_tools"
 GYM_ROOT = Path(os.environ.get("GYM_ROOT", "/opt/gym"))
-HARNESS_DIR = GYM_ROOT / "benchmark/harness"
+AGENT_DIR = GYM_ROOT / "benchmark/agent"
+EVALS_DIR = GYM_ROOT / "benchmark/evals"
 LOCK_FILE = GYM_ROOT / "gym.lock.json"
 SPLUNK_MCP_ROLE_CAPABILITIES = {
     "list_workload_pools",
@@ -1065,7 +1066,7 @@ def reconcile_tracecat_mcp(
 
 
 def load_agent_preset_definition() -> tuple[dict[str, Any], str]:
-    manifest_path = HARNESS_DIR / "investigator-preset.json"
+    manifest_path = AGENT_DIR / "investigator-preset.json"
     try:
         manifest = json.loads(manifest_path.read_text())
     except (OSError, json.JSONDecodeError) as exc:
@@ -1075,8 +1076,8 @@ def load_agent_preset_definition() -> tuple[dict[str, Any], str]:
     prompt_filename = manifest.get("prompt_file")
     if not isinstance(prompt_filename, str) or not prompt_filename:
         raise ReconcileError("agent preset manifest is missing prompt_file")
-    prompt_path = (HARNESS_DIR / prompt_filename).resolve()
-    if prompt_path.parent != HARNESS_DIR.resolve():
+    prompt_path = (AGENT_DIR / prompt_filename).resolve()
+    if prompt_path.parent != AGENT_DIR.resolve():
         raise ReconcileError("agent preset prompt_file must stay inside its directory")
     try:
         prompt = prompt_path.read_text().strip()
@@ -1151,8 +1152,8 @@ def workspace_agent_model(
 
 
 def load_grader_preset_definition() -> tuple[dict[str, Any], str]:
-    manifest_path = HARNESS_DIR / "grader-preset.json"
-    config_path = HARNESS_DIR / "evaluation.json"
+    manifest_path = EVALS_DIR / "grader-preset.json"
+    config_path = EVALS_DIR / "evaluation.json"
     try:
         manifest = json.loads(manifest_path.read_text())
         evaluation = json.loads(config_path.read_text())
@@ -1163,8 +1164,8 @@ def load_grader_preset_definition() -> tuple[dict[str, Any], str]:
     prompt_filename = manifest.get("prompt_file")
     if not isinstance(prompt_filename, str) or not prompt_filename:
         raise ReconcileError("evaluation grader preset is missing prompt_file")
-    prompt_path = (HARNESS_DIR / prompt_filename).resolve()
-    if prompt_path.parent != HARNESS_DIR.resolve():
+    prompt_path = (EVALS_DIR / prompt_filename).resolve()
+    if prompt_path.parent != EVALS_DIR.resolve():
         raise ReconcileError("evaluation grader prompt_file must stay inside its directory")
     try:
         base_prompt = prompt_path.read_text().strip()

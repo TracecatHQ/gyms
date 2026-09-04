@@ -12,7 +12,7 @@ Accordingly:
   contains only the exact published alert context and facts plus the 17 gate
   labels and integer weights. The article's displayed Total footer is derived
   and is not stored as a gate.
-- Everything under `harness/` is **gym-owned** Tracecat material.
+- Everything under `agent/` and `evals/` is **gym-owned** Tracecat material.
 - Reconciliation models the alert as one Tracecat case and the rows as an
   independent `validation_gates` table. No table row is linked to the case.
 - Investigations are case-scoped, use the SOC analyst preset, and have only the

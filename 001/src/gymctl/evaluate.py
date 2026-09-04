@@ -24,7 +24,8 @@ from .scenario import (
 
 
 GYM_ROOT = Path(os.environ.get("GYM_ROOT", str(Path(__file__).resolve().parents[2])))
-HARNESS_DIR = GYM_ROOT / "benchmark/harness"
+AGENT_DIR = GYM_ROOT / "benchmark/agent"
+EVALS_DIR = GYM_ROOT / "benchmark/evals"
 RESULTS_ROOT = Path(os.environ.get("GYM_EVAL_RESULTS_DIR", "/opt/gym/eval-results"))
 SENSITIVE_KEY = re.compile(
     r"authorization|cookie|password|secret|token|api[-_]?key|credential", re.I
@@ -49,10 +50,12 @@ def required_env(name: str) -> str:
 
 def load_configuration() -> dict[str, Any]:
     try:
-        config = json.loads((HARNESS_DIR / "evaluation.json").read_text())
-        prompt_path = (HARNESS_DIR / str(config["investigation_prompt_file"])).resolve()
-        if prompt_path.parent != HARNESS_DIR.resolve():
-            raise ValueError("investigation prompt must stay inside the harness directory")
+        config = json.loads((EVALS_DIR / "evaluation.json").read_text())
+        prompt_path = (
+            AGENT_DIR / str(config["investigation_prompt_file"])
+        ).resolve()
+        if prompt_path.parent != AGENT_DIR.resolve():
+            raise ValueError("investigation prompt must stay inside the agent directory")
         config["investigation_prompt"] = prompt_path.read_text().strip()
     except (OSError, KeyError, ValueError, json.JSONDecodeError) as exc:
         raise EvalError(f"cannot load evaluation harness configuration: {exc}") from exc

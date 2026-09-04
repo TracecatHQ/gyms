@@ -102,14 +102,18 @@ def validate() -> None:
         "weighted validation gates must total 100",
     )
     require(
-        (root / "benchmark/harness/investigation-prompt.md").read_text().strip()
+        (root / "benchmark/agent/investigation-prompt.md").read_text().strip()
         == "Is this alert a false positive?",
         "investigation prompt must remain the minimal published-alert question",
     )
     evaluation = json.loads(
-        (root / "benchmark/harness/evaluation.json").read_text()
+        (root / "benchmark/evals/evaluation.json").read_text()
     )
     require(evaluation["default_runs"] == 1, "evaluation must default to one run")
+    require(
+        not (root / "benchmark/harness").exists(),
+        "agent and evaluation assets must not share a harness directory",
+    )
 
     require(not (root / "scripts").exists(), "legacy ad hoc scripts directory must be removed")
     required_commands = {"build", "migrate", "up", "info", "status", "wait", "reconcile", "eval", "logs", "down", "restart", "clean-restart", "reset", "rotate-license", "update-upstreams", "update-dataset", "check"}

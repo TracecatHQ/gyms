@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<license>
+  <signature>OOEny/za2ALH7VIxxV6Nn/cZn5q5SYfzmcc14BF4uoWdFdG3U67pteDpsITdXGDIHwlOnjibbhlQqWnTHqSiYazgrjhQTy64wqrNwOtPp0YxjCO94XjETKS3SMWqg5K/FgnMOnri+2z+Z3ILBKz9NVw9PGstBKt9qAXm9rttTk81lGeryf7dWXywkg9DMzdnYnnD4Z/m7eH1MH6bhM9up9i5m7vyO86AQLMj8T0h5t6behFeTAnNAOGH0e6dFU9KtQFQDOFM/fZ4hoRVg+M3ouNWSK80hXKEa0iPQGfGQd0hUpmEHkvrXe/lt9O+HifTB6my3D6taYjYpVFydQUD1Q==</signature>
+  <payload>
+    <type>enterprise</type>
+    <group_id>Enterprise</group_id>
+    <quota>10737418240</quota>
+    <max_violations>5</max_violations>
+    <window_period>30</window_period>
+    <creation_time>1778655600</creation_time>
+    <label>Splunk Developer Personal License DO NOT DISTRIBUTE</label>
+    <expiration_time>1794297599</expiration_time>
+    <subgroup_id>DevLicense:chris@tracecat.com</subgroup_id>
+    <features>
+      <feature>Auth</feature>
+      <feature>FwdData</feature>
+      <feature>RcvData</feature>
+      <feature>LocalSearch</feature>
+      <feature>DistSearch</feature>
+      <feature>RcvSearch</feature>
+      <feature>ScheduledSearch</feature>
+      <feature>Alerting</feature>
+      <feature>DeployClient</feature>
+      <feature>DeployServer</feature>
+      <feature>SplunkWeb</feature>
+      <feature>SigningProcessor</feature>
+      <feature>SyslogOutputProcessor</feature>
+      <feature>CanBeRemoteMaster</feature>
+    </features>
+    <add_ons>
+      <add_on name="itsi" type="app">
+        <parameter key="size" value="10"/>
+      </add_on>
+    </add_ons>
+    <sourcetypes/>
+    <guid>F657C05E-E47B-42C4-8C0D-3F42A5BC34CF</guid>
+  </payload>
+</license>
+

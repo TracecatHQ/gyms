@@ -1,0 +1,73 @@
+set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
+
+gymctl := "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src python3 -m gymctl"
+
+default:
+    @just --list
+
+init:
+    @{{gymctl}} init
+
+doctor:
+    @{{gymctl}} doctor
+
+build *components:
+    @{{gymctl}} build {{components}}
+
+migrate:
+    @{{gymctl}} migrate
+
+up:
+    @{{gymctl}} up
+
+info:
+    @{{gymctl}} info
+
+status:
+    @{{gymctl}} status
+
+wait:
+    @{{gymctl}} wait
+
+reconcile:
+    @{{gymctl}} reconcile
+
+# Usage: just eval or just eval RUNS=2
+eval RUNS="1":
+    @runs="{{RUNS}}"; {{gymctl}} eval --runs "${runs#RUNS=}"
+
+logs service="":
+    @{{gymctl}} logs {{service}}
+
+down:
+    @{{gymctl}} down
+
+restart:
+    @{{gymctl}} down
+    @{{gymctl}} up
+
+# Recreate Gym 001 state; eval-results/ remains on the host.
+clean-restart CONFIRM="":
+    @confirm="{{CONFIRM}}"; {{gymctl}} clean-restart --confirm "${confirm#CONFIRM=}"
+
+# Usage: just reset CONFIRM=001
+reset CONFIRM="":
+    @confirm="{{CONFIRM}}"; {{gymctl}} reset --confirm "${confirm#CONFIRM=}"
+
+# Usage: just rotate-license FILE=/absolute/path
+rotate-license FILE="":
+    @file="{{FILE}}"; file="${file#FILE=}"; test -n "$file" || { echo "ERROR: FILE is required" >&2; exit 2; }; {{gymctl}} rotate-license --file "$file"
+
+check:
+    @{{gymctl}} check
+    @PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src uvx --exclude-newer "1 week" --no-python-downloads --from 'pytest==8.3.5' pytest -q -p no:cacheprovider tests
+
+check-upstreams:
+    @{{gymctl}} check-upstreams
+
+update-upstreams:
+    @{{gymctl}} update-upstreams
+
+# Usage: just update-dataset REF=<commit-or-ref>
+update-dataset REF="":
+    @ref="{{REF}}"; ref="${ref#REF=}"; test -n "$ref" || { echo "ERROR: REF is required" >&2; exit 2; }; {{gymctl}} update-dataset --ref "$ref"

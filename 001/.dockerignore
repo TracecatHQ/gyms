@@ -1,0 +1,9 @@
+.git
+.env
+.state
+eval-results
+local_registry
+tests
+assets/Splunk.License
+**/__pycache__
+**/*.pyc

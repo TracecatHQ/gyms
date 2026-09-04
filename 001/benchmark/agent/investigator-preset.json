@@ -1,0 +1,17 @@
+{
+  "name": "Gym 001 SOC Analyst",
+  "slug": "gym-001-soc-analyst",
+  "description": "Managed by Gym 001. Investigates the pinned SOC dataset through the attached Splunk MCP server.",
+  "prompt_file": "investigator-prompt.md",
+  "model_selection": "organization_default",
+  "actions": [],
+  "namespaces": [],
+  "tool_approvals": {},
+  "agents": {
+    "enabled": false,
+    "subagents": []
+  },
+  "retries": 3,
+  "enable_thinking": true,
+  "enable_internet_access": false
+}

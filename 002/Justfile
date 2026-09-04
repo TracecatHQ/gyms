@@ -1,0 +1,38 @@
+set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
+
+gymctl := "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src python3 -m gymctl"
+
+default:
+    @just --list
+
+init:
+    @{{gymctl}} init
+
+build:
+    @{{gymctl}} build
+
+up:
+    @{{gymctl}} up
+
+info:
+    @{{gymctl}} info
+
+status:
+    @{{gymctl}} status
+
+reconcile:
+    @{{gymctl}} reconcile
+
+logs service="":
+    @{{gymctl}} logs {{service}}
+
+down:
+    @{{gymctl}} down
+
+# Usage: just reset CONFIRM=002
+reset CONFIRM="":
+    @confirm="{{CONFIRM}}"; {{gymctl}} reset --confirm "${confirm#CONFIRM=}"
+
+check:
+    @{{gymctl}} check
+    @PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src uvx --exclude-newer "1 week" --no-python-downloads --from 'pytest==8.3.5' --with 'httpx==0.28.1' pytest -q -p no:cacheprovider tests

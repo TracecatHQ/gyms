@@ -72,22 +72,21 @@ def reconcile_cases(client: httpx.Client) -> None:
     if set(final) != {c["payload"]["alert_id"] for c in desired}: raise ReconcileError("managed case queue verification failed")
     log(f"case queue READY: {len(final)} cases")
 
-def desired_preset(client: httpx.Client) -> dict | None:
+def desired_preset(client: httpx.Client) -> dict:
     manifest = json.loads((ROOT / "agent-preset.json").read_text())
     model = request(client, "GET", "/agent/default-model-selection")
     if not isinstance(model, dict) or not all(model.get(k) for k in ("model_name", "model_provider", "catalog_id")):
-        log("agent preset pending: configure an organization default model, then run `just reconcile`"); return None
+        raise ReconcileError("no organization default model is configured; configure one in Tracecat, then run `just reconcile`")
     providers = request(client, "GET", "/agent/providers/status")
     status_key = "custom-model-provider" if model.get("custom_provider_id") else model["model_provider"]
     if not isinstance(providers, dict) or providers.get(status_key) is not True:
-        log(f"agent preset pending: configure credentials for {model['model_provider']}, then run `just reconcile`"); return None
+        raise ReconcileError(f"credentials for {model['model_provider']} are not configured; configure them in Tracecat, then run `just reconcile`")
     return {k: manifest[k] for k in ("name", "slug", "description", "actions", "namespaces", "tool_approvals", "agents", "retries", "enable_thinking", "enable_internet_access")} | {
         "instructions": (ROOT / "ANALYST_INSTRUCTIONS.md").read_text().strip(), "model_name": model["model_name"],
         "model_provider": model["model_provider"], "catalog_id": model["catalog_id"], "mcp_integrations": [], "skills": []}
 
 def reconcile_preset(client: httpx.Client, workspace_id: str) -> None:
     desired = desired_preset(client)
-    if desired is None: return
     base = f"/workspaces/{workspace_id}/agent/presets"; rows = request(client, "GET", base)
     matches = [r for r in rows if r.get("slug") == desired["slug"] or r.get("name") == desired["name"]]
     if len(matches) > 1: raise ReconcileError("multiple matching analyst presets")
@@ -103,7 +102,7 @@ def reconcile_preset(client: httpx.Client, workspace_id: str) -> None:
 def reconcile() -> None:
     with httpx.Client(base_url=os.environ["TRACEcat_INTERNAL_API_URL"], timeout=60, follow_redirects=True) as client:
         request(client, "GET", "/health"); workspace = login(client); verify_entitlements(client); reconcile_cases(client); reconcile_preset(client, workspace)
-    log("READY: BOTSv3 case queue and available preset state are reconciled")
+    log("READY: BOTSv3 case queue and analyst preset are reconciled")
 
 def status() -> None:
     with httpx.Client(base_url=os.environ["TRACEcat_INTERNAL_API_URL"], timeout=60, follow_redirects=True) as client:

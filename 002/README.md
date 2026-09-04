@@ -23,7 +23,7 @@ just reset CONFIRM=002
 just check
 ```
 
-The Tracecat UI is available only on `http://127.0.0.1:28080`. `just info` prints the generated local credentials. If no organization default agent model is configured, data and cases still reconcile; configure the model in Tracecat and run `just reconcile` to create the managed analyst preset.
+The Tracecat UI is available only on `http://127.0.0.1:28080`. `just info` prints the generated local credentials. On first bootstrap, configure a provider and organization-default model in Tracecat, then run `just reconcile`. The encrypted provider configuration and managed analyst preset persist across ordinary `just down` / `just up` demo cycles. `just reset CONFIRM=002` deliberately removes that local state and requires the one-time provider setup again.
 
 ## Evidence queries
 

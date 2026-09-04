@@ -8,6 +8,8 @@
 - Replaced Parquet queries with exact-object gzip JSONL queries through DuckDB.
 - Preserved the 34-case queue, hidden evaluation tables, skills, URLscan
   behavior, verdict rules, and evaluator contracts.
+- Made readiness fail closed when provider credentials or an organization-default
+  model are absent, so `just up` cannot report a partially configured demo.
 
 Decision log behind [`README.md`](README.md) — BOTSv3-derived log lake + seedable alert queue for a
 "build a Tier-1 analyst from scratch" demo. Newest first.

@@ -1,0 +1,23 @@
+002/CHANGELOG.md
+  s_41abdc98af8e40::t_1577b5cd7495d2 11-12
+002/src/gymctl/reconcile.py
+  s_41abdc98af8e40::t_1577b5cd7495d2 75,79,83,105
+002/README.md
+  s_41abdc98af8e40::t_1577b5cd7495d2 26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "f546a2c01243ad59069b9b1c5307dd2cc71fef94",
+  "prompts": {},
+  "sessions": {
+    "s_41abdc98af8e40": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a06c85-c46f-7b91-8187-f2f5e94dbea7",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Chris Lo <46541035+topher-lo@users.noreply.github.com>"
+    }
+  }
+}

@@ -25,12 +25,12 @@
       "archive_sha256": "9f58e858b4a356e669da6e86680cf666ad20cc5ad22326ed65cedaf9c5ad66bd",
       "submodule_path": "upstream/dataset"
     },
-    "scorecard": {
+    "scenario": {
       "classification": "derived-from-public-article",
-      "url": "https://unsecure.sh/blog/agentic-soc-scenario/",
+      "url": "https://unsecure.sh/blog/agentic-soc-scenario/#validation-gates",
       "published_at": "2026-08-27",
-      "retrieved_at": "2026-09-03",
-      "normalized_source_sha256": "e313ff7f83ba0a49c2bb252c424399c34a6d3d654a9089705fb2c4057bbed4b3"
+      "retrieved_at": "2026-09-04",
+      "sha256": "863783fca1f1869e2ae570bcaa4724c94a3183636027e1a9731940bc2a9c5aed"
     }
   },
   "artifacts": {
@@ -74,7 +74,7 @@
         "classification": "gym-owned",
         "repository": "tracecat-gyms/gym-001-control",
         "future_repository": "ghcr.io/tracecathq/gym-001-control",
-        "input_sha256": "b078365f60ec96378271bb7cbb170b37bc0261fea7f56c64eea3a16a84872908"
+        "input_sha256": "734015c3a9ad3f12ce7aa5101d274ebac47e3287668e54a65179455709b26b26"
       }
     }
   },

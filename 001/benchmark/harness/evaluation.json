@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "classification": "gym-owned",
-  "default_runs": 3,
+  "default_runs": 1,
   "investigator_timeout_seconds": 2700,
   "judge_timeout_seconds": 300,
   "investigation_prompt_file": "investigation-prompt.md",

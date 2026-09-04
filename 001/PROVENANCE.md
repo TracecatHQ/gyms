@@ -4,7 +4,7 @@
 |---|---|---|
 | `upstream/tracecat/docker-compose.yml`, `Caddyfile` | `upstream-verbatim` | Exact files from the locked Tracecat release. |
 | `upstream/dataset` | `upstream-verbatim` | Git submodule pinned to the locked dataset commit. |
-| `benchmark/scorecard.json` | `derived-from-public-article` | Labels and weights transcribed from the authors' article; schema and descriptions are local. |
+| `benchmark/scenario.json` | `derived-from-public-article` | Exact alert strings, validation-gate labels, and weights transcribed from the authors' article; the minimal JSON shape is local. |
 | `benchmark/harness/` | `gym-owned` | Tracecat prompts, presets, and evaluation configuration. |
 | `src/gymctl/`, `images/`, `compose.override.yml`, `Justfile` | `gym-owned` | Tracecat's packaging and control plane. |
 | `assets/splunk-mcp-server_200.tgz` | `user-supplied` | Official Splunk MCP Server 2.0.0 archive; checksum locked. |

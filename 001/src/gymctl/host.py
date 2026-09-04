@@ -271,13 +271,13 @@ def _start_stack() -> None:
     raise GymError("Tracecat did not become ready within 10 minutes")
 
 
-def up() -> None:
+def up(*, allow_fresh_with_legacy: bool = False) -> None:
     init_env()
     doctor(allow_legacy_ports=False)
     check_upstreams()
     new = [docker_volume_exists(config.volume_name(config.PROJECT, suffix)) for suffix in config.VOLUME_SUFFIXES]
     legacy = [docker_volume_exists(config.volume_name(config.LEGACY_PROJECT, suffix)) for suffix in config.VOLUME_SUFFIXES]
-    if any(legacy) and not any(new):
+    if any(legacy) and not any(new) and not allow_fresh_with_legacy:
         raise GymError("legacy The Bigger Interview volumes exist while Gym 001 volumes do not; run `just migrate` to preserve state")
     build()
     _start_stack()
@@ -370,6 +370,11 @@ def reset(confirm: str | None) -> None:
         raise GymError("reset destroys Gym 001 state; rerun as `just reset CONFIRM=001`")
     config.run_compose("--profile", "bootstrap", "--profile", "evaluation", "down", "--volumes", "--remove-orphans")
     log("Removed only tracecat-gym-001 containers and volumes. Legacy rollback volumes were retained.")
+
+
+def clean_restart(confirm: str | None) -> None:
+    reset(confirm)
+    up(allow_fresh_with_legacy=True)
 
 
 def volume_digest(path: Path) -> str:

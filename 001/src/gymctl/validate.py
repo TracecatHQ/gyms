@@ -11,8 +11,8 @@ from pathlib import Path
 from typing import Any
 
 from . import config
-from .evaluate import canonical_manifest_hash, load_manifest
 from .license import load_metadata
+from .scenario import HARD_FAIL_GATE, canonical_scenario_hash, load_scenario
 
 
 class ValidationError(RuntimeError):
@@ -26,21 +26,6 @@ def require(condition: bool, message: str) -> None:
 
 def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
-def _normalized_scorecard_hash(scorecard: dict[str, Any]) -> str:
-    source = {
-        "hard_gate": {
-            "source_label": scorecard["hard_gate"]["source_label"],
-            "weight": scorecard["hard_gate"]["weight"],
-        },
-        "validation_gates": [
-            {"source_label": gate["source_label"], "weight": gate["weight"]}
-            for gate in scorecard["validation_gates"]
-        ],
-    }
-    payload = json.dumps(source, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
-    return hashlib.sha256(payload).hexdigest()
 
 
 def _upstream_services(path: Path) -> set[str]:
@@ -97,17 +82,37 @@ def validate() -> None:
     for key in ("type", "group_id", "quota_bytes_per_day", "creation_time", "expiration_time", "expiration_utc", "sha256"):
         require(metadata[key] == lock["artifacts"]["splunk_license"][key], f"Splunk license lock mismatch for {key}")
 
-    scorecard = json.loads((root / "benchmark/scorecard.json").read_text())
-    require(scorecard["classification"] == "derived/transcribed", "scorecard provenance classification drifted")
-    require(len(scorecard["validation_gates"]) == 16, "scorecard must contain 16 gates")
-    require(sum(int(gate["weight"]) for gate in scorecard["validation_gates"]) == 100, "scorecard weights must total 100")
-    require(canonical_manifest_hash(scorecard) == scorecard["manifest_sha256"], "scorecard manifest checksum mismatch")
-    normalized = _normalized_scorecard_hash(scorecard)
-    require(normalized == scorecard["normalized_source_sha256"] == lock["sources"]["scorecard"]["normalized_source_sha256"], "scorecard source transcription checksum mismatch")
-    load_manifest(root / "benchmark/scorecard.json")
+    scenario = load_scenario(root / "benchmark/scenario.json")
+    source = lock["sources"]["scenario"]
+    require(
+        source["classification"] == "derived-from-public-article",
+        "scenario provenance classification drifted",
+    )
+    require(
+        canonical_scenario_hash(scenario) == source["sha256"],
+        "scenario source transcription checksum mismatch",
+    )
+    gates = scenario["validation_gates"]
+    require(
+        gates[0] == {"validation_gate": HARD_FAIL_GATE, "weight": 0},
+        "disposition hard gate must be the first validation-gate row",
+    )
+    require(
+        sum(int(gate["weight"]) for gate in gates[1:]) == 100,
+        "weighted validation gates must total 100",
+    )
+    require(
+        (root / "benchmark/harness/investigation-prompt.md").read_text().strip()
+        == "Is this alert a false positive?",
+        "investigation prompt must remain the minimal published-alert question",
+    )
+    evaluation = json.loads(
+        (root / "benchmark/harness/evaluation.json").read_text()
+    )
+    require(evaluation["default_runs"] == 1, "evaluation must default to one run")
 
     require(not (root / "scripts").exists(), "legacy ad hoc scripts directory must be removed")
-    required_commands = {"build", "migrate", "up", "info", "status", "wait", "reconcile", "eval", "logs", "down", "reset", "rotate-license", "update-upstreams", "update-dataset", "check"}
+    required_commands = {"build", "migrate", "up", "info", "status", "wait", "reconcile", "eval", "logs", "down", "restart", "clean-restart", "reset", "rotate-license", "update-upstreams", "update-dataset", "check"}
     justfile = (root / "Justfile").read_text()
     require(all(re.search(rf"^{re.escape(name)}(?:\s|:)", justfile, re.M) for name in required_commands), "Justfile is missing public commands")
     for dockerfile in (root / "images/splunk/Dockerfile", root / "images/control/Dockerfile"):

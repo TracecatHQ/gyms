@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reconcile Splunk data, Tracecat MCP, and the gym's agent presets."""
+"""Reconcile Gym 001's native alert case, gate table, data, and agents."""
 
 from __future__ import annotations
 
@@ -11,12 +11,18 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
 from urllib.parse import quote
 
-import httpx
-from fastmcp import Client
-from fastmcp.client.transports import StreamableHttpTransport
+if TYPE_CHECKING:
+    import httpx
+
+from .scenario import (
+    SCENARIO_FILE,
+    VALIDATION_GATES_TABLE,
+    alert_case_payload,
+    load_scenario,
+)
 
 
 MCP_INTEGRATION_NAME = "Splunk — Gym 001"
@@ -25,7 +31,6 @@ MCP_APP_VERSION = "2.0.0"
 MCP_TOOLS_ENDPOINT = "/servicesNS/admin/Splunk_MCP_Server/mcp_tools"
 GYM_ROOT = Path(os.environ.get("GYM_ROOT", "/opt/gym"))
 HARNESS_DIR = GYM_ROOT / "benchmark/harness"
-SCORECARD_FILE = GYM_ROOT / "benchmark/scorecard.json"
 LOCK_FILE = GYM_ROOT / "gym.lock.json"
 SPLUNK_MCP_ROLE_CAPABILITIES = {
     "list_workload_pools",
@@ -98,6 +103,8 @@ def wait_for(
     probe: Callable[[], Any],
     interval: int = 5,
 ) -> Any:
+    import httpx
+
     last_error = "not attempted"
     while time.monotonic() < deadline:
         try:
@@ -111,6 +118,8 @@ def wait_for(
 
 
 def splunk_client() -> httpx.Client:
+    import httpx
+
     return httpx.Client(
         base_url=required_env("SPLUNK_API_URL"),
         auth=(required_env("SPLUNK_ADMIN_USER"), required_env("SPLUNK_ADMIN_PASSWORD")),
@@ -120,6 +129,8 @@ def splunk_client() -> httpx.Client:
 
 
 def tracecat_client() -> httpx.Client:
+    import httpx
+
     return httpx.Client(
         base_url=required_env("TRACEcat_INTERNAL_API_URL"),
         timeout=httpx.Timeout(60.0, connect=10.0),
@@ -588,6 +599,9 @@ def mcp_result_text(result: Any) -> str:
 
 
 async def smoke_test_mcp(token: str, index: str, expected_total: int) -> set[str]:
+    from fastmcp import Client
+    from fastmcp.client.transports import StreamableHttpTransport
+
     transport = StreamableHttpTransport(
         url=required_env("SPLUNK_MCP_URL"),
         headers={"Authorization": f"Bearer {token}"},
@@ -703,6 +717,255 @@ def verify_tracecat_entitlements(client: httpx.Client) -> None:
             f"expected={sorted(TRACECAT_ENTITLEMENTS)}, observed={sorted(observed)}"
         )
     log(f"all {len(observed)} Tracecat enterprise entitlements are effective")
+
+
+def paginated_items(payload: Any, description: str) -> list[dict[str, Any]]:
+    if not isinstance(payload, dict) or not isinstance(payload.get("items"), list):
+        raise ReconcileError(f"Tracecat {description} response is malformed")
+    return [item for item in payload["items"] if isinstance(item, dict)]
+
+
+def matching_alert_cases(
+    client: httpx.Client, workspace_id: str, summary: str
+) -> list[dict[str, Any]]:
+    payload = request_json(
+        client,
+        "GET",
+        f"/workspaces/{workspace_id}/cases/search",
+        params={"search_term": summary, "limit": 100},
+    )
+    return [
+        row
+        for row in paginated_items(payload, "case search")
+        if row.get("summary") == summary
+    ]
+
+
+def reconcile_alert_case(
+    client: httpx.Client,
+    workspace_id: str,
+    source_scenario: dict[str, Any],
+    *,
+    repair: bool,
+) -> dict[str, Any]:
+    desired = alert_case_payload(source_scenario)
+    base = f"/workspaces/{workspace_id}/cases"
+    matches = matching_alert_cases(client, workspace_id, str(desired["summary"]))
+    if len(matches) > 1:
+        raise ReconcileError(
+            f"multiple cases match the managed alert summary; found {len(matches)}"
+        )
+    if not matches:
+        if not repair:
+            raise ReconcileError("managed alert case is missing")
+        request_json(
+            client,
+            "POST",
+            base,
+            json_body=desired,
+            expected=(201,),
+        )
+        matches = matching_alert_cases(client, workspace_id, str(desired["summary"]))
+        if len(matches) != 1:
+            raise ReconcileError("Tracecat did not create exactly one managed alert case")
+        log("created the Tracecat alert case")
+
+    case_id = matches[0].get("id")
+    case = request_json(client, "GET", f"{base}/{case_id}")
+    if not isinstance(case, dict):
+        raise ReconcileError("Tracecat alert case response is malformed")
+    drifted = [key for key, value in desired.items() if case.get(key) != value]
+    if drifted:
+        if not repair:
+            raise ReconcileError(f"managed alert case has drifted fields: {drifted}")
+        request_json(
+            client,
+            "PATCH",
+            f"{base}/{case_id}",
+            json_body=desired,
+            expected=(204,),
+        )
+        case = request_json(client, "GET", f"{base}/{case_id}")
+        if not isinstance(case, dict) or any(
+            case.get(key) != value for key, value in desired.items()
+        ):
+            raise ReconcileError("Tracecat alert case still differs after repair")
+        log(f"repaired the Tracecat alert case fields: {drifted}")
+    if not isinstance(case.get("id"), str) or not case["id"]:
+        raise ReconcileError("Tracecat alert case is missing its id")
+    log(f"Tracecat alert case {case.get('short_id', case['id'])} is ready")
+    return case
+
+
+def matching_validation_tables(
+    client: httpx.Client, workspace_id: str
+) -> list[dict[str, Any]]:
+    payload = request_json(client, "GET", f"/workspaces/{workspace_id}/tables")
+    if not isinstance(payload, list):
+        raise ReconcileError("Tracecat table list response is malformed")
+    return [
+        row
+        for row in payload
+        if isinstance(row, dict) and row.get("name") == VALIDATION_GATES_TABLE
+    ]
+
+
+def validation_table_state(
+    client: httpx.Client,
+    workspace_id: str,
+    table_id: str,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    base = f"/workspaces/{workspace_id}/tables/{table_id}"
+    table = request_json(client, "GET", base)
+    if not isinstance(table, dict):
+        raise ReconcileError("Tracecat validation-gates table response is malformed")
+    columns = table.get("columns")
+    observed_columns = (
+        [
+            {
+                "name": column.get("name"),
+                "type": column.get("type"),
+                "nullable": column.get("nullable"),
+            }
+            for column in columns
+            if isinstance(column, dict)
+        ]
+        if isinstance(columns, list)
+        else []
+    )
+    rows_payload = request_json(
+        client,
+        "GET",
+        f"{base}/rows",
+        params={"limit": 100, "order_by": "created_at", "sort": "asc"},
+    )
+    observed_rows = [
+        {
+            "validation_gate": row.get("validation_gate"),
+            "weight": row.get("weight"),
+        }
+        for row in paginated_items(rows_payload, "validation-gates row list")
+    ]
+    return observed_columns, observed_rows
+
+
+def unlink_validation_gates_from_case(
+    client: httpx.Client,
+    workspace_id: str,
+    case_id: str,
+    table_id: str,
+    *,
+    repair: bool,
+) -> None:
+    base = f"/workspaces/{workspace_id}/cases/{case_id}/rows"
+    payload = request_json(
+        client,
+        "GET",
+        base,
+        params={"limit": 100, "table_id": table_id},
+    )
+    links = paginated_items(payload, "case-row link list")
+    if links and not repair:
+        raise ReconcileError("validation gates are linked to the managed alert case")
+    for link in links:
+        row_id = link.get("row_id")
+        if not isinstance(row_id, str) or not row_id:
+            raise ReconcileError("Tracecat returned a case-row link without a row id")
+        request_json(
+            client,
+            "DELETE",
+            f"{base}/{table_id}/{row_id}",
+            expected=(204,),
+        )
+    if links:
+        log(f"removed {len(links)} validation-gate link(s) from the alert case")
+
+
+def create_validation_table(
+    client: httpx.Client,
+    workspace_id: str,
+    gates: list[dict[str, Any]],
+) -> dict[str, Any]:
+    base = f"/workspaces/{workspace_id}/tables"
+    request_json(
+        client,
+        "POST",
+        base,
+        json_body={
+            "name": VALIDATION_GATES_TABLE,
+            "columns": [
+                {"name": "validation_gate", "type": "TEXT", "nullable": False},
+                {"name": "weight", "type": "INTEGER", "nullable": False},
+            ],
+        },
+        expected=(201,),
+    )
+    matches = matching_validation_tables(client, workspace_id)
+    if len(matches) != 1:
+        raise ReconcileError("Tracecat did not create exactly one validation-gates table")
+    table_id = str(matches[0]["id"])
+    for gate in gates:
+        request_json(
+            client,
+            "POST",
+            f"{base}/{table_id}/rows",
+            json_body={"data": gate, "upsert": False},
+            expected=(201,),
+        )
+    log(f"created the Tracecat validation-gates table with {len(gates)} rows")
+    return matches[0]
+
+
+def reconcile_validation_table(
+    client: httpx.Client,
+    workspace_id: str,
+    case_id: str,
+    source_scenario: dict[str, Any],
+    *,
+    repair: bool,
+) -> dict[str, Any]:
+    desired_columns = [
+        {"name": "validation_gate", "type": "TEXT", "nullable": False},
+        {"name": "weight", "type": "INTEGER", "nullable": False},
+    ]
+    desired_rows = source_scenario["validation_gates"]
+    matches = matching_validation_tables(client, workspace_id)
+    if len(matches) > 1:
+        raise ReconcileError(
+            f"multiple tables are named {VALIDATION_GATES_TABLE!r}; found {len(matches)}"
+        )
+    if not matches:
+        if not repair:
+            raise ReconcileError("managed validation-gates table is missing")
+        table = create_validation_table(client, workspace_id, desired_rows)
+    else:
+        table = matches[0]
+        table_id = str(table["id"])
+        unlink_validation_gates_from_case(
+            client, workspace_id, case_id, table_id, repair=repair
+        )
+        columns, rows = validation_table_state(client, workspace_id, table_id)
+        if columns != desired_columns or rows != desired_rows:
+            if not repair:
+                raise ReconcileError("managed validation-gates table has drifted")
+            request_json(
+                client,
+                "DELETE",
+                f"/workspaces/{workspace_id}/tables/{table_id}",
+                expected=(204,),
+            )
+            table = create_validation_table(client, workspace_id, desired_rows)
+            log("rebuilt the drifted Tracecat validation-gates table")
+
+    table_id = str(table["id"])
+    columns, rows = validation_table_state(client, workspace_id, table_id)
+    if columns != desired_columns or rows != desired_rows:
+        raise ReconcileError("Tracecat validation-gates table differs from source state")
+    unlink_validation_gates_from_case(
+        client, workspace_id, case_id, table_id, repair=repair
+    )
+    log("Tracecat validation-gates table is ready and separate from the alert case")
+    return table
 
 
 def integration_tools(integration: dict[str, Any]) -> list[dict[str, Any]]:
@@ -887,18 +1150,16 @@ def workspace_agent_model(
     return model
 
 
-def load_grader_preset_definition() -> tuple[dict[str, Any], str, dict[str, Any]]:
+def load_grader_preset_definition() -> tuple[dict[str, Any], str]:
     manifest_path = HARNESS_DIR / "grader-preset.json"
-    scenario_path = SCORECARD_FILE
     config_path = HARNESS_DIR / "evaluation.json"
     try:
         manifest = json.loads(manifest_path.read_text())
-        scenario = json.loads(scenario_path.read_text())
         evaluation = json.loads(config_path.read_text())
     except (OSError, json.JSONDecodeError) as exc:
         raise ReconcileError(f"cannot load evaluation preset definition: {exc}") from exc
-    if not isinstance(manifest, dict) or not isinstance(scenario, dict):
-        raise ReconcileError("evaluation manifests must be JSON objects")
+    if not isinstance(manifest, dict):
+        raise ReconcileError("evaluation preset definition must be a JSON object")
     prompt_filename = manifest.get("prompt_file")
     if not isinstance(prompt_filename, str) or not prompt_filename:
         raise ReconcileError("evaluation grader preset is missing prompt_file")
@@ -921,16 +1182,7 @@ def load_grader_preset_definition() -> tuple[dict[str, Any], str, dict[str, Any]
             )
     if manifest.get("slug") != judge.get("preset_slug"):
         raise ReconcileError("evaluation grader preset and scenario disagree on slug")
-    rubric = {
-        "hard_gate": scenario.get("hard_gate"),
-        "validation_gates": scenario.get("validation_gates"),
-        "known_legitimate_activity": scenario.get("reference_facts", {}).get("known_legitimate_activity"),
-    }
-    prompt = (
-        f"{base_prompt}\n\nSUPPLIED RUBRIC AND REFERENCE FACTS:\n"
-        f"{json.dumps(rubric, indent=2, sort_keys=True)}"
-    )
-    return manifest, prompt, scenario
+    return manifest, base_prompt
 
 
 def desired_agent_preset(
@@ -1056,7 +1308,7 @@ def reconcile_agent_preset(
 def desired_grader_preset(
     client: httpx.Client, workspace_id: str
 ) -> dict[str, Any]:
-    manifest, prompt, _ = load_grader_preset_definition()
+    manifest, prompt = load_grader_preset_definition()
     model = workspace_agent_model(
         client,
         workspace_id,
@@ -1182,6 +1434,17 @@ def reconcile() -> None:
         )
         workspace_id = tracecat_login(tracecat)
         verify_tracecat_entitlements(tracecat)
+        source_scenario = load_scenario(SCENARIO_FILE)
+        alert_case = reconcile_alert_case(
+            tracecat, workspace_id, source_scenario, repair=True
+        )
+        reconcile_validation_table(
+            tracecat,
+            workspace_id,
+            str(alert_case["id"]),
+            source_scenario,
+            repair=True,
+        )
         mcp_integration = reconcile_tracecat_mcp(
             tracecat, workspace_id, token, remote_names
         )
@@ -1189,8 +1452,9 @@ def reconcile() -> None:
         reconcile_grader_preset(tracecat, workspace_id)
 
     log(
-        "READY: dataset, enterprise license, MCP server, Tracecat integration, "
-        "SOC analyst preset, and evaluation grader preset are ready"
+        "READY: dataset, alert case, validation gates, enterprise license, MCP "
+        "server, Tracecat integration, SOC analyst preset, and evaluation grader "
+        "preset are ready"
     )
 
 
@@ -1226,6 +1490,17 @@ def status() -> None:
             request_json(tracecat, "GET", "/health")
             workspace_id = tracecat_login(tracecat)
             verify_tracecat_entitlements(tracecat)
+            source_scenario = load_scenario(SCENARIO_FILE)
+            alert_case = reconcile_alert_case(
+                tracecat, workspace_id, source_scenario, repair=False
+            )
+            reconcile_validation_table(
+                tracecat,
+                workspace_id,
+                str(alert_case["id"]),
+                source_scenario,
+                repair=False,
+            )
             base = f"/workspaces/{workspace_id}/mcp-integrations"
             rows = request_json(tracecat, "GET", base)
             matches = [

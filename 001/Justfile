@@ -32,8 +32,8 @@ wait:
 reconcile:
     @{{gymctl}} reconcile
 
-# Usage: just eval or just eval RUNS=3
-eval RUNS="3":
+# Usage: just eval or just eval RUNS=2
+eval RUNS="1":
     @runs="{{RUNS}}"; {{gymctl}} eval --runs "${runs#RUNS=}"
 
 logs service="":
@@ -41,6 +41,14 @@ logs service="":
 
 down:
     @{{gymctl}} down
+
+restart:
+    @{{gymctl}} down
+    @{{gymctl}} up
+
+# Recreate Gym 001 state; eval-results/ remains on the host.
+clean-restart CONFIRM="":
+    @confirm="{{CONFIRM}}"; {{gymctl}} clean-restart --confirm "${confirm#CONFIRM=}"
 
 # Usage: just reset CONFIRM=001
 reset CONFIRM="":

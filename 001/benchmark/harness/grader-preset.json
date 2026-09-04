@@ -1,7 +1,7 @@
 {
   "name": "Gym 001 Evaluation Grader",
   "slug": "gym-001-evaluation-grader",
-  "description": "Managed by Gym 001. Grades reports against Tracecat's transcription of the published scorecard.",
+  "description": "Managed by Gym 001. Grades reports against the published validation gates.",
   "prompt_file": "grader-prompt.md",
   "model_provider": "openai",
   "model_name": "gpt-5.6-sol",

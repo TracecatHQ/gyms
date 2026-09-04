@@ -1,0 +1,79 @@
+{
+  "alert": {
+    "context": "Detection of a security rule deletion on the events.amazonaws.com service.",
+    "alert_date": "2026-08-13 14:34:40 UTC",
+    "source_principal": "arn:aws:sts::733437130048:assumed-role/admin/save-logging",
+    "source_ip": "13.38.84.140",
+    "triggering_action": "DeleteRule"
+  },
+  "validation_gates": [
+    {
+      "validation_gate": "hard fail Disposition is True Positive",
+      "weight": 0
+    },
+    {
+      "validation_gate": "P7 Lambda 2 + 3 + 6 / Credentials exfiltration mechanism",
+      "weight": 3
+    },
+    {
+      "validation_gate": "P6 Lambda 1 / Malicious VPC peering",
+      "weight": 2
+    },
+    {
+      "validation_gate": "P6 Lambda 4 + 5 / SG of RDS + EKS API server opened",
+      "weight": 2
+    },
+    {
+      "validation_gate": "P6 All Lambda creations come from ack-lambda-controller identity",
+      "weight": 2
+    },
+    {
+      "validation_gate": "P6 All API calls come from the controller Pod (Python entrypoint)",
+      "weight": 5
+    },
+    {
+      "validation_gate": "P6 orchestrator-sa / Patch of aws-auth",
+      "weight": 5
+    },
+    {
+      "validation_gate": "P5 orchestrator-sa / Deployment of the rootkit + implant as DaemonSet",
+      "weight": 5
+    },
+    {
+      "validation_gate": "P5 orchestrator backdoored through CI runner credentials reuse",
+      "weight": 10
+    },
+    {
+      "validation_gate": "P4 Deployment of rootkit + implant as Static Pod",
+      "weight": 10
+    },
+    {
+      "validation_gate": "P3 monitoring-sa / Exec in existing node-debugger through kubelet API",
+      "weight": 8
+    },
+    {
+      "validation_gate": "P3 app-1 / Arbitrary file-read exploited in monitoring to get monitoring-sa token",
+      "weight": 10
+    },
+    {
+      "validation_gate": "P2 app-1 backdoored through GitHub cache poisoning",
+      "weight": 10
+    },
+    {
+      "validation_gate": "P1 External msan actor ran workflow in dev context",
+      "weight": 8
+    },
+    {
+      "validation_gate": "IOC f7ef3c5ebf20a7d42636b3da48dc4a67[.]gr7[.]eu-west-1[.]eks[.]amazonaws[.]com",
+      "weight": 5
+    },
+    {
+      "validation_gate": "IOC stg-shared-postgres[.]cxw88k8aqlw9[.]eu-west-1[.]rds[.]amazonaws[.]com",
+      "weight": 10
+    },
+    {
+      "validation_gate": "IOC Attacker AWS account 226363753890",
+      "weight": 5
+    }
+  ]
+}

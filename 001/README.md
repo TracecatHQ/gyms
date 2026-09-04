@@ -40,14 +40,33 @@ is mode `0600`, is ignored by Git, and is never replaced silently.
 
 ```bash
 just eval
-just eval RUNS=1
+just eval RUNS=2
 ```
 
-The default run executes three serial investigations, retains those Tracecat
-sessions, and stores gitignored reports in `eval-results/`. The scorecard is a
-Tracecat-maintained transcription of the benchmark authors' public article—not
-an evaluator distributed by the dataset repository. See
+The default executes one independent, case-scoped investigation; `RUNS`
+explicitly requests additional independent runs. Investigator sessions are
+retained, and gitignored reports are stored in `eval-results/`. Reconciliation
+creates the published alert as a native Tracecat case and the published
+scorecard as a separate, unlinked `validation_gates` table. Only the tool-free
+grader reads that table; the investigator receives the case and the Splunk MCP
+integration. The source declaration is a Tracecat-maintained transcription of
+the benchmark authors' public article—not an evaluator distributed by the
+dataset repository. Each completed investigation report is also appended to the
+alert case as a native comment. See
 [`benchmark/README.md`](./benchmark/README.md) and [`PROVENANCE.md`](./PROVENANCE.md).
+
+## Restart or rebuild
+
+`just restart` restarts Gym 001 while preserving its volumes, credentials,
+cases, tables, and evaluation results. For a clean environment:
+
+```bash
+just clean-restart CONFIRM=001
+```
+
+The clean restart recreates only Gym 001 service volumes and then performs the
+normal seed and reconciliation flow. Gitignored `eval-results/` remains on the
+host. It does not act on any other gym directory.
 
 ## Images and auditing
 

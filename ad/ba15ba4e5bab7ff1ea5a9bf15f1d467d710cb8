@@ -1,0 +1,148 @@
+002/src/gymctl/validate.py
+  s_41abdc98af8e40::t_de3527ed5b0c9c 1-23,27-28
+  s_41abdc98af8e40::t_44c171686fb971 24-26
+002/.dockerignore
+  s_41abdc98af8e40::t_614bf7b84db49b 1-14
+002/README.md
+  s_41abdc98af8e40::t_7147af00dcd195 1-25,27-50
+  s_43f637057f18c0::t_06b5edc688df53 26
+002/tests/test_reconcile.py
+  s_41abdc98af8e40::t_f34b0dbf7907d1 1-13
+002/skills/aws-irp-playbook-factory/SKILL.md
+  s_43f637057f18c0::t_06b5edc688df53 1-32
+002/skills/aws-irp-playbook-factory/SOURCE.md
+  s_43f637057f18c0::t_06b5edc688df53 1-7
+002/skills/aws-irp-api-security-breach/REFERENCE.md
+  s_43f637057f18c0::t_06b5edc688df53 1-944
+002/skills/aws-irp-ransomware/SKILL.md
+  s_43f637057f18c0::t_06b5edc688df53 1-41
+002/tests/test_contracts.py
+  s_41abdc98af8e40::t_f34b0dbf7907d1 1-12
+002/skills/aws-irp-data-access/SKILL.md
+  s_43f637057f18c0::t_06b5edc688df53 1-41
+002/src/gymctl/reconcile.py
+  s_41abdc98af8e40::t_56d79d691fbf86 25-27
+  s_41abdc98af8e40::t_de3527ed5b0c9c 1-7,9-24,28-74,76-78,84-104,106-110,112
+  s_43f637057f18c0::t_06b5edc688df53 75,79-83,105,111
+  s_41abdc98af8e40::t_de0a062fe41581 8
+002/skills/aws-irp-api-security-breach/SKILL.md
+  s_43f637057f18c0::t_06b5edc688df53 1-41
+002/skills/aws-irp-credential-compromise/REFERENCE.md
+  s_43f637057f18c0::t_06b5edc688df53 1-334
+002/skills/aws-irp-playbook-factory/REFERENCE.md
+  s_43f637057f18c0::t_06b5edc688df53 1-220
+002/src/gymctl/config.py
+  s_41abdc98af8e40::t_beabc9249cbed4 1-57
+002/generate_tables.py
+  s_41abdc98af8e40::t_b585c9caef2dd3 227,232
+  s_41abdc98af8e40::t_aff1d12079465b 1-226,228-231,233-1463
+002/skills/aws-irp-playbook-builder/SKILL.md
+  s_43f637057f18c0::t_06b5edc688df53 1-34
+002/.gitattributes
+  s_41abdc98af8e40::t_614bf7b84db49b 1
+002/PROMPT.md
+  s_41abdc98af8e40::t_7147af00dcd195 1-7
+README.md
+  s_43f637057f18c0::t_06b5edc688df53 10,13
+002/skills/aws-irp-data-access/SOURCE.md
+  s_43f637057f18c0::t_06b5edc688df53 1-7
+002/.env.example
+  s_41abdc98af8e40::t_614bf7b84db49b 1-90
+002/src/gymctl/cli.py
+  s_41abdc98af8e40::t_beabc9249cbed4 1-35
+002/CHANGELOG.md
+  s_43f637057f18c0::t_06b5edc688df53 11-12
+  s_41abdc98af8e40::t_aff1d12079465b 1-10,13-14,16-25,28-91,94-96,99-105
+  s_41abdc98af8e40::t_b585c9caef2dd3 15,26-27,92-93,97-98
+002/evals.json
+  s_43f637057f18c0::t_06b5edc688df53 1-226
+002/tests/test_dataset.py
+  s_41abdc98af8e40::t_de0a062fe41581 17
+  s_41abdc98af8e40::t_f34b0dbf7907d1 1-16
+002/data/answers.csv
+  s_43f637057f18c0::t_06b5edc688df53 1-58
+002/skills/aws-irp-api-security-breach/SOURCE.md
+  s_43f637057f18c0::t_06b5edc688df53 1-7
+002/skills/aws-irp-ransomware/REFERENCE.md
+  s_43f637057f18c0::t_06b5edc688df53 1-627
+002/data/alerts.csv
+  s_43f637057f18c0::t_06b5edc688df53 1-35
+002/ANALYST_INSTRUCTIONS.md
+  s_41abdc98af8e40::t_7147af00dcd195 1-18
+002/data/alert_outcomes.csv
+  s_43f637057f18c0::t_06b5edc688df53 1-35
+002/INSTRUCTIONS.md
+  s_41abdc98af8e40::t_7147af00dcd195 1-12
+002/skills/aws-irp-credential-compromise/SKILL.md
+  s_43f637057f18c0::t_06b5edc688df53 1-41
+002/skills/aws-irp-playbook-builder/REFERENCE.md
+  s_43f637057f18c0::t_06b5edc688df53 1-447
+002/skills/botsv3-ir/SKILL.md
+  s_41abdc98af8e40::t_7147af00dcd195 1-102
+002/src/gymctl/__main__.py
+  s_41abdc98af8e40::t_c6f73e2d51d79c 1-5
+002/agent-preset.json
+  s_41abdc98af8e40::t_614bf7b84db49b 1-24
+002/skills/aws-irp-credential-compromise/SOURCE.md
+  s_43f637057f18c0::t_06b5edc688df53 1-7
+002/images/control/Dockerfile
+  s_41abdc98af8e40::t_614bf7b84db49b 1-26
+002/upstream/tracecat/Caddyfile
+  s_41abdc98af8e40::t_c6f73e2d51d79c 1-61
+002/src/gymctl/dataset.py
+  s_41abdc98af8e40::t_beabc9249cbed4 1-6,8-56
+  s_41abdc98af8e40::t_04eef826d249d6 7
+002/src/gymctl/host.py
+  s_41abdc98af8e40::t_4147475b515206 1-2,4-18,20-48,50-117
+  s_41abdc98af8e40::t_9d34290355bee5 3,19
+  s_41abdc98af8e40::t_a33fe480fac0f6 49
+002/skills/aws-irp-ransomware/SOURCE.md
+  s_43f637057f18c0::t_06b5edc688df53 1-7
+002/compose.override.yml
+  s_41abdc98af8e40::t_46088c9363120c 1-95
+002/gym.lock.json
+  s_41abdc98af8e40::t_beabc9249cbed4 1-23
+002/PROVENANCE.md
+  s_41abdc98af8e40::t_7147af00dcd195 1-8
+002/upstream/tracecat/docker-compose.yml
+  s_41abdc98af8e40::t_c6f73e2d51d79c 1-731
+002/src/gymctl/__init__.py
+  s_41abdc98af8e40::t_614bf7b84db49b 1,3-4
+  s_41abdc98af8e40::t_c6f73e2d51d79c 2,5
+002/Justfile
+  s_41abdc98af8e40::t_614bf7b84db49b 1-37
+  s_41abdc98af8e40::t_7888e4f5456a11 38
+002/skills/aws-irp-data-access/REFERENCE.md
+  s_43f637057f18c0::t_06b5edc688df53 1-396
+002/skills/aws-irp-playbook-builder/SOURCE.md
+  s_43f637057f18c0::t_06b5edc688df53 1-7
+002/src/gymctl/seed.py
+  s_41abdc98af8e40::t_aff1d12079465b 1
+  s_41abdc98af8e40::t_c6f73e2d51d79c 2-70
+002/assets/botsv3-20260904T130332Z-1-001.zip
+  s_43f637057f18c0::t_cedcad4ed81b54 1-3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "adba15ba4e5bab7ff1ea5a9bf15f1d467d710cb8",
+  "prompts": {},
+  "sessions": {
+    "s_41abdc98af8e40": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a06c85-c46f-7b91-8187-f2f5e94dbea7",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Chris Lo <46541035+topher-lo@users.noreply.github.com>"
+    },
+    "s_43f637057f18c0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a06c8c-b3fa-71c2-86b0-3a16ec3f2183",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Chris Lo <46541035+topher-lo@users.noreply.github.com>"
+    }
+  }
+}

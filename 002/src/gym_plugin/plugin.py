@@ -5,7 +5,7 @@ from __future__ import annotations
 
 def dispatch(args):
     if args.command == "seed":
-        from .seed import main
+        from gymctl.seed import main
 
         return main()
     if args.command == "internal-seed-dataset":
@@ -61,7 +61,7 @@ def dispatch(args):
             raise ValueError(
                 "Gym 002 evaluates each selected case once; use --alert-id to select one"
             )
-        host.evaluate(args.alert_id)
+        return host.evaluate(args.alert_id)
     elif args.command == "logs":
         host.logs(args.service)
     elif args.command == "down":

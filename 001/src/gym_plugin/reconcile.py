@@ -14,6 +14,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable
 from urllib.parse import quote
 
+from gymctl import agents as agent_runtime
+from gymctl import presets as agent_presets
+from gymctl import tracecat as tracecat_api
+
 if TYPE_CHECKING:
     import httpx
 
@@ -26,6 +30,7 @@ from .scenario import (
 
 
 MCP_INTEGRATION_NAME = "Splunk — Gym 001"
+MCP_SERVER_URI = "http://splunk-mcp-compat:8000/mcp"
 MCP_APP_NAME = "Splunk_MCP_Server"
 MCP_APP_VERSION = "2.0.0"
 MCP_TOOLS_ENDPOINT = "/servicesNS/admin/Splunk_MCP_Server/mcp_tools"
@@ -37,16 +42,6 @@ SPLUNK_MCP_ROLE_CAPABILITIES = {
     "list_workload_pools",
     "mcp_tool_execute",
     "select_workload_pools",
-}
-TRACECAT_ENTITLEMENTS = {
-    "custom_registry",
-    "git_sync",
-    "agent_addons",
-    "case_addons",
-    "rbac_addons",
-    "service_accounts",
-    "workspace_chat",
-    "watchtower",
 }
 
 
@@ -122,16 +117,6 @@ def splunk_client() -> httpx.Client:
     return httpx.Client(
         base_url=required_env("SPLUNK_API_URL"),
         auth=(required_env("SPLUNK_ADMIN_USER"), required_env("SPLUNK_ADMIN_PASSWORD")),
-        timeout=httpx.Timeout(60.0, connect=10.0),
-        follow_redirects=True,
-    )
-
-
-def tracecat_client() -> httpx.Client:
-    import httpx
-
-    return httpx.Client(
-        base_url=required_env("TRACEcat_INTERNAL_API_URL"),
         timeout=httpx.Timeout(60.0, connect=10.0),
         follow_redirects=True,
     )
@@ -689,50 +674,6 @@ async def wait_for_mcp(
     raise ReconcileError(f"timed out waiting for Splunk MCP proxy: {last_error}")
 
 
-def tracecat_login(
-    client: httpx.Client,
-    email: str | None = None,
-    password: str | None = None,
-) -> str:
-    response = client.post(
-        "/auth/login",
-        data={
-            "username": email or required_env("TRACEcat_TENANT_EMAIL"),
-            "password": password or required_env("TRACEcat_TENANT_PASSWORD"),
-        },
-    )
-    if response.status_code not in (200, 204):
-        raise response_error(response)
-    workspaces = request_json(client, "GET", "/workspaces")
-    if not isinstance(workspaces, list) or len(workspaces) != 1:
-        raise ReconcileError(
-            f"expected exactly one Tracecat workspace for the gym user, found {workspaces!r}"
-        )
-    workspace_id = workspaces[0].get("id")
-    if not workspace_id:
-        raise ReconcileError("Tracecat workspace response is missing an id")
-    return str(workspace_id)
-
-
-def verify_tracecat_entitlements(client: httpx.Client) -> None:
-    payload = request_json(client, "GET", "/organization/entitlements")
-    if not isinstance(payload, dict):
-        raise ReconcileError("Tracecat organization entitlement response is malformed")
-    observed = {str(name) for name, enabled in payload.items() if enabled is True}
-    if observed != TRACECAT_ENTITLEMENTS:
-        raise ReconcileError(
-            "Tracecat effective enterprise entitlements are not all enabled: "
-            f"expected={sorted(TRACECAT_ENTITLEMENTS)}, observed={sorted(observed)}"
-        )
-    log(f"all {len(observed)} Tracecat enterprise entitlements are effective")
-
-
-def paginated_items(payload: Any, description: str) -> list[dict[str, Any]]:
-    if not isinstance(payload, dict) or not isinstance(payload.get("items"), list):
-        raise ReconcileError(f"Tracecat {description} response is malformed")
-    return [item for item in payload["items"] if isinstance(item, dict)]
-
-
 def matching_alert_cases(
     client: httpx.Client, workspace_id: str, summary: str
 ) -> list[dict[str, Any]]:
@@ -744,7 +685,7 @@ def matching_alert_cases(
     )
     return [
         row
-        for row in paginated_items(payload, "case search")
+        for row in tracecat_api.paginated_items(payload, "case search")
         if row.get("summary") == summary
     ]
 
@@ -854,7 +795,9 @@ def validation_table_state(
             "validation_gate": row.get("validation_gate"),
             "weight": row.get("weight"),
         }
-        for row in paginated_items(rows_payload, "validation-gates row list")
+        for row in tracecat_api.paginated_items(
+            rows_payload, "validation-gates row list"
+        )
     ]
     return observed_columns, observed_rows
 
@@ -874,7 +817,7 @@ def unlink_validation_gates_from_case(
         base,
         params={"limit": 100, "table_id": table_id},
     )
-    links = paginated_items(payload, "case-row link list")
+    links = tracecat_api.paginated_items(payload, "case-row link list")
     if links and not repair:
         raise ReconcileError("validation gates are linked to the managed alert case")
     for link in links:
@@ -991,22 +934,114 @@ def integration_tools(integration: dict[str, Any]) -> list[dict[str, Any]]:
     )
 
 
+def _matching_tracecat_mcp_integrations(rows: Any) -> list[dict[str, Any]]:
+    if not isinstance(rows, list):
+        raise ReconcileError("Tracecat MCP integration list was not an array")
+    return [
+        row
+        for row in rows
+        if isinstance(row, dict)
+        and (
+            row.get("name") == MCP_INTEGRATION_NAME
+            or row.get("server_uri") == MCP_SERVER_URI
+        )
+    ]
+
+
+def _verify_tracecat_mcp_tools(
+    integration: dict[str, Any], expected_names: set[str]
+) -> None:
+    tools = integration_tools(integration)
+    names = [str(tool.get("name")) for tool in tools if tool.get("name")]
+    if len(names) != len(tools) or len(names) != len(set(names)):
+        raise ReconcileError("Tracecat MCP tool catalog has missing or duplicate names")
+    observed_names = set(names)
+    if observed_names != expected_names:
+        raise ReconcileError(
+            "Tracecat MCP tool set differs from the locked Splunk core tools: "
+            f"missing={sorted(expected_names - observed_names)}, "
+            f"unexpected={sorted(observed_names - expected_names)}"
+        )
+    drifted = sorted(
+        name
+        for name, tool in zip(names, tools, strict=True)
+        if tool.get("status") != "available"
+        or tool.get("enabled") is not True
+        or tool.get("requires_approval") is not False
+    )
+    if drifted:
+        raise ReconcileError(
+            f"Tracecat MCP tool availability or policy has drifted: {drifted}"
+        )
+
+
+def verify_tracecat_mcp_integration(
+    client: httpx.Client,
+    workspace_id: str,
+    integration_id: str,
+) -> dict[str, Any]:
+    """Verify the exact endpoint, type, connection, tools, and tool policy."""
+
+    base = f"/workspaces/{workspace_id}/mcp-integrations/{integration_id}"
+    integration = request_json(client, "GET", base)
+    if not isinstance(integration, dict):
+        raise ReconcileError("Tracecat MCP integration response is malformed")
+    expected_fields = {
+        "name": MCP_INTEGRATION_NAME,
+        "server_type": "http",
+        "server_uri": MCP_SERVER_URI,
+        "auth_type": "CUSTOM",
+        "timeout": 120,
+        "state": "connected",
+    }
+    drift = {
+        field: {"expected": expected, "observed": integration.get(field)}
+        for field, expected in expected_fields.items()
+        if integration.get(field) != expected
+    }
+    if drift:
+        raise ReconcileError(f"Tracecat MCP integration configuration drifted: {drift}")
+    expected_names = expected_core_mcp_tools()
+    _verify_tracecat_mcp_tools(integration, expected_names)
+
+    result = request_json(client, "POST", f"{base}/test")
+    if (
+        not isinstance(result, dict)
+        or result.get("success") is not True
+        or str(result.get("mcp_integration_id")) != integration_id
+    ):
+        raise ReconcileError(f"Tracecat MCP connection test failed: {result}")
+    _verify_tracecat_mcp_tools(result, expected_names)
+    integration = request_json(client, "GET", base)
+    if not isinstance(integration, dict) or integration.get("state") != "connected":
+        raise ReconcileError("Tracecat MCP integration is not connected after test")
+    _verify_tracecat_mcp_tools(integration, expected_names)
+    return integration
+
+
+def managed_tracecat_mcp_integration(
+    client: httpx.Client, workspace_id: str
+) -> dict[str, Any]:
+    rows = request_json(client, "GET", f"/workspaces/{workspace_id}/mcp-integrations")
+    matches = _matching_tracecat_mcp_integrations(rows)
+    if len(matches) != 1 or not matches[0].get("id"):
+        raise ReconcileError(
+            f"managed Tracecat Splunk MCP integrations found={len(matches)}; expected 1"
+        )
+    return verify_tracecat_mcp_integration(client, workspace_id, str(matches[0]["id"]))
+
+
 def reconcile_tracecat_mcp(
     client: httpx.Client, workspace_id: str, token: str, remote_names: set[str]
 ) -> dict[str, Any]:
     base = f"/workspaces/{workspace_id}/mcp-integrations"
-    existing = request_json(client, "GET", base)
-    if not isinstance(existing, list):
-        raise ReconcileError("Tracecat MCP integration list was not an array")
-    mcp_url = required_env("SPLUNK_MCP_URL")
-    candidates = [
-        row
-        for row in existing
-        if isinstance(row, dict)
-        and (
-            row.get("name") == MCP_INTEGRATION_NAME or row.get("server_uri") == mcp_url
+    configured_uri = required_env("SPLUNK_MCP_URL")
+    if configured_uri != MCP_SERVER_URI:
+        raise ReconcileError(
+            f"SPLUNK_MCP_URL must be the pinned internal URI {MCP_SERVER_URI!r}"
         )
-    ]
+    existing = request_json(client, "GET", base)
+    candidates = _matching_tracecat_mcp_integrations(existing)
     if len(candidates) > 1:
         raise ReconcileError(
             "multiple Tracecat MCP integrations match the gym name or URI; refusing to choose"
@@ -1016,7 +1051,7 @@ def reconcile_tracecat_mcp(
         "name": MCP_INTEGRATION_NAME,
         "description": "Official Splunk MCP Server backed by the pinned Gym 001 dataset",
         "server_type": "http",
-        "server_uri": mcp_url,
+        "server_uri": MCP_SERVER_URI,
         "auth_type": "CUSTOM",
         "custom_credentials": headers,
         "timeout": 120,
@@ -1042,7 +1077,7 @@ def reconcile_tracecat_mcp(
         log("created the Tracecat Splunk MCP integration")
 
     test_result = request_json(client, "POST", f"{base}/{integration_id}/test")
-    if isinstance(test_result, dict) and test_result.get("success") is False:
+    if not isinstance(test_result, dict) or test_result.get("success") is not True:
         raise ReconcileError(f"Tracecat MCP verification failed: {test_result}")
     integration = request_json(client, "GET", f"{base}/{integration_id}")
     tools = integration_tools(integration)
@@ -1067,42 +1102,18 @@ def reconcile_tracecat_mcp(
             ]
         },
     )
-    final = request_json(client, "GET", f"{base}/{integration_id}")
-    disabled = [
-        tool.get("name")
-        for tool in integration_tools(final)
-        if tool.get("name") in remote_names
-        and (
-            tool.get("enabled") is not True
-            or tool.get("requires_approval") is not False
-        )
-    ]
-    if disabled:
-        raise ReconcileError(f"Tracecat MCP tool policies are not enabled: {disabled}")
-    log(f"Tracecat MCP integration is verified with all {len(names)} tools enabled")
+    final = verify_tracecat_mcp_integration(client, workspace_id, integration_id)
+    log(
+        "Tracecat MCP integration is connected at the pinned URI with all "
+        f"{len(remote_names)} locked tools enabled and approval-free"
+    )
     return final
 
 
 def load_agent_preset_definition() -> tuple[dict[str, Any], str]:
-    manifest_path = AGENT_DIR / "investigator-preset.json"
-    try:
-        manifest = json.loads(manifest_path.read_text())
-    except (OSError, json.JSONDecodeError) as exc:
-        raise ReconcileError(f"cannot load agent preset manifest: {exc}") from exc
-    if not isinstance(manifest, dict):
-        raise ReconcileError("agent preset manifest must be a JSON object")
-    prompt_filename = manifest.get("prompt_file")
-    if not isinstance(prompt_filename, str) or not prompt_filename:
-        raise ReconcileError("agent preset manifest is missing prompt_file")
-    prompt_path = (AGENT_DIR / prompt_filename).resolve()
-    if prompt_path.parent != AGENT_DIR.resolve():
-        raise ReconcileError("agent preset prompt_file must stay inside its directory")
-    try:
-        prompt = prompt_path.read_text().strip()
-    except OSError as exc:
-        raise ReconcileError(f"cannot load agent preset prompt: {exc}") from exc
-    if not prompt:
-        raise ReconcileError("agent preset prompt must not be empty")
+    manifest, prompt = agent_presets.load_manifest(
+        AGENT_DIR, "investigator-preset.json"
+    )
     if manifest.get("model_selection") != "organization_default":
         raise ReconcileError(
             "agent preset model_selection must be 'organization_default'"
@@ -1110,90 +1121,15 @@ def load_agent_preset_definition() -> tuple[dict[str, Any], str]:
     return manifest, prompt
 
 
-def default_agent_model(client: httpx.Client) -> dict[str, Any]:
-    selection = request_json(client, "GET", "/agent/default-model-selection")
-    if not isinstance(selection, dict):
-        raise ReconcileError(
-            "no default Tracecat agent model is configured; add model credentials, "
-            "select an organization default model, then run `just reconcile`"
-        )
-    for key in ("catalog_id", "model_name", "model_provider"):
-        if not isinstance(selection.get(key), str) or not selection[key]:
-            raise ReconcileError(f"Tracecat default model selection is missing {key!r}")
-    provider_status = request_json(client, "GET", "/agent/providers/status")
-    if not isinstance(provider_status, dict):
-        raise ReconcileError("Tracecat provider status response is malformed")
-    status_key = (
-        "custom-model-provider"
-        if selection.get("custom_provider_id")
-        else selection["model_provider"]
-    )
-    if provider_status.get(status_key) is not True:
-        raise ReconcileError(
-            f"credentials for the default agent provider {selection['model_provider']!r} "
-            "are not configured; add them in Tracecat, then run `just reconcile`"
-        )
-    return selection
-
-
-def workspace_agent_model(
-    client: httpx.Client, workspace_id: str, provider: str, model_name: str
-) -> dict[str, Any]:
-    payload = request_json(client, "GET", f"/workspaces/{workspace_id}/agent-models")
-    if not isinstance(payload, dict) or not isinstance(payload.get("items"), list):
-        raise ReconcileError("Tracecat workspace model response is malformed")
-    matches = [
-        row
-        for row in payload["items"]
-        if isinstance(row, dict)
-        and row.get("model_provider") == provider
-        and row.get("model_name") == model_name
-    ]
-    if len(matches) != 1:
-        raise ReconcileError(
-            f"evaluation grader model {provider}/{model_name} is not uniquely "
-            "available to the workspace"
-        )
-    provider_status = request_json(client, "GET", "/agent/providers/status")
-    if (
-        not isinstance(provider_status, dict)
-        or provider_status.get(provider) is not True
-    ):
-        raise ReconcileError(
-            f"credentials for evaluation grader provider {provider!r} are not configured"
-        )
-    model = matches[0]
-    if not isinstance(model.get("id"), str) or not model["id"]:
-        raise ReconcileError("evaluation grader catalog entry is missing its id")
-    return model
-
-
 def load_grader_preset_definition() -> tuple[dict[str, Any], str]:
-    manifest_path = EVALS_DIR / "grader-preset.json"
     config_path = EVALS_DIR / "evaluation.json"
     try:
-        manifest = json.loads(manifest_path.read_text())
         evaluation = json.loads(config_path.read_text())
     except (OSError, json.JSONDecodeError) as exc:
         raise ReconcileError(
             f"cannot load evaluation preset definition: {exc}"
         ) from exc
-    if not isinstance(manifest, dict):
-        raise ReconcileError("evaluation preset definition must be a JSON object")
-    prompt_filename = manifest.get("prompt_file")
-    if not isinstance(prompt_filename, str) or not prompt_filename:
-        raise ReconcileError("evaluation grader preset is missing prompt_file")
-    prompt_path = (EVALS_DIR / prompt_filename).resolve()
-    if prompt_path.parent != EVALS_DIR.resolve():
-        raise ReconcileError(
-            "evaluation grader prompt_file must stay inside its directory"
-        )
-    try:
-        base_prompt = prompt_path.read_text().strip()
-    except OSError as exc:
-        raise ReconcileError(f"cannot load evaluation grader prompt: {exc}") from exc
-    if not base_prompt:
-        raise ReconcileError("evaluation grader prompt must not be empty")
+    manifest, base_prompt = agent_presets.load_manifest(EVALS_DIR, "grader-preset.json")
     judge = evaluation.get("judge")
     if not isinstance(judge, dict):
         raise ReconcileError("evaluation scenario is missing judge configuration")
@@ -1211,74 +1147,12 @@ def desired_agent_preset(
     client: httpx.Client, mcp_integration_id: str
 ) -> dict[str, Any]:
     manifest, prompt = load_agent_preset_definition()
-    model = default_agent_model(client)
-    required_manifest_fields = {
-        "name",
-        "slug",
-        "description",
-        "actions",
-        "namespaces",
-        "tool_approvals",
-        "agents",
-        "retries",
-        "enable_thinking",
-        "enable_internet_access",
-    }
-    missing = sorted(required_manifest_fields - manifest.keys())
-    if missing:
-        raise ReconcileError(f"agent preset manifest is missing fields: {missing}")
-    return {
-        "name": manifest["name"],
-        "slug": manifest["slug"],
-        "description": manifest["description"],
-        "instructions": prompt,
-        "model_name": model["model_name"],
-        "model_provider": model["model_provider"],
-        "catalog_id": model["catalog_id"],
-        "actions": manifest["actions"],
-        "namespaces": manifest["namespaces"],
-        "tool_approvals": manifest["tool_approvals"],
-        "mcp_integrations": [mcp_integration_id],
-        "agents": manifest["agents"],
-        "retries": manifest["retries"],
-        "enable_thinking": manifest["enable_thinking"],
-        "enable_internet_access": manifest["enable_internet_access"],
-        "skills": [],
-    }
+    model = tracecat_api.default_agent_model(client)
+    configured = {**manifest, "mcp_integrations": [mcp_integration_id]}
+    return agent_presets.preset_payload(configured, prompt, model, [])
 
 
-def matching_agent_presets(
-    client: httpx.Client, workspace_id: str, desired: dict[str, Any]
-) -> list[dict[str, Any]]:
-    rows = request_json(client, "GET", f"/workspaces/{workspace_id}/agent/presets")
-    if not isinstance(rows, list):
-        raise ReconcileError("Tracecat agent preset list response is malformed")
-    return [
-        row
-        for row in rows
-        if isinstance(row, dict)
-        and (row.get("slug") == desired["slug"] or row.get("name") == desired["name"])
-    ]
-
-
-def verify_agent_preset(
-    client: httpx.Client,
-    workspace_id: str,
-    preset_id: str,
-    desired: dict[str, Any],
-) -> dict[str, Any]:
-    actual = request_json(
-        client,
-        "GET",
-        f"/workspaces/{workspace_id}/agent/presets/{preset_id}",
-    )
-    if not isinstance(actual, dict):
-        raise ReconcileError("Tracecat agent preset response is malformed")
-    drifted = [key for key, value in desired.items() if actual.get(key) != value]
-    if drifted:
-        raise ReconcileError(
-            f"Tracecat agent preset does not match Git-tracked state: {drifted}"
-        )
+def log_agent_preset(desired: dict[str, Any]) -> None:
     attachment = (
         "Splunk MCP attached"
         if desired.get("mcp_integrations")
@@ -1288,113 +1162,33 @@ def verify_agent_preset(
         f"agent preset {desired['name']!r} is ready with model "
         f"{desired['model_provider']}/{desired['model_name']} and {attachment}"
     )
-    return actual
 
 
 def reconcile_agent_preset(
     client: httpx.Client, workspace_id: str, mcp_integration_id: str
 ) -> dict[str, Any]:
     desired = desired_agent_preset(client, mcp_integration_id)
-    matches = matching_agent_presets(client, workspace_id, desired)
-    if len(matches) > 1:
-        raise ReconcileError(
-            "multiple Tracecat agent presets match the gym name or slug; refusing to choose"
-        )
-    base = f"/workspaces/{workspace_id}/agent/presets"
-    if matches:
-        preset_id = str(matches[0]["id"])
-        request_json(
-            client,
-            "PATCH",
-            f"{base}/{preset_id}",
-            json_body=desired,
-        )
-        log("updated the existing Tracecat SOC analyst agent preset")
-    else:
-        created = request_json(
-            client,
-            "POST",
-            base,
-            json_body=desired,
-            expected=(200, 201),
-        )
-        if not isinstance(created, dict) or not created.get("id"):
-            raise ReconcileError("Tracecat did not return the created agent preset id")
-        preset_id = str(created["id"])
-        log("created the Tracecat SOC analyst agent preset")
-    return verify_agent_preset(client, workspace_id, preset_id, desired)
+    actual = agent_presets.reconcile_preset(client, workspace_id, desired)
+    log_agent_preset(desired)
+    return actual
 
 
 def desired_grader_preset(client: httpx.Client, workspace_id: str) -> dict[str, Any]:
     manifest, prompt = load_grader_preset_definition()
-    model = workspace_agent_model(
+    model = agent_presets.workspace_model(
         client,
         workspace_id,
         str(manifest["model_provider"]),
         str(manifest["model_name"]),
     )
-    required = {
-        "name",
-        "slug",
-        "description",
-        "actions",
-        "namespaces",
-        "tool_approvals",
-        "mcp_integrations",
-        "agents",
-        "retries",
-        "enable_thinking",
-        "enable_internet_access",
-    }
-    missing = sorted(required - manifest.keys())
-    if missing:
-        raise ReconcileError(f"evaluation grader preset is missing fields: {missing}")
-    return {
-        "name": manifest["name"],
-        "slug": manifest["slug"],
-        "description": manifest["description"],
-        "instructions": prompt,
-        "model_name": model["model_name"],
-        "model_provider": model["model_provider"],
-        "catalog_id": model["id"],
-        "actions": manifest["actions"],
-        "namespaces": manifest["namespaces"],
-        "tool_approvals": manifest["tool_approvals"],
-        "mcp_integrations": manifest["mcp_integrations"],
-        "agents": manifest["agents"],
-        "retries": manifest["retries"],
-        "enable_thinking": manifest["enable_thinking"],
-        "enable_internet_access": manifest["enable_internet_access"],
-        "skills": [],
-    }
+    return agent_presets.preset_payload(manifest, prompt, model, [])
 
 
 def reconcile_grader_preset(client: httpx.Client, workspace_id: str) -> dict[str, Any]:
     desired = desired_grader_preset(client, workspace_id)
-    matches = matching_agent_presets(client, workspace_id, desired)
-    if len(matches) > 1:
-        raise ReconcileError(
-            "multiple Tracecat evaluation grader presets match the gym name or slug; "
-            "refusing to choose"
-        )
-    base = f"/workspaces/{workspace_id}/agent/presets"
-    if matches:
-        preset_id = str(matches[0]["id"])
-        request_json(client, "PATCH", f"{base}/{preset_id}", json_body=desired)
-        log("updated the existing Tracecat evaluation grader preset")
-    else:
-        created = request_json(
-            client,
-            "POST",
-            base,
-            json_body=desired,
-            expected=(200, 201),
-        )
-        if not isinstance(created, dict) or not created.get("id"):
-            raise ReconcileError("Tracecat did not return the grader preset id")
-        preset_id = str(created["id"])
-        log("created the Tracecat evaluation grader preset")
-    return verify_agent_preset(client, workspace_id, preset_id, desired)
+    actual = agent_presets.reconcile_preset(client, workspace_id, desired)
+    log_agent_preset(desired)
+    return actual
 
 
 def reconcile() -> None:
@@ -1440,14 +1234,15 @@ def reconcile() -> None:
             f"expected={sorted(expected_tool_names)}, advertised={sorted(remote_names)}"
         )
 
-    with tracecat_client() as tracecat:
+    with tracecat_api.client() as tracecat:
         wait_for(
             "Tracecat API",
             deadline,
             lambda: request_json(tracecat, "GET", "/health"),
         )
-        workspace_id = tracecat_login(tracecat)
-        verify_tracecat_entitlements(tracecat)
+        workspace_id = tracecat_api.login(tracecat)
+        tracecat_api.verify_entitlements(tracecat)
+        log("all 8 Tracecat enterprise entitlements are effective")
         source_scenario = load_scenario(SCENARIO_FILE)
         alert_case = reconcile_alert_case(
             tracecat, workspace_id, source_scenario, repair=True
@@ -1509,10 +1304,11 @@ def status() -> None:
         errors.append(f"Splunk: {exc}")
 
     try:
-        with tracecat_client() as tracecat:
+        with tracecat_api.client() as tracecat:
             request_json(tracecat, "GET", "/health")
-            workspace_id = tracecat_login(tracecat)
-            verify_tracecat_entitlements(tracecat)
+            workspace_id = tracecat_api.login(tracecat)
+            tracecat_api.verify_entitlements(tracecat)
+            log("all 8 Tracecat enterprise entitlements are effective")
             source_scenario = load_scenario(SCENARIO_FILE)
             alert_case = reconcile_alert_case(
                 tracecat, workspace_id, source_scenario, repair=False
@@ -1524,53 +1320,16 @@ def status() -> None:
                 source_scenario,
                 repair=False,
             )
-            base = f"/workspaces/{workspace_id}/mcp-integrations"
-            rows = request_json(tracecat, "GET", base)
-            matches = [
-                row
-                for row in rows
-                if isinstance(row, dict) and row.get("name") == MCP_INTEGRATION_NAME
-            ]
-            if len(matches) == 1:
-                tools = integration_tools(matches[0])
-                enabled = sum(tool.get("enabled") is True for tool in tools)
-                log(
-                    f"Tracecat API READY; Splunk MCP integration present with "
-                    f"{enabled}/{len(tools)} tools enabled"
-                )
-                integration_id = str(matches[0]["id"])
-                desired = desired_agent_preset(tracecat, integration_id)
-                presets = matching_agent_presets(tracecat, workspace_id, desired)
-                if len(presets) == 1:
-                    verify_agent_preset(
-                        tracecat,
-                        workspace_id,
-                        str(presets[0]["id"]),
-                        desired,
-                    )
-                else:
-                    raise ReconcileError(
-                        "Tracecat SOC analyst agent preset state DRIFTED: "
-                        f"matches={len(presets)}"
-                    )
-                grader = desired_grader_preset(tracecat, workspace_id)
-                grader_matches = matching_agent_presets(tracecat, workspace_id, grader)
-                if len(grader_matches) == 1:
-                    verify_agent_preset(
-                        tracecat,
-                        workspace_id,
-                        str(grader_matches[0]["id"]),
-                        grader,
-                    )
-                else:
-                    raise ReconcileError(
-                        "Tracecat evaluation grader preset state DRIFTED: "
-                        f"matches={len(grader_matches)}"
-                    )
-            else:
-                raise ReconcileError(
-                    f"Tracecat Splunk MCP integrations found={len(matches)}; expected 1"
-                )
+            integration = managed_tracecat_mcp_integration(tracecat, workspace_id)
+            log(
+                "Tracecat API READY; Splunk MCP integration is connected at the "
+                f"pinned URI with {len(integration_tools(integration))} locked tools"
+            )
+            integration_id = str(integration["id"])
+            desired = desired_agent_preset(tracecat, integration_id)
+            agent_presets.verify_preset(tracecat, workspace_id, desired)
+            grader = desired_grader_preset(tracecat, workspace_id)
+            agent_presets.verify_preset(tracecat, workspace_id, grader)
     except Exception as exc:
         log(f"Tracecat status unavailable: {exc}")
         errors.append(f"Tracecat: {exc}")
@@ -1580,40 +1339,50 @@ def status() -> None:
 
 def reset_managed_evaluations() -> None:
     """Replace only the managed case and its case-scoped chat sessions."""
-    with tracecat_client() as client:
+    with tracecat_api.client() as client:
         request_json(client, "GET", "/health")
-        workspace_id = tracecat_login(client)
+        workspace_id = tracecat_api.login(client)
         source_scenario = load_scenario(SCENARIO_FILE)
         desired = alert_case_payload(source_scenario)
+        grader_manifest, _ = load_grader_preset_definition()
         matches = matching_alert_cases(client, workspace_id, str(desired["summary"]))
-        if len(matches) != 1:
+        if len(matches) > 1:
             raise ReconcileError(
                 "managed alert case is ambiguous; refusing destructive cleanup"
             )
-        case_id = str(matches[0]["id"])
-        sessions = request_json(
+        removed_grader_sessions = agent_runtime.delete_preset_sessions(
             client,
-            "GET",
-            f"/workspaces/{workspace_id}/agent/sessions",
-            params={"entity_type": "case", "entity_id": case_id, "limit": 100},
+            workspace_id,
+            preset_slug=str(grader_manifest["slug"]),
+            title_prefix="Eval grader ",
         )
-        if not isinstance(sessions, list):
-            raise ReconcileError("Tracecat case-session list is malformed")
-        for session in sessions:
-            if not isinstance(session, dict) or not session.get("id"):
-                raise ReconcileError("Tracecat returned a case session without an id")
+        if matches:
+            case_id = str(matches[0]["id"])
+            sessions = request_json(
+                client,
+                "GET",
+                f"/workspaces/{workspace_id}/agent/sessions",
+                params={"entity_type": "case", "entity_id": case_id, "limit": 100},
+            )
+            if not isinstance(sessions, list):
+                raise ReconcileError("Tracecat case-session list is malformed")
+            for session in sessions:
+                if not isinstance(session, dict) or not session.get("id"):
+                    raise ReconcileError(
+                        "Tracecat returned a case session without an id"
+                    )
+                request_json(
+                    client,
+                    "DELETE",
+                    f"/workspaces/{workspace_id}/agent/sessions/{session['id']}",
+                    expected=(204, 404),
+                )
             request_json(
                 client,
                 "DELETE",
-                f"/workspaces/{workspace_id}/agent/sessions/{session['id']}",
-                expected=(204, 404),
+                f"/workspaces/{workspace_id}/cases/{case_id}",
+                expected=(204,),
             )
-        request_json(
-            client,
-            "DELETE",
-            f"/workspaces/{workspace_id}/cases/{case_id}",
-            expected=(204,),
-        )
         alert_case = reconcile_alert_case(
             client, workspace_id, source_scenario, repair=True
         )
@@ -1626,7 +1395,8 @@ def reset_managed_evaluations() -> None:
         )
     log(
         "managed alert case and case-scoped investigations were reset; the "
-        "validation table, integration, presets, and host artifacts were retained"
+        "validation table, integration, presets, and host artifacts were retained; "
+        f"removed_grader_sessions={removed_grader_sessions}"
     )
 
 

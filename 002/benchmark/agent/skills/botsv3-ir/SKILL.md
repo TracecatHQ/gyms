@@ -11,6 +11,7 @@ Use this skill when investigating BOTSv3 demo alert cases in Tracecat.
 
 - Start from the active case description, tags, and payload.
 - Use DuckDB `read_json_auto` over the exact local MinIO gzip object in the case's `event_object_url` for supporting evidence.
+- Search concrete indicators across the whole exact object before adding an outer `_time` filter. BOTSv3 journal rows can bundle embedded events whose event timestamp differs from the row's outer timestamp.
 - Use read-only URLscan and VirusTotal enrichment after local evidence collection when concrete IOCs are present. If either UI-configured secret is unavailable, record the limitation and continue.
 - Return bounded event metadata: `event_ref`, `event_time`, `_sourcetype`, `source`, and `host`.
 - Do not paste full `_raw` records.
@@ -60,7 +61,8 @@ Update the case description as the primary case artifact. Use concise Markdown w
 
 | Field | Value |
 | --- | --- |
-| Verdict | true_positive / false_positive |
+| Determination | true_positive / false_positive |
+| Incident relevance | related / unrelated |
 | Confidence | high / medium / low |
 
 ## Executive summary
@@ -93,5 +95,6 @@ After updating the description, add a short supplemental comment with the checke
 Preserve existing case tags and add compact closure tags:
 
 - `verdict:true-positive` or `verdict:false-positive`
+- `incident:related` or `incident:unrelated`
 
 Do not use `botsv3_analyst_verdict` or `botsv3_breach_related` custom fields for new case state.

@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-import csv
 import hashlib
 import json
+import os
 import subprocess
+import sys
 
 from . import config, evaluate, reconcile
 from .dataset import validate_archive
@@ -41,30 +42,31 @@ def validate() -> None:
         "shared Caddyfile checksum mismatch",
     )
 
-    with (config.ROOT / "benchmark/scenario/alerts.csv").open(newline="") as stream:
-        alerts = list(csv.DictReader(stream))
-    require(
-        len(alerts) == 34 and len({row["alert_id"] for row in alerts}) == 34,
-        "alert queue must contain 34 unique cases",
+    audit = subprocess.run(
+        [sys.executable, str(config.ROOT / "tools/update_dataset.py"), "--check"],
+        cwd=config.ROOT,
+        text=True,
+        capture_output=True,
     )
-    with (config.ROOT / "benchmark/evals/alert_outcomes.csv").open(
-        newline=""
-    ) as stream:
-        outcomes = list(csv.DictReader(stream))
     require(
-        {row["alert_id"] for row in outcomes} == {row["alert_id"] for row in alerts},
-        "hidden outcomes do not exactly match the alert queue",
+        audit.returncode == 0,
+        f"BOTSv3 corpus contract audit failed: {audit.stdout}{audit.stderr}",
     )
     evaluation = evaluate.load_configuration()
     contracts = evaluate.load_contracts(evaluation)
     require(
-        len(reconcile.source_cases()) == 34, "case projection does not contain 34 rows"
+        len(reconcile.source_cases()) == 20, "case projection does not contain 20 rows"
     )
     require(
-        len(contracts) == 34
-        and {row["alert_id"] for row in contracts if row["required_enrichments"]}
-        == evaluate.REQUIRED_ENRICHMENT_CASES,
-        "evaluation contracts or enrichment case set drifted",
+        len(contracts) == 20
+        and sum(bool(row["required_enrichments"]) for row in contracts) == 5
+        and all(
+            row["required_enrichments"] == ["urlscan", "virustotal"]
+            and len(row["enrichment_targets"]) == 1
+            for row in contracts
+            if row["required_enrichments"]
+        ),
+        "evaluation contracts or enrichment requirements drifted",
     )
 
     investigator = json.loads(
@@ -75,7 +77,6 @@ def validate() -> None:
         "core.cases.add_case_tag",
         "core.cases.create_comment",
         "core.cases.get_case",
-        "core.cases.search_cases",
         "core.cases.update_case",
         "core.duckdb.execute_sql",
         "tools.urlscan.get_result",
@@ -106,6 +107,12 @@ def validate() -> None:
     require(
         not (config.ROOT / "evals.json").exists(), "legacy evals.json must be removed"
     )
+    for legacy in (
+        "benchmark/scenario/alerts.csv",
+        "benchmark/evals/alert_outcomes.csv",
+        "benchmark/evals/answers.csv",
+    ):
+        require(not (config.ROOT / legacy).exists(), f"legacy file remains: {legacy}")
     require(
         not (config.ROOT / "skills").exists(), "skills must live under benchmark/agent"
     )
@@ -137,6 +144,11 @@ def validate() -> None:
     require(merged.returncode == 0, f"Compose config failed: {merged.stderr}")
     compose = json.loads(merged.stdout)
     services = compose["services"]
+    require(
+        services["eval-runner"].get("user") == f"{os.getuid()}:{os.getgid()}"
+        and services["eval-runner"].get("environment", {}).get("HOME") == "/tmp",
+        "eval-runner must write host artifacts as the invoking UID/GID",
+    )
     require(
         all("container_name" not in service for service in services.values()),
         "merged Compose contains a fixed container name",
@@ -177,8 +189,8 @@ def validate() -> None:
             (str(binding.get("host_ip")), int(binding.get("published")))
             for binding in ports
         }
-        == {("127.0.0.1", 28080)},
-        "port exposure must be only localhost:28080",
+        == {("127.0.0.1", config.DEFINITION.host_port)},
+        f"port exposure must be only localhost:{config.DEFINITION.host_port}",
     )
     binds = {
         (str(mount.get("source")), str(mount.get("target")))
@@ -252,11 +264,34 @@ def validate() -> None:
         seed_state == "exited 0",
         f"dataset seed did not complete successfully: {seed_state}",
     )
+    seed_image = subprocess.run(
+        ["docker", "inspect", "--format", "{{.Config.Image}}", seed],
+        check=True,
+        text=True,
+        capture_output=True,
+    ).stdout.strip()
+    require(
+        seed_image == config.local_image("control"),
+        f"dataset seed used stale control image: {seed_image}",
+    )
+    seed_logs = subprocess.run(
+        ["docker", "logs", seed],
+        check=True,
+        text=True,
+        capture_output=True,
+    ).stdout
+    require(
+        "489968 records" in seed_logs
+        and "event_ref=sha256-object-line-v1" in seed_logs,
+        "seeded MinIO objects were not verified with stable event references",
+    )
 
     env = config.parse_env()
     from gymctl.http import Client
 
-    with Client(base_url=env["PUBLIC_API_URL"], timeout=120) as client:
+    with Client(
+        base_url=env["PUBLIC_API_URL"], timeout=120, follow_redirects=True
+    ) as client:
         reconcile.status(
             client,
             env["TRACEcat_TENANT_EMAIL"],

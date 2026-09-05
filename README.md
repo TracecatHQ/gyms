@@ -20,7 +20,7 @@ material, locally authored control code, and user-supplied artifacts.
   `config/tracecat.env.example`, and `platform.lock.json` define the single
   pinned Tracecat platform shared by every gym.
 - `<gym>/benchmark/agent/` contains investigator prompts, presets, and skills.
-  `<gym>/benchmark/evals/` contains grader-only contracts and hidden answers.
+  `<gym>/benchmark/evals/` contains grader-only contracts and truth labels.
 - `<gym>/images/control/` is the deterministic control image containing the
   shared runtime plus that gym's plugin and benchmark. Other image directories,
   such as `001/images/splunk/`, exist only when a gym needs another built image.

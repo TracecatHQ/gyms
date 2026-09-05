@@ -1,10 +1,13 @@
 # Gym 002 — BOTSv3 analyst
 
 Gym 002 is a local Tracecat Tier-1 SOC benchmark built from Splunk Boss of the
-SOC v3. It presents 34 provider-style alerts as native cases. Each case points
-to one exact hourly gzip JSONL object in the local MinIO service; the analyst
-must query that object with DuckDB, update the case, and make a binary
-`true_positive` or `false_positive` determination.
+SOC v3. It presents 20 hand-audited provider alerts as native cases. Every case
+points to the one hourly MinIO object containing its decisive evidence.
+
+The analyst makes two independent decisions:
+
+- determination: `true_positive` or `false_positive`
+- incident relevance: `related` or `unrelated`
 
 ## Start
 
@@ -18,86 +21,87 @@ just up
 just info
 ```
 
-The initial `just up` may stop at reconciliation until a model is configured;
-the application remains available. The Tracecat UI listens only on
-`http://127.0.0.1:28080`. Run `just info`, configure a model provider and
-organization-default model in the UI, then run `just reconcile` and `just wait`.
-Also configure `URLSCAN_API_KEY` and `VIRUSTOTAL_API_KEY` in Tracecat when they
-are available. Their absence is reported as `pending`; it does not prevent
-reconciliation or evaluation, but the applicable enrichment gates will be
-missed.
+The Tracecat UI listens only on `http://127.0.0.1:28080`. If initial
+reconciliation reports that no model is configured, configure a provider and
+organization-default model in the UI, then run `just reconcile` and `just
+wait`.
 
-`just down` retains volumes and credentials. `just restart` performs a normal
-stop/start with the same state. No command removes evaluation state without the
-exact confirmation token described below.
+URLscan and VirusTotal remain benchmark requirements for five applicable cases.
+Configure `URLSCAN_API_KEY` and `VIRUSTOTAL_API_KEY` directly in Tracecat when
+available. Missing credentials do not block an investigation; their gates are
+reported as missed.
 
 ## Evaluation
 
 ```bash
-# All 34 cases, sequentially
+# All 20 cases, sequentially
 just eval
 
 # One case
 just eval ALERT_ID=guardduty:c2-contact
 ```
 
-Each alert is an independent evaluation. Before any selected case runs, the
-harness refuses cases with prior sessions, comments, tags, or unmanaged drift.
-The investigator receives only its case, the seven published/local reasoning
-skills, DuckDB, case actions, and read-only enrichment actions. It cannot see
-the hidden outcomes or grader prompt.
+Each selected case must be pristine. The investigator can access only that
+case, its exact MinIO object, the seven local reasoning skills, case-update
+actions, DuckDB, and read-only enrichments. Cross-case search is not enabled.
 
-The tool-free grader checks the correct binary determination, a successful
-bounded DuckDB query against the case's exact object, an evidence-based case
-update with an `event_ref`, and the explicitly applicable URLscan/VirusTotal
-lookups. Results are reported per case; there is no aggregate score. Transient
-network/provider failures may be attempted three times, but semantic failures
-are never retried. The suite continues through all selected cases and exits
-nonzero if any case fails.
+MinIO records contain a stored, deterministic `event_ref`. The investigator
+must select it directly, cite an audited anchor reference in the case, record
+both decision tags, and close the case. The harness checks those mechanical
+requirements deterministically. DuckDB evidence counts only when every query is
+a single read-only query whose DuckDB-parsed result lineage reaches only the
+case's literal `read_json_auto` URL. Unused CTEs and secondary relations do not
+qualify. A tool-free grader evaluates only whether the cited evidence supports
+both conclusions. There is no aggregate score.
 
-Investigator case sessions and gitignored artifacts under `eval-results/` are
-retained. After capturing anything useful, reset only the 34 managed cases and
-their case-scoped sessions with:
+Case sessions and gitignored artifacts under `eval-results/` are retained. Once
+useful artifacts are captured, reset only Gym 002's managed cases and sessions:
 
 ```bash
 just reset-evals CONFIRM=artifacts-captured
 ```
 
-This preserves the provider setup, URLscan/VirusTotal secrets, integrations,
-skills, presets, dataset, service volumes, and host `eval-results/` directory.
+The command is interruption-safe and idempotent. It removes any remaining
+`gym_id=002` cases and any gym-titled grader sessions left by interrupted
+cleanup, then recreates the exact 20-case queue. Models, integration credentials,
+skills, presets, service volumes, and host artifacts are retained.
 
 ## Dataset and evidence boundary
 
 The canonical Git LFS artifact is
 `assets/botsv3-20260904T130332Z-1-001.zip`, locked by checksum. It contains 71
-hourly gzip JSONL members and 489,968 records. The ZIP is not copied into an
-image. Only `dataset-seed` receives a read-only bind mount and copies the
-members into MinIO; anonymous access permits exact object reads but not listing
-or writing.
+gzip JSONL members and 489,968 records. The ZIP enters only the `dataset-seed`
+container through a read-only mount. Seeding adds a
+`sha256-object-line-v1` reference to each immutable source record before upload;
+the archive itself is never modified or copied into an image.
 
-Regenerate the three benchmark CSVs with `just update-dataset` and the optional
-flags shown by `python3 tools/update_dataset.py --help`. Generated alerts go to
-`benchmark/scenario/`; hidden answers and outcomes go to `benchmark/evals/`.
+`benchmark/evals/cases.source.json` declares public alert fields, exact evidence objects
+and predicates, and the two hidden truth axes. Regenerate the two committed
+artifacts with:
 
-## Validation and destructive cleanup
+```bash
+just update-dataset
+```
 
-`just status` verifies the exact 34-case identity, seven published skills,
-investigator and tool-free grader presets, and enrichment-secret status.
-`just check` additionally verifies the repository, archive, Compose model,
-control-image hash, seed completion, and health of the already-running stack.
-It does not start or destroy services.
+Generation fails unless every positive anchor resolves to exactly one source
+row and every negative predicate resolves to none. `just check` reruns this
+corpus audit in memory and byte-compares the generated files.
 
-Full cleanup is deliberately explicit:
+## Validation and cleanup
+
+`just status` checks the exact live cases, skills, presets, and enrichment
+credential status. `just check` additionally validates the archive, generated
+contracts, Compose model, control image, seeded dataset, and live service
+health. It does not destroy state.
 
 ```bash
 just reset CONFIRM=artifacts-captured
 just clean-restart CONFIRM=artifacts-captured
 ```
 
-Both commands remove only Gym 002 Compose volumes. The host `eval-results/`
-directory is never deleted. `clean-restart` then performs the normal bootstrap;
-because provider configuration lives in the removed database, it must be
-configured again in the UI.
+These full-cleanup commands remove only Gym 002 Compose state and never delete
+host `eval-results/`. A clean restart also removes the Tracecat database, so UI
+model and integration settings must be configured again.
 
 See [`benchmark/README.md`](benchmark/README.md) and
-[`PROVENANCE.md`](PROVENANCE.md) for the evaluator and source boundaries.
+[`PROVENANCE.md`](PROVENANCE.md) for source and evaluator boundaries.

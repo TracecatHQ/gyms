@@ -1,4 +1,4 @@
-"""Tiny cookie-aware JSON client for dependency-free host-side checks."""
+"""Cookie-aware standard-library HTTP transport for dependency-free host checks."""
 
 from __future__ import annotations
 
@@ -8,13 +8,33 @@ import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from http.cookiejar import CookieJar
-from typing import Any
+from typing import Any, Protocol
 
 
 @dataclass(frozen=True)
 class RequestInfo:
     method: str
     url: urllib.parse.SplitResult
+
+
+class ResponseLike(Protocol):
+    request: Any
+    status_code: int
+    content: bytes
+
+    @property
+    def text(self) -> str: ...
+
+    def json(self) -> Any: ...
+
+
+class ClientLike(Protocol):
+    headers: Any
+    params: Any
+
+    def request(self, method: str, url: str, **kwargs: Any) -> ResponseLike: ...
+
+    def post(self, url: str, **kwargs: Any) -> ResponseLike: ...
 
 
 class Response:
@@ -41,7 +61,7 @@ class Client:
             urllib.request.HTTPCookieProcessor(CookieJar())
         )
 
-    def __enter__(self) -> "Client":
+    def __enter__(self) -> Client:
         return self
 
     def __exit__(self, *_: Any) -> None:

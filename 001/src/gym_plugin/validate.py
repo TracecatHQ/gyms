@@ -10,10 +10,12 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from . import config
+from gymctl import presets as agent_presets
+from gymctl import tracecat as tracecat_api
+
+from . import config, reconcile
 from .license import load_metadata
 from .scenario import HARD_FAIL_GATE, canonical_scenario_hash, load_scenario
-from . import reconcile
 
 
 class ValidationError(RuntimeError):
@@ -216,6 +218,18 @@ def validate() -> None:
     merged = _merged_compose()
     services = merged["services"]
     require(
+        services["eval-runner"].get("user") == f"{os.getuid()}:{os.getgid()}"
+        and services["eval-runner"].get("environment", {}).get("HOME") == "/tmp",
+        "eval-runner must write host artifacts as the invoking UID/GID",
+    )
+    require(
+        services["gym-reconciler"].get("environment", {}).get("SPLUNK_MCP_URL")
+        == reconcile.MCP_SERVER_URI
+        and services["eval-runner"].get("environment", {}).get("SPLUNK_MCP_URL")
+        == reconcile.MCP_SERVER_URI,
+        "reconciler and evaluator must pin the internal Splunk MCP URI",
+    )
+    require(
         _upstream_services(config.REPO_ROOT / "upstream/tracecat/docker-compose.yml")
         <= set(services),
         "merged Compose lost an upstream service",
@@ -248,8 +262,8 @@ def validate() -> None:
     ]
     require(
         {(str(item.get("host_ip")), int(item.get("published"))) for item in ports}
-        == {("127.0.0.1", 18080), ("127.0.0.1", 18000)},
-        "ports must be only localhost 18080 and 18000",
+        == {("127.0.0.1", config.DEFINITION.host_port), ("127.0.0.1", 18000)},
+        f"ports must be only localhost {config.DEFINITION.host_port} and 18000",
     )
     binds: list[tuple[str, str]] = []
     for service in services.values():
@@ -338,13 +352,13 @@ def validate() -> None:
     with Client(
         base_url=env["PUBLIC_API_URL"], timeout=120, follow_redirects=True
     ) as client:
-        reconcile.request_json(client, "GET", "/health")
-        workspace_id = reconcile.tracecat_login(
+        tracecat_api.request_json(client, "GET", "/health")
+        workspace_id = tracecat_api.login(
             client,
             env["TRACEcat_TENANT_EMAIL"],
             env["TRACEcat_TENANT_PASSWORD"],
         )
-        reconcile.verify_tracecat_entitlements(client)
+        tracecat_api.verify_entitlements(client)
         alert_case = reconcile.reconcile_alert_case(
             client, workspace_id, scenario, repair=False
         )
@@ -355,30 +369,9 @@ def validate() -> None:
             scenario,
             repair=False,
         )
-        integrations = reconcile.request_json(
-            client, "GET", f"/workspaces/{workspace_id}/mcp-integrations"
-        )
-        matches = [
-            row
-            for row in integrations
-            if isinstance(row, dict)
-            and row.get("name") == reconcile.MCP_INTEGRATION_NAME
-        ]
-        require(
-            len(matches) == 1, "managed Splunk MCP integration is missing or ambiguous"
-        )
-        desired = reconcile.desired_agent_preset(client, str(matches[0]["id"]))
-        presets = reconcile.matching_agent_presets(client, workspace_id, desired)
-        require(
-            len(presets) == 1, "managed investigator preset is missing or ambiguous"
-        )
-        reconcile.verify_agent_preset(
-            client, workspace_id, str(presets[0]["id"]), desired
-        )
+        integration = reconcile.managed_tracecat_mcp_integration(client, workspace_id)
+        desired = reconcile.desired_agent_preset(client, str(integration["id"]))
+        agent_presets.verify_preset(client, workspace_id, desired)
         grader = reconcile.desired_grader_preset(client, workspace_id)
-        graders = reconcile.matching_agent_presets(client, workspace_id, grader)
-        require(len(graders) == 1, "managed grader preset is missing or ambiguous")
-        reconcile.verify_agent_preset(
-            client, workspace_id, str(graders[0]["id"]), grader
-        )
+        agent_presets.verify_preset(client, workspace_id, grader)
     print("Gym 001 repository and live integration checks passed.")

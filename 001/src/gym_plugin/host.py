@@ -2,25 +2,25 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import re
 import secrets
 import shutil
 import socket
-import stat
 import subprocess
 import time
 import urllib.request
 from datetime import UTC, datetime
 from pathlib import Path
 
+from gymctl import lifecycle
+
 from . import config
 from .license import load_metadata, validate_current
 
 
-class GymError(RuntimeError):
+class GymError(lifecycle.LifecycleError):
     pass
 
 
@@ -35,14 +35,7 @@ def run(
     capture: bool = False,
     env: dict[str, str] | None = None,
 ):
-    return subprocess.run(
-        command,
-        cwd=config.ROOT,
-        check=check,
-        text=True,
-        capture_output=capture,
-        env=env,
-    )
+    return lifecycle.run(config.ROOT, command, check=check, capture=capture, env=env)
 
 
 def command_exists(name: str) -> bool:
@@ -90,10 +83,6 @@ def init_env() -> None:
             "https://www.splunk.com/en_us/legal/splunk-general-terms.html then run "
             "SPLUNK_ACCEPT_TERMS=yes just up"
         )
-    sources = (
-        config.REPO_ROOT / "config/tracecat.env.example",
-        config.ROOT / ".env.example",
-    )
     replacements = {
         "TRACECAT__DB_ENCRYPTION_KEY": secrets.token_urlsafe(32),
         "TRACECAT__SERVICE_KEY": secrets.token_hex(32),
@@ -107,25 +96,7 @@ def init_env() -> None:
         "SPLUNK_ADMIN_PASSWORD": f"Sp1-{secrets.token_hex(24)}",
         "SPLUNK_MCP_PASSWORD": f"Mc2-{secrets.token_hex(24)}",
     }
-    output: list[str] = []
-    postgres_password = replacements["TRACECAT__POSTGRES_PASSWORD"]
-    for line in "\n".join(
-        source.read_text().rstrip() for source in sources
-    ).splitlines():
-        key = line.split("=", 1)[0] if "=" in line else ""
-        if key in replacements:
-            line = f"{key}={replacements[key]}"
-        elif key == "TRACECAT__DB_URI":
-            line = f"TRACECAT__DB_URI=postgresql+psycopg://postgres:{postgres_password}@postgres_db:5432/postgres"
-        output.append(line)
-    temporary = config.ROOT / f".env.tmp.{os.getpid()}"
-    old_umask = os.umask(0o077)
-    try:
-        temporary.write_text("\n".join(output) + "\n")
-        temporary.replace(target)
-    finally:
-        os.umask(old_umask)
-    target.chmod(0o600)
+    lifecycle.write_env(config.DEFINITION, replacements)
     log("Created .env with random credentials and mode 0600.")
     validate_license()
 
@@ -178,7 +149,7 @@ def doctor(*, allow_legacy_ports: bool = False) -> None:
     env = config.parse_env()
     if env.get("SPLUNK_ACCEPT_TERMS") != "yes":
         raise GymError("Splunk terms acceptance is not recorded in .env")
-    for port in (18080, 18000):
+    for port in (config.DEFINITION.host_port, 18000):
         rows = run(
             ["docker", "ps", "--filter", f"publish={port}", "--format", "{{.ID}}"],
             capture=True,
@@ -228,31 +199,6 @@ def doctor(*, allow_legacy_ports: bool = False) -> None:
     log(f"Doctor passed: Compose {version}; {available / 1024**3:.1f} GiB free.")
 
 
-def _remote_digest(reference: str) -> str:
-    result = run(
-        [
-            "docker",
-            "buildx",
-            "imagetools",
-            "inspect",
-            reference,
-            "--format",
-            "{{json .Manifest}}",
-        ],
-        check=False,
-        capture=True,
-    )
-    if result.returncode != 0:
-        raise GymError(
-            f"could not inspect OCI reference {reference}: {result.stderr.strip()[-300:]}"
-        )
-    payload = json.loads(result.stdout)
-    digest = payload.get("digest")
-    if not isinstance(digest, str) or not digest.startswith("sha256:"):
-        raise GymError(f"registry returned no image-index digest for {reference}")
-    return digest
-
-
 def check_upstreams() -> None:
     from gymctl.update_upstreams import check_upstreams as check
 
@@ -260,19 +206,7 @@ def check_upstreams() -> None:
 
 
 def _image_label(image: str, key: str) -> str | None:
-    result = run(
-        [
-            "docker",
-            "image",
-            "inspect",
-            image,
-            "--format",
-            f'{{{{index .Config.Labels "{key}"}}}}',
-        ],
-        check=False,
-        capture=True,
-    )
-    return result.stdout.strip() if result.returncode == 0 else None
+    return lifecycle.image_label(config.ROOT, image, key)
 
 
 def build(
@@ -336,41 +270,17 @@ def build(
 
 
 def _container_id(service: str, profile: str | None = None) -> str:
-    args = (["--profile", profile] if profile else []) + [
-        "ps",
-        "--all",
-        "--quiet",
-        service,
-    ]
-    rows = config.run_compose(*args, capture=True).stdout.strip().splitlines()
-    return rows[0] if rows else ""
+    return lifecycle.container_id(config.run_compose, service, profile=profile)
 
 
 def _wait_exit(service: str, timeout: int, profile: str = "bootstrap") -> None:
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        container = _container_id(service, profile)
-        if container:
-            state = run(
-                [
-                    "docker",
-                    "inspect",
-                    "--format",
-                    "{{.State.Status}} {{.State.ExitCode}}",
-                    container,
-                ],
-                capture=True,
-            ).stdout.strip()
-            if state.startswith("exited "):
-                code = int(state.split()[1])
-                if code:
-                    config.run_compose(
-                        "--profile", profile, "logs", "--no-color", service, check=False
-                    )
-                    raise GymError(f"{service} exited with status {code}")
-                return
-        time.sleep(2)
-    raise GymError(f"timed out waiting for {service}")
+    lifecycle.wait_exit(
+        config.DEFINITION,
+        config.run_compose,
+        service,
+        timeout=timeout,
+        profile=profile,
+    )
 
 
 def _start_stack() -> None:
@@ -398,7 +308,8 @@ def _start_stack() -> None:
     while time.monotonic() < deadline:
         try:
             with urllib.request.urlopen(
-                "http://127.0.0.1:18080/api/health", timeout=5
+                f"http://127.0.0.1:{config.DEFINITION.host_port}/api/health",
+                timeout=5,
             ) as response:
                 if response.status == 200:
                     log(
@@ -435,7 +346,7 @@ def info() -> None:
     env = config.parse_env()
     if not env:
         raise GymError(".env is missing; run SPLUNK_ACCEPT_TERMS=yes just up")
-    print("Tracecat UI: http://127.0.0.1:18080")
+    print(f"Tracecat UI: http://127.0.0.1:{config.DEFINITION.host_port}")
     print(
         f"  Tenant: {env['TRACEcat_TENANT_EMAIL']} / {env['TRACEcat_TENANT_PASSWORD']}"
     )
@@ -491,6 +402,7 @@ def wait() -> None:
             if state != "exited 0":
                 raise GymError(f"gym reconciliation failed: {state}")
             _wait_runtime_health(600)
+            status()
             log("Full Gym 001 readiness checks passed.")
             return
         if time.monotonic() - last > 30:
@@ -510,41 +422,19 @@ def _wait_runtime_health(timeout: int) -> None:
         "splunk",
         "splunk-mcp-compat",
     )
-    deadline = time.monotonic() + timeout
-    last: dict[str, str] = {}
-    while time.monotonic() < deadline:
-        states: dict[str, str] = {}
-        for service in required:
-            container = _container_id(service)
-            if not container:
-                states[service] = "missing"
-                continue
-            raw = run(
-                [
-                    "docker",
-                    "inspect",
-                    "--format",
-                    "{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{end}}",
-                    container,
-                ],
-                capture=True,
-            ).stdout.strip()
-            states[service] = raw
-        if all(value == "running healthy" for value in states.values()):
-            return
-        if states != last:
-            log(
-                "waiting for stable service health: "
-                + ", ".join(
-                    f"{name}={value}"
-                    for name, value in states.items()
-                    if value != "running healthy"
-                )
+    lifecycle.wait_runtime_health(
+        config.DEFINITION,
+        config.run_compose,
+        required,
+        timeout=timeout,
+        on_change=lambda states: log(
+            "waiting for stable service health: "
+            + ", ".join(
+                f"{name}={value}"
+                for name, value in states.items()
+                if value != "running healthy"
             )
-            last = states
-        time.sleep(5)
-    raise GymError(
-        "services did not reach stable health: " + json.dumps(last, sort_keys=True)
+        ),
     )
 
 
@@ -631,24 +521,7 @@ def reset_evals(confirm: str | None) -> None:
 
 
 def volume_digest(path: Path) -> str:
-    digest = hashlib.sha256()
-    for item in sorted(
-        path.rglob("*"), key=lambda value: value.relative_to(path).as_posix()
-    ):
-        relative = item.relative_to(path).as_posix()
-        details = item.lstat()
-        if item.is_symlink():
-            kind, payload = "L", os.readlink(item).encode()
-        elif item.is_dir():
-            kind, payload = "D", b""
-        elif item.is_file():
-            kind, payload = "F", item.read_bytes()
-        else:
-            kind, payload = "O", b""
-        header = f"{relative}\0{kind}\0{stat.S_IMODE(details.st_mode):o}\0{details.st_uid}\0{details.st_gid}\0".encode()
-        digest.update(header)
-        digest.update(hashlib.sha256(payload).digest())
-    return digest.hexdigest()
+    return lifecycle.volume_digest(path)
 
 
 def _volume_digest_in_container(image: str, volume: str) -> str:
@@ -764,15 +637,16 @@ def migrate() -> None:
     )
     _start_stack()
     wait()
-    status()
     log(
         "Migration accepted: copied state is ready and all legacy volumes remain untouched."
     )
 
 
-def evaluate(runs: int) -> None:
+def evaluate(runs: int) -> int:
+    build(("control",))
     wait()
-    config.run_compose(
+    lifecycle.ensure_host_directory(config.ROOT / "eval-results")
+    result = config.run_compose(
         "--profile",
         "evaluation",
         "run",
@@ -782,7 +656,9 @@ def evaluate(runs: int) -> None:
         "internal-eval",
         "--runs",
         str(runs),
+        check=False,
     )
+    return result.returncode
 
 
 def rotate_license(path: Path) -> None:

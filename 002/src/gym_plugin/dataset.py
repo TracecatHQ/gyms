@@ -6,8 +6,12 @@ import hashlib
 import json
 import os
 import re
+import tempfile
 import zipfile
 from pathlib import Path
+
+from gymctl.evidence import EVENT_REF_VERSION, event_ref
+
 from . import config
 
 MEMBER_RE = re.compile(r"^botsv3/(botsv3_2018-08-(?:17|18|19|20|21)_\d{2}\.jsonl\.gz)$")
@@ -56,7 +60,7 @@ def validate_archive(path: Path | None = None, *, count_records: bool = False) -
 def seed() -> None:
     from minio import Minio
 
-    state = validate_archive(count_records=True)
+    state = validate_archive()
     bucket = os.environ.get("BOTSV3_BUCKET", "botsv3")
     client = Minio(
         os.environ.get("BOTSV3_ENDPOINT", "minio:9000"),
@@ -67,14 +71,45 @@ def seed() -> None:
     if not client.bucket_exists(bucket):
         client.make_bucket(bucket)
     expected_keys: set[str] = set()
+    record_count = 0
     with zipfile.ZipFile(state["path"]) as archive:
         for item in state["members"]:
             key = Path(item.filename).name
             expected_keys.add(key)
-            with archive.open(item) as stream:
+            object_records = 0
+            with tempfile.SpooledTemporaryFile(max_size=64 * 1024 * 1024) as stream:
+                with (
+                    archive.open(item) as compressed,
+                    gzip.GzipFile(fileobj=compressed) as source,
+                    gzip.GzipFile(fileobj=stream, mode="wb", mtime=0) as destination,
+                ):
+                    for line_number, raw_line in enumerate(source, start=1):
+                        if not raw_line.strip():
+                            continue
+                        event = json.loads(raw_line)
+                        if "event_ref" in event:
+                            raise RuntimeError(
+                                f"source archive unexpectedly contains event_ref in {key}:{line_number}"
+                            )
+                        event["event_ref"] = event_ref(key, line_number, raw_line)
+                        destination.write(
+                            json.dumps(
+                                event, ensure_ascii=True, separators=(",", ":")
+                            ).encode("utf-8")
+                            + b"\n"
+                        )
+                        object_records += 1
+                length = stream.tell()
+                stream.seek(0)
                 client.put_object(
-                    bucket, key, stream, item.file_size, content_type="application/gzip"
+                    bucket,
+                    key,
+                    stream,
+                    length,
+                    content_type="application/gzip",
+                    metadata={"event-ref-version": EVENT_REF_VERSION},
                 )
+            record_count += object_records
     for obj in client.list_objects(bucket):
         if obj.object_name not in expected_keys:
             client.remove_object(bucket, obj.object_name)
@@ -93,8 +128,13 @@ def seed() -> None:
     objects = list(client.list_objects(bucket))
     if {o.object_name for o in objects} != expected_keys:
         raise RuntimeError("MinIO object verification failed")
+    if record_count != state["record_count"]:
+        raise RuntimeError(
+            f"seeded record count mismatch: {record_count} != {state['record_count']}"
+        )
     print(
-        f"[dataset-seed] READY: {len(objects)} objects, {state['record_count']} records",
+        f"[dataset-seed] READY: {len(objects)} objects, {record_count} records, "
+        f"event_ref={EVENT_REF_VERSION}",
         flush=True,
     )
 

@@ -1,0 +1,283 @@
+{
+  "schema_version": 2,
+  "event_ref_version": "sha256-object-line-v1",
+  "determination_values": [
+    "true_positive",
+    "false_positive"
+  ],
+  "incident_relevance_values": [
+    "related",
+    "unrelated"
+  ],
+  "cases": [
+    {
+      "alert_id": "guardduty:s3-public-access",
+      "expected_determination": "true_positive",
+      "expected_incident_relevance": "related",
+      "basis": "The exact CloudTrail record grants AllUsers read and write access to frothlywebcode.",
+      "event_object_key": "botsv3_2018-08-20_13.jsonl.gz",
+      "anchor_event_refs": [
+        "e3b0e024a432fb1755a0aff8a4fb7f93dbbdb351cdd1b29d149f8c71b5a0d5c0"
+      ],
+      "required_enrichments": [],
+      "enrichment_targets": []
+    },
+    {
+      "alert_id": "guardduty:ec2-coinminer-dns",
+      "expected_determination": "true_positive",
+      "expected_incident_relevance": "related",
+      "basis": "The endpoint resolves and connects to a Coinhive mining destination.",
+      "event_object_key": "botsv3_2018-08-20_13.jsonl.gz",
+      "anchor_event_refs": [
+        "cc8743be83ba9761ac1dc232d367644dbb4800ec3f0f372480bd8636595424eb"
+      ],
+      "required_enrichments": [
+        "urlscan",
+        "virustotal"
+      ],
+      "enrichment_targets": [
+        "ws019.coinhive.com"
+      ]
+    },
+    {
+      "alert_id": "guardduty:c2-contact",
+      "expected_determination": "true_positive",
+      "expected_incident_relevance": "related",
+      "basis": "The decoded PowerShell command downloads and executes content from the C2 endpoint.",
+      "event_object_key": "botsv3_2018-08-20_10.jsonl.gz",
+      "anchor_event_refs": [
+        "16cd8a65cd6fb59b08586d0a1479666534c6d2db4f9bf1ca042da0033654acc2"
+      ],
+      "required_enrichments": [
+        "urlscan",
+        "virustotal"
+      ],
+      "enrichment_targets": [
+        "45.77.53.176"
+      ]
+    },
+    {
+      "alert_id": "wiz_defend:coinminer-runtime",
+      "expected_determination": "true_positive",
+      "expected_incident_relevance": "related",
+      "basis": "The same evidence object contains a 100 percent CPU browser process and immediate Coinhive DNS activity.",
+      "event_object_key": "botsv3_2018-08-20_13.jsonl.gz",
+      "anchor_event_refs": [
+        "721fc67c9108718e350d0889518e0b30f42b9a566741d299907ccf6397d4fd08",
+        "cc8743be83ba9761ac1dc232d367644dbb4800ec3f0f372480bd8636595424eb"
+      ],
+      "required_enrichments": [],
+      "enrichment_targets": []
+    },
+    {
+      "alert_id": "wiz_defend:linux-rce-c2",
+      "expected_determination": "true_positive",
+      "expected_incident_relevance": "related",
+      "basis": "The process command line records remote Struts execution of a reverse shell.",
+      "event_object_key": "botsv3_2018-08-20_11.jsonl.gz",
+      "anchor_event_refs": [
+        "4a5d0f98992f095e5ed99cbb5d1a215f9ef8f3ead50e29dcd47f55808b0f7aa6"
+      ],
+      "required_enrichments": [
+        "urlscan",
+        "virustotal"
+      ],
+      "enrichment_targets": [
+        "45.77.53.176"
+      ]
+    },
+    {
+      "alert_id": "wiz_vulnerability:linux-cves",
+      "expected_determination": "true_positive",
+      "expected_incident_relevance": "related",
+      "basis": "File-integrity and process events show exploit source staged and compiled by tomcat8 on hoth.",
+      "event_object_key": "botsv3_2018-08-20_11.jsonl.gz",
+      "anchor_event_refs": [
+        "4a5d0f98992f095e5ed99cbb5d1a215f9ef8f3ead50e29dcd47f55808b0f7aa6",
+        "273bec3249d35b63f04083fd1251fe5bb9cd886f987f8bcd45328a6a598a4001"
+      ],
+      "required_enrichments": [],
+      "enrichment_targets": []
+    },
+    {
+      "alert_id": "wiz_issue:public-s3-exposure",
+      "expected_determination": "true_positive",
+      "expected_incident_relevance": "related",
+      "basis": "The exact CloudTrail record grants AllUsers read and write access to frothlywebcode.",
+      "event_object_key": "botsv3_2018-08-20_13.jsonl.gz",
+      "anchor_event_refs": [
+        "e3b0e024a432fb1755a0aff8a4fb7f93dbbdb351cdd1b29d149f8c71b5a0d5c0"
+      ],
+      "required_enrichments": [],
+      "enrichment_targets": []
+    },
+    {
+      "alert_id": "defender_cloud:linux-history-cleared",
+      "expected_determination": "true_positive",
+      "expected_incident_relevance": "related",
+      "basis": "A root process event records removal of the compromised service account's history file.",
+      "event_object_key": "botsv3_2018-08-20_11.jsonl.gz",
+      "anchor_event_refs": [
+        "79230a122cc1a238cdb5602d9f61593088edf446431ea0ade5a3a81684fcf602"
+      ],
+      "required_enrichments": [],
+      "enrichment_targets": []
+    },
+    {
+      "alert_id": "defender_cloud:linux-suspicious-network",
+      "expected_determination": "true_positive",
+      "expected_incident_relevance": "related",
+      "basis": "The process command line records a reverse shell to the external host.",
+      "event_object_key": "botsv3_2018-08-20_11.jsonl.gz",
+      "anchor_event_refs": [
+        "4a5d0f98992f095e5ed99cbb5d1a215f9ef8f3ead50e29dcd47f55808b0f7aa6"
+      ],
+      "required_enrichments": [
+        "urlscan",
+        "virustotal"
+      ],
+      "enrichment_targets": [
+        "45.77.53.176"
+      ]
+    },
+    {
+      "alert_id": "sigma:m365-onedrive-lnk-upload",
+      "expected_determination": "false_positive",
+      "expected_incident_relevance": "related",
+      "basis": "The incident-related LNK exists, but the exact event is AnonymousLinkUsed; no FileUploaded event exists for this file.",
+      "event_object_key": "botsv3_2018-08-20_10.jsonl.gz",
+      "anchor_event_refs": [
+        "0fb0caf40e2745c7e7582fdb8170a099d2dd92b6f2578c0af342b56e517685f3"
+      ],
+      "required_enrichments": [],
+      "enrichment_targets": []
+    },
+    {
+      "alert_id": "sigma:m365-onedrive-unusual-user-agent",
+      "expected_determination": "true_positive",
+      "expected_incident_relevance": "related",
+      "basis": "The audit event records the unusual browser and external source on the compromised user's login.",
+      "event_object_key": "botsv3_2018-08-20_00.jsonl.gz",
+      "anchor_event_refs": [
+        "64c6a2053d0351c4ed8d29a4429b132413bfb11e59513fa19c544cd46b826da9"
+      ],
+      "required_enrichments": [],
+      "enrichment_targets": []
+    },
+    {
+      "alert_id": "sigma:m365-link-file-used",
+      "expected_determination": "true_positive",
+      "expected_incident_relevance": "related",
+      "basis": "The OneDrive audit event records AnonymousLinkUsed for the malicious LNK.",
+      "event_object_key": "botsv3_2018-08-20_10.jsonl.gz",
+      "anchor_event_refs": [
+        "0fb0caf40e2745c7e7582fdb8170a099d2dd92b6f2578c0af342b56e517685f3"
+      ],
+      "required_enrichments": [],
+      "enrichment_targets": []
+    },
+    {
+      "alert_id": "sigma:m365-inbox-rule-forward-external",
+      "expected_determination": "true_positive",
+      "expected_incident_relevance": "related",
+      "basis": "The Exchange audit event records the malicious enforced blind-copy rule.",
+      "event_object_key": "botsv3_2018-08-20_11.jsonl.gz",
+      "anchor_event_refs": [
+        "ca842c0509dbc257ab558ba81a8ff3012ab5c78c0c2859d665ff4982c7185f3d"
+      ],
+      "required_enrichments": [],
+      "enrichment_targets": []
+    },
+    {
+      "alert_id": "sigma:m365-sensitive-mail-search",
+      "expected_determination": "true_positive",
+      "expected_incident_relevance": "related",
+      "basis": "The Exchange audit event records the sensitive all-mailbox search by the compromised user.",
+      "event_object_key": "botsv3_2018-08-20_11.jsonl.gz",
+      "anchor_event_refs": [
+        "cbbacd17e1df210706efab3be6bf554b9811e4d6ca236b2e2ef415c716aa81f7"
+      ],
+      "required_enrichments": [],
+      "enrichment_targets": []
+    },
+    {
+      "alert_id": "sigma:m365-aad-account-disabled",
+      "expected_determination": "true_positive",
+      "expected_incident_relevance": "related",
+      "basis": "The directory audit record shows the compromised actor successfully changed AccountEnabled from true to false.",
+      "event_object_key": "botsv3_2018-08-20_14.jsonl.gz",
+      "anchor_event_refs": [
+        "b27eee8dbd45c6049b84667faecbb12cbe3b55914c2d25f8e2dd225959b5e617"
+      ],
+      "required_enrichments": [],
+      "enrichment_targets": []
+    },
+    {
+      "alert_id": "sigma:web-password-spray",
+      "expected_determination": "true_positive",
+      "expected_incident_relevance": "unrelated",
+      "basis": "The SSH daemon records a real external username spray, but the source is not part of the main BOTSv3 intrusion chain.",
+      "event_object_key": "botsv3_2018-08-20_15.jsonl.gz",
+      "anchor_event_refs": [
+        "50687c787f54209d9ecf8a4800b4fa16ce7bca12eb90f0e9afe770179d70bdfd",
+        "ae48618a1c704a1372b7046fdc4ffbd06c15702d671d37a3ec5e3985729f4c2a"
+      ],
+      "required_enrichments": [
+        "urlscan",
+        "virustotal"
+      ],
+      "enrichment_targets": [
+        "5.101.40.81"
+      ]
+    },
+    {
+      "alert_id": "sigma:endpoint-hxtsr-from-macro",
+      "expected_determination": "false_positive",
+      "expected_incident_relevance": "unrelated",
+      "basis": "The process is the Windows communications app launched by svchost; no Office or macro lineage is present.",
+      "event_object_key": "botsv3_2018-08-18_15.jsonl.gz",
+      "anchor_event_refs": [
+        "f0bfe8191bf757ca80b235035e9ce80d3c1b438289de6327d3e38252e430f9f9"
+      ],
+      "required_enrichments": [],
+      "enrichment_targets": []
+    },
+    {
+      "alert_id": "sigma:endpoint-hdoor-network-scan",
+      "expected_determination": "true_positive",
+      "expected_incident_relevance": "related",
+      "basis": "The endpoint event records hdoor launched by PowerShell with an internal scan range and the known artifact hash.",
+      "event_object_key": "botsv3_2018-08-20_10.jsonl.gz",
+      "anchor_event_refs": [
+        "a32fe13fa0f8b801708065bae98edb13d791b21493dcab944304e901c7eb6992"
+      ],
+      "required_enrichments": [],
+      "enrichment_targets": []
+    },
+    {
+      "alert_id": "sigma:linux-netcat-listener",
+      "expected_determination": "true_positive",
+      "expected_incident_relevance": "related",
+      "basis": "The process listing records a root-owned Netcat listener executing /bin/bash on port 1337.",
+      "event_object_key": "botsv3_2018-08-18_12.jsonl.gz",
+      "anchor_event_refs": [
+        "34ff95f22fec27c476961d649be8a2d96d36e11d007d295c29a9b3b915df5843"
+      ],
+      "required_enrichments": [],
+      "enrichment_targets": []
+    },
+    {
+      "alert_id": "sigma:linux-uid0-user-created",
+      "expected_determination": "true_positive",
+      "expected_incident_relevance": "related",
+      "basis": "The remote command and Linux account log jointly prove successful creation of a UID 0 account.",
+      "event_object_key": "botsv3_2018-08-20_11.jsonl.gz",
+      "anchor_event_refs": [
+        "36535461945e036c698c6f8f716b5435269629aecad5a6ff67edd697bf8ff555",
+        "ed3774cc27fc46f2dc59011df5a0ff9bcf1b8b14ac4fd91794701df24b467d29"
+      ],
+      "required_enrichments": [],
+      "enrichment_targets": []
+    }
+  ]
+}

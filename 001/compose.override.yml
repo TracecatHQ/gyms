@@ -91,14 +91,17 @@ services:
 
   eval-runner:
     image: ${GYM_CONTROL_IMAGE:?missing Gym 001 control image}
+    user: "${GYM_HOST_UID:?missing host UID}:${GYM_HOST_GID:?missing host GID}"
     profiles: ["evaluation"]
     restart: "no"
     networks: [core]
     environment:
+      HOME: /tmp
       TRACEcat_INTERNAL_API_URL: http://api:8000
       TRACEcat_PUBLIC_APP_URL: ${PUBLIC_APP_URL}
       TRACEcat_TENANT_EMAIL: ${TRACEcat_TENANT_EMAIL}
       TRACEcat_TENANT_PASSWORD: ${TRACEcat_TENANT_PASSWORD}
+      SPLUNK_MCP_URL: http://splunk-mcp-compat:8000/mcp
     volumes:
       - ${GYM_ROOT:?missing GYM_ROOT}/eval-results:/opt/gym/eval-results
     command: ["internal-eval"]

@@ -1,21 +1,14 @@
-"""Paths, immutable image references, and Compose invocation."""
+"""Gym 002 definition and deterministic control-image identity."""
 
 from __future__ import annotations
-import base64
+
 import hashlib
 import json
 import os
-import subprocess
 from pathlib import Path
 
-PROJECT = "tracecat-gym-002"
-VOLUME_SUFFIXES = (
-    "core-db",
-    "temporal-db",
-    "minio-data",
-    "redis-data",
-    "sandbox-cache",
-)
+from gymctl import compose
+from gymctl.definition import GymDefinition
 
 
 def root() -> Path:
@@ -29,6 +22,21 @@ def root() -> Path:
 
 ROOT = root()
 REPO_ROOT = ROOT.parent
+DEFINITION = GymDefinition(
+    gym_id="002",
+    root=ROOT,
+    compose_project="tracecat-gym-002",
+    volume_suffixes=(
+        "core-db",
+        "temporal-db",
+        "minio-data",
+        "redis-data",
+        "sandbox-cache",
+    ),
+    host_port=28080,
+)
+PROJECT = DEFINITION.compose_project
+VOLUME_SUFFIXES = DEFINITION.volume_suffixes
 LOCK_PATH = ROOT / "gym.lock.json"
 PLATFORM_LOCK_PATH = REPO_ROOT / "platform.lock.json"
 
@@ -42,23 +50,16 @@ def load_platform_lock() -> dict:
 
 
 def parse_env(path: Path | None = None) -> dict[str, str]:
-    values: dict[str, str] = {}
-    source = path or ROOT / ".env"
-    if source.is_file():
-        for raw in source.read_text().splitlines():
-            line = raw.strip()
-            if line and not line.startswith("#") and "=" in line:
-                key, value = line.split("=", 1)
-                values[key] = value.strip().strip('"').strip("'")
-    return values
+    return compose.parse_env(DEFINITION, path)
 
 
 def upstream_image(name: str) -> str:
-    item = load_platform_lock()["images"][name]
-    return f"{item['source_ref']}@{item['digest']}"
+    return compose.upstream_image(DEFINITION, name)
 
 
-def image_input_hash() -> str:
+def image_input_hash(component: str = "control") -> str:
+    if component != "control":
+        raise ValueError(f"unknown image component: {component}")
     hasher = hashlib.sha256()
     paths = list((ROOT / "src").rglob("*.py")) + list((ROOT / "benchmark").rglob("*"))
     paths = [
@@ -90,59 +91,27 @@ def image_input_hash() -> str:
     return hasher.hexdigest()
 
 
-def local_image() -> str:
+def local_image(component: str = "control") -> str:
+    if component != "control":
+        raise ValueError(f"unknown image component: {component}")
     return f"{load_lock()['images']['local']['control']['repository']}:{image_input_hash()[:16]}"
 
 
 def compose_environment() -> dict[str, str]:
-    env = os.environ.copy()
-    env.update(
-        {
-            "GYM_ROOT": str(ROOT),
-            "COMPOSE_PROJECT_NAME": PROJECT,
-            "GYM_CONTROL_IMAGE": local_image(),
-            "GYM_CADDYFILE_B64": base64.b64encode(
-                (REPO_ROOT / "upstream/tracecat/Caddyfile").read_bytes()
-            ).decode(),
-            **{
-                f"IMAGE_{name.upper()}": upstream_image(name)
-                for name in load_platform_lock()["images"]
-            },
-        }
+    return compose.compose_environment(
+        DEFINITION, {"GYM_CONTROL_IMAGE": local_image("control")}
     )
-    return env
 
 
 def compose_args(*args: str) -> list[str]:
-    common_env = REPO_ROOT / "config/tracecat.env.example"
-    gym_env = ROOT / (".env" if (ROOT / ".env").is_file() else ".env.example")
-    return [
-        "docker",
-        "compose",
-        "--project-name",
-        PROJECT,
-        "--project-directory",
-        str(ROOT),
-        "--env-file",
-        str(common_env),
-        "--env-file",
-        str(gym_env),
-        "-f",
-        str(REPO_ROOT / "upstream/tracecat/docker-compose.yml"),
-        "-f",
-        str(REPO_ROOT / "compose/tracecat.override.yml"),
-        "-f",
-        str(ROOT / "compose.override.yml"),
-        *args,
-    ]
+    return compose.compose_args(DEFINITION, *args)
 
 
 def run_compose(*args: str, check: bool = True, capture: bool = False):
-    return subprocess.run(
-        compose_args(*args),
-        cwd=ROOT,
-        env=compose_environment(),
+    return compose.run_compose(
+        DEFINITION,
+        {"GYM_CONTROL_IMAGE": local_image("control")},
+        *args,
         check=check,
-        text=True,
-        capture_output=capture,
+        capture=capture,
     )

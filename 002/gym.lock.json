@@ -6,6 +6,6 @@
   },
   "artifacts": {"botsv3": {"classification": "user-supplied", "path": "assets/botsv3-20260904T130332Z-1-001.zip", "sha256": "6cb50794622525c1823ae27a8d40a718aaab62b2d665bbb06584ec5a2163d70f", "archive_bytes": 117688518, "member_count": 71, "member_bytes": 117652792, "record_count": 489968, "bucket": "botsv3"}},
   "images": {
-    "local": {"control": {"classification": "gym-owned", "repository": "tracecat-gyms/gym-002-control", "future_repository": "ghcr.io/tracecathq/gym-002-control", "input_sha256": "3e8deede0f58f4217d69fc473919d294a778ea923cfb7c768a8cf13f60affdd7"}}
+    "local": {"control": {"classification": "gym-owned", "repository": "tracecat-gyms/gym-002-control", "future_repository": "ghcr.io/tracecathq/gym-002-control", "input_sha256": "b0bb64bdd9beac89dd8421a8e84a360ff2cd33ec74377bc982a1441db8f15fea"}}
   }
 }

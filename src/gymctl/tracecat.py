@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-if TYPE_CHECKING:
-    import httpx
+from .http import ClientLike, ResponseLike
 
 
 ENTITLEMENTS = {
@@ -32,7 +31,7 @@ def required_env(name: str) -> str:
     return value
 
 
-def response_error(response: httpx.Response) -> TracecatError:
+def response_error(response: ResponseLike) -> TracecatError:
     detail = response.text.strip().replace("\n", " ")[-600:]
     return TracecatError(
         f"Tracecat {response.request.method} {response.request.url.path} returned {response.status_code}: {detail}"
@@ -40,7 +39,7 @@ def response_error(response: httpx.Response) -> TracecatError:
 
 
 def request_json(
-    client: httpx.Client,
+    client: ClientLike,
     method: str,
     url: str,
     *,
@@ -58,7 +57,7 @@ def request_json(
     return response.json()
 
 
-def client() -> httpx.Client:
+def client() -> ClientLike:
     import httpx
 
     return httpx.Client(
@@ -69,7 +68,7 @@ def client() -> httpx.Client:
 
 
 def login(
-    client: httpx.Client,
+    client: ClientLike,
     email: str | None = None,
     password: str | None = None,
 ) -> str:
@@ -88,10 +87,13 @@ def login(
     workspace_id = workspaces[0].get("id")
     if not workspace_id:
         raise TracecatError("workspace response is missing an id")
-    return str(workspace_id)
+    workspace_id = str(workspace_id)
+    client.headers["x-tracecat-role-workspace-id"] = workspace_id
+    client.params = {**client.params, "workspace_id": workspace_id}
+    return workspace_id
 
 
-def verify_entitlements(client: httpx.Client) -> None:
+def verify_entitlements(client: ClientLike) -> None:
     payload = request_json(client, "GET", "/organization/entitlements")
     if not isinstance(payload, dict):
         raise TracecatError("organization entitlement response is malformed")
@@ -102,7 +104,7 @@ def verify_entitlements(client: httpx.Client) -> None:
         )
 
 
-def default_agent_model(client: httpx.Client) -> dict[str, Any]:
+def default_agent_model(client: ClientLike) -> dict[str, Any]:
     selection = request_json(client, "GET", "/agent/default-model-selection")
     if not isinstance(selection, dict):
         raise TracecatError("configure an organization-default agent model in Tracecat")

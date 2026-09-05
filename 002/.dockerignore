@@ -12,3 +12,5 @@
 # Compose bind mount. It must never enter a Docker build context or layer.
 assets/
 *.zip
+**/__pycache__
+**/*.pyc

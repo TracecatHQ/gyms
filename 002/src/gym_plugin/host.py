@@ -2,19 +2,18 @@
 
 from __future__ import annotations
 import base64
-import hashlib
 import os
 import secrets
 import shutil
 import socket
-import stat
-import subprocess
-import time
 from pathlib import Path
+
+from gymctl import lifecycle
+
 from . import config
 
 
-class GymError(RuntimeError):
+class GymError(lifecycle.LifecycleError):
     pass
 
 
@@ -23,9 +22,7 @@ def log(message: str) -> None:
 
 
 def run(command: list[str], *, check: bool = True, capture: bool = False):
-    return subprocess.run(
-        command, cwd=config.ROOT, check=check, text=True, capture_output=capture
-    )
+    return lifecycle.run(config.ROOT, command, check=check, capture=capture)
 
 
 def init() -> None:
@@ -47,28 +44,7 @@ def init() -> None:
         "TRACEcat_TENANT_PASSWORD": secrets.token_urlsafe(24),
         "TRACEcat_SUPERADMIN_PASSWORD": secrets.token_urlsafe(24),
     }
-    output = []
-    sources = (
-        config.REPO_ROOT / "config/tracecat.env.example",
-        config.ROOT / ".env.example",
-    )
-    for line in "\n".join(
-        source.read_text().rstrip() for source in sources
-    ).splitlines():
-        key = line.split("=", 1)[0] if "=" in line else ""
-        if key in replacements:
-            line = f"{key}={replacements[key]}"
-        elif key == "TRACECAT__DB_URI":
-            line = f"TRACECAT__DB_URI=postgresql+psycopg://postgres:{replacements['TRACECAT__POSTGRES_PASSWORD']}@postgres_db:5432/postgres"
-        output.append(line)
-    temporary = config.ROOT / f".env.tmp.{os.getpid()}"
-    old = os.umask(0o077)
-    try:
-        temporary.write_text("\n".join(output) + "\n")
-        temporary.replace(target)
-    finally:
-        os.umask(old)
-    target.chmod(0o600)
+    lifecycle.write_env(config.DEFINITION, replacements)
     log("Created .env with random credentials and mode 0600.")
 
 
@@ -77,8 +53,9 @@ def doctor() -> None:
         if shutil.which(name) is None:
             raise GymError(f"required command is missing: {name}")
     run(["docker", "info"], capture=True)
+    port = config.DEFINITION.host_port
     rows = run(
-        ["docker", "ps", "--filter", "publish=28080", "--format", "{{.ID}}"],
+        ["docker", "ps", "--filter", f"publish={port}", "--format", "{{.ID}}"],
         capture=True,
     ).stdout.split()
     for container in rows:
@@ -93,11 +70,13 @@ def doctor() -> None:
             capture=True,
         ).stdout.strip()
         if owner != config.PROJECT:
-            raise GymError(f"port 28080 belongs to Docker project {owner or 'unknown'}")
+            raise GymError(
+                f"port {port} belongs to Docker project {owner or 'unknown'}"
+            )
     if not rows:
         with socket.socket() as probe:
-            if probe.connect_ex(("127.0.0.1", 28080)) == 0:
-                raise GymError("host port 28080 is occupied")
+            if probe.connect_ex(("127.0.0.1", port)) == 0:
+                raise GymError(f"host port {port} is occupied")
     from .dataset import validate_archive
 
     validate_archive()
@@ -119,19 +98,7 @@ def doctor() -> None:
 
 
 def _image_label(image: str) -> str | None:
-    result = run(
-        [
-            "docker",
-            "image",
-            "inspect",
-            image,
-            "--format",
-            '{{index .Config.Labels "org.tracecat.gym.input-sha"}}',
-        ],
-        check=False,
-        capture=True,
-    )
-    return result.stdout.strip() if result.returncode == 0 else None
+    return lifecycle.image_label(config.ROOT, image, "org.tracecat.gym.input-sha")
 
 
 def build(*, force: bool = False) -> None:
@@ -143,123 +110,62 @@ def build(*, force: bool = False) -> None:
     revision = run(["git", "rev-parse", "HEAD"], capture=True).stdout.strip()
     lock = config.load_lock()
     platform = config.load_platform_lock()
-    run(
-        [
-            "docker",
-            "build",
-            "--file",
-            str(config.ROOT / "images/control/Dockerfile"),
-            "--tag",
-            image,
-            "--build-context",
-            f"gymctl={config.REPO_ROOT / 'src/gymctl'}",
-            "--build-arg",
-            f"TRACECAT_IMAGE={config.upstream_image('tracecat')}",
-            "--build-arg",
-            f"TRACECAT_VERSION={platform['tracecat']['tag']}",
-            "--build-arg",
-            f"GYM_COMPONENT_VERSION={lock['gym']['component_version']}",
-            "--build-arg",
-            f"GYM_INPUT_SHA={digest}",
-            "--build-arg",
-            f"GYM_REVISION={revision}",
-            str(config.ROOT),
-        ]
+    lifecycle.build_image(
+        config.DEFINITION,
+        image=image,
+        dockerfile=config.ROOT / "images/control/Dockerfile",
+        context=config.ROOT,
+        input_digest=digest,
+        build_contexts={"gymctl": config.REPO_ROOT / "src/gymctl"},
+        build_args={
+            "TRACECAT_IMAGE": config.upstream_image("tracecat"),
+            "TRACECAT_VERSION": platform["tracecat"]["tag"],
+            "GYM_COMPONENT_VERSION": lock["gym"]["component_version"],
+            "GYM_INPUT_SHA": digest,
+            "GYM_REVISION": revision,
+        },
+        force=True,
     )
-    if _image_label(image) != digest:
-        raise GymError("built control image label mismatch")
 
 
 def _container_id(service: str) -> str:
-    rows = (
-        config.run_compose(
-            "--profile", "bootstrap", "ps", "--all", "--quiet", service, capture=True
-        )
-        .stdout.strip()
-        .splitlines()
-    )
-    return rows[0] if rows else ""
+    return lifecycle.container_id(config.run_compose, service)
 
 
 def _wait_exit(service: str, timeout: int = 900) -> None:
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        container = _container_id(service)
-        if container:
-            state = run(
-                [
-                    "docker",
-                    "inspect",
-                    "--format",
-                    "{{.State.Status}} {{.State.ExitCode}}",
-                    container,
-                ],
-                capture=True,
-            ).stdout.strip()
-            if state.startswith("exited "):
-                if state != "exited 0":
-                    config.run_compose(
-                        "--profile",
-                        "bootstrap",
-                        "logs",
-                        "--no-color",
-                        service,
-                        check=False,
-                    )
-                    raise GymError(f"{service} failed: {state}")
-                return
-        time.sleep(2)
-    raise GymError(f"timed out waiting for {service}")
+    lifecycle.wait_exit(
+        config.DEFINITION,
+        config.run_compose,
+        service,
+        timeout=timeout,
+    )
 
 
 def _run_bootstrap(service: str, timeout: int = 900) -> None:
-    config.run_compose(
-        "--profile",
-        "bootstrap",
-        "up",
-        "--detach",
-        "--no-deps",
-        "--force-recreate",
+    lifecycle.run_bootstrap(
+        config.DEFINITION,
+        config.run_compose,
         service,
+        timeout=timeout,
     )
-    _wait_exit(service, timeout)
 
 
 def _wait_runtime_health(timeout: int = 600) -> None:
     required = ("api", "litellm", "postgres_db", "temporal", "minio", "redis")
-    deadline = time.monotonic() + timeout
-    last: dict[str, str] = {}
-    while time.monotonic() < deadline:
-        states: dict[str, str] = {}
-        for service in required:
-            container = _container_id(service)
-            if not container:
-                states[service] = "missing"
-                continue
-            states[service] = run(
-                [
-                    "docker",
-                    "inspect",
-                    "--format",
-                    "{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{end}}",
-                    container,
-                ],
-                capture=True,
-            ).stdout.strip()
-        if all(value == "running healthy" for value in states.values()):
-            return
-        if states != last:
-            log(
-                "waiting for runtime health: "
-                + ", ".join(
-                    f"{key}={value}"
-                    for key, value in states.items()
-                    if value != "running healthy"
-                )
+    lifecycle.wait_runtime_health(
+        config.DEFINITION,
+        config.run_compose,
+        required,
+        timeout=timeout,
+        on_change=lambda states: log(
+            "waiting for runtime health: "
+            + ", ".join(
+                f"{key}={value}"
+                for key, value in states.items()
+                if value != "running healthy"
             )
-            last = states
-        time.sleep(5)
-    raise GymError(f"services did not become healthy: {last}")
+        ),
+    )
 
 
 def up() -> None:
@@ -277,7 +183,7 @@ def info() -> None:
     env = config.parse_env()
     if not env:
         raise GymError(".env is missing; run just init")
-    print("Tracecat UI: http://127.0.0.1:28080")
+    print(f"Tracecat UI: http://127.0.0.1:{config.DEFINITION.host_port}")
     print(
         f"  Tenant: {env['TRACEcat_TENANT_EMAIL']} / {env['TRACEcat_TENANT_PASSWORD']}"
     )
@@ -294,7 +200,9 @@ def status() -> None:
     from gymctl.http import Client
     from . import reconcile as state
 
-    with Client(base_url=env["PUBLIC_API_URL"], timeout=120) as client:
+    with Client(
+        base_url=env["PUBLIC_API_URL"], timeout=120, follow_redirects=True
+    ) as client:
         state.status(
             client,
             env["TRACEcat_TENANT_EMAIL"],
@@ -323,11 +231,11 @@ def migrate() -> None:
     log("Gym 002 has no legacy volume namespace; no migration is required.")
 
 
-def evaluate(alert_id: str | None = None) -> None:
+def evaluate(alert_id: str | None = None) -> int:
     wait()
     build()
     results = config.ROOT / "eval-results"
-    results.mkdir(mode=0o700, exist_ok=True)
+    lifecycle.ensure_host_directory(results)
     command = [
         "--profile",
         "evaluation",
@@ -339,7 +247,7 @@ def evaluate(alert_id: str | None = None) -> None:
     ]
     if alert_id:
         command += ["--alert-id", alert_id]
-    config.run_compose(*command)
+    return config.run_compose(*command, check=False).returncode
 
 
 def logs(service: str | None) -> None:
@@ -404,37 +312,20 @@ def check_upstreams() -> None:
 
 
 def update_dataset(args) -> None:
-    if args.ref:
-        raise GymError("Gym 002 update-dataset does not accept --ref")
+    unsupported = {
+        "--ref": args.ref,
+        "--writeup-html": args.writeup_html,
+        "--duckdb": args.duckdb,
+        "--data-glob": args.data_glob,
+    }
+    used = [name for name, value in unsupported.items() if value is not None]
+    if used:
+        raise GymError(f"Gym 002 update-dataset does not accept: {', '.join(used)}")
     command = ["python3", str(config.ROOT / "tools/update_dataset.py")]
-    for option, value in (
-        ("--writeup-html", args.writeup_html),
-        ("--duckdb", args.duckdb),
-        ("--data-glob", args.data_glob),
-        ("--archive", args.archive),
-    ):
-        if value is not None:
-            command += [option, str(value)]
+    if args.archive is not None:
+        command += ["--archive", str(args.archive)]
     run(command)
 
 
 def volume_digest(path: Path) -> str:
-    digest = hashlib.sha256()
-    for item in sorted(
-        path.rglob("*"), key=lambda value: value.relative_to(path).as_posix()
-    ):
-        details = item.lstat()
-        relative = item.relative_to(path).as_posix()
-        if item.is_symlink():
-            kind, payload = "L", os.readlink(item).encode()
-        elif item.is_dir():
-            kind, payload = "D", b""
-        elif item.is_file():
-            kind, payload = "F", item.read_bytes()
-        else:
-            kind, payload = "O", b""
-        digest.update(
-            f"{relative}\0{kind}\0{stat.S_IMODE(details.st_mode):o}\0{details.st_uid}\0{details.st_gid}\0".encode()
-        )
-        digest.update(hashlib.sha256(payload).digest())
-    return digest.hexdigest()
+    return lifecycle.volume_digest(path)

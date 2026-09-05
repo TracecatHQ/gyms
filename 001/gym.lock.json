@@ -55,7 +55,7 @@
         "classification": "gym-owned",
         "repository": "tracecat-gyms/gym-001-control",
         "future_repository": "ghcr.io/tracecathq/gym-001-control",
-        "input_sha256": "960f92b3dfa29d4a4e278b1f777647af32c6293cc1ac3a4e20f1d6faeeea2fab"
+        "input_sha256": "378f58522414ac29b7a3f9d52e08944a6f2a512354b33671c35bfdcf9aeeb37c"
       }
     }
   },

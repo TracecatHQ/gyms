@@ -1,4 +1,4 @@
-"""Idempotently create Gym 002 users and enable all locked entitlements."""
+"""Idempotently create gym users and enable all locked entitlements."""
 
 from __future__ import annotations
 
@@ -6,17 +6,7 @@ import asyncio
 import os
 import time
 
-
-EXPECTED = {
-    "custom_registry",
-    "git_sync",
-    "agent_addons",
-    "case_addons",
-    "rbac_addons",
-    "service_accounts",
-    "workspace_chat",
-    "watchtower",
-}
+from .tracecat import ENTITLEMENTS
 
 
 async def seed_and_verify() -> None:
@@ -45,9 +35,10 @@ async def seed_and_verify() -> None:
             "not all feature flags in the pinned Tracecat release are enabled"
         )
     available = {item.value for item in Entitlement}
-    if available != EXPECTED:
+    if available != ENTITLEMENTS:
         raise RuntimeError(
-            f"entitlement drift: expected={sorted(EXPECTED)}, available={sorted(available)}"
+            f"entitlement drift: expected={sorted(ENTITLEMENTS)}, "
+            f"available={sorted(available)}"
         )
     async with get_async_session_bypass_rls_context_manager() as session:
         query = await session.execute(select(Tier).where(Tier.is_default.is_(True)))
@@ -56,13 +47,14 @@ async def seed_and_verify() -> None:
             raise RuntimeError(f"expected one default tier, found {len(tiers)}")
         disabled = sorted(
             key
-            for key in EXPECTED
+            for key in ENTITLEMENTS
             if (tiers[0].entitlements or {}).get(key) is not True
         )
         if disabled:
             raise RuntimeError(f"default tier entitlements are disabled: {disabled}")
     print(
-        f"[gym-seed] Ready organization/workspace {result.organization_id}/{result.workspace_id}",
+        f"[gym-seed] Ready organization/workspace "
+        f"{result.organization_id}/{result.workspace_id}",
         flush=True,
     )
 
@@ -71,7 +63,8 @@ def main() -> int:
     for attempt in range(1, 61):
         try:
             print(
-                f"[gym-seed] Seeding users and entitlements ({attempt}/60)", flush=True
+                f"[gym-seed] Seeding users and entitlements ({attempt}/60)",
+                flush=True,
             )
             asyncio.run(seed_and_verify())
             return 0

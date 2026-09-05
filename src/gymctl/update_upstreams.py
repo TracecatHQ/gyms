@@ -149,16 +149,12 @@ def _refresh_gym_locks(repo_root: Path) -> None:
 
     script = """
 import json
-import inspect
 from gym_plugin import config
 
 lock = config.load_lock()
 function = config.image_input_hash
 components = lock.get("images", {}).get("local", {})
-if len(inspect.signature(function).parameters) == 0:
-    hashes = {name: function() for name in components}
-else:
-    hashes = {name: function(name) for name in components}
+hashes = {name: function(name) for name in components}
 print(json.dumps(hashes, sort_keys=True))
 """
     for gym_root in gyms:

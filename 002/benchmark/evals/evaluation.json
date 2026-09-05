@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "classification": "gym-owned",
   "investigator_timeout_seconds": 2700,
   "judge_timeout_seconds": 300,
@@ -11,21 +11,15 @@
     "model_name": "gpt-5.6-sol",
     "preset_slug": "gym-002-evaluation-grader"
   },
-  "base_validation_gates": [
-    "Determination matches the hidden true-positive or false-positive outcome",
-    "Investigation successfully queried the case's exact evidence object with DuckDB",
-    "Case was updated with a bounded evidence-based determination and at least one event_ref"
-  ],
+  "validation_gates": {
+    "determination": "Case determination matches the hidden true-positive or false-positive outcome",
+    "incident_relevance": "Case incident relevance matches the hidden related or unrelated outcome",
+    "exact_object": "Investigation queried only the case's exact evidence object with DuckDB",
+    "case_evidence": "Closed case records both decision tags and cites a stored anchor event_ref returned by the exact-object query",
+    "evidence_support": "The cited case-scoped evidence supports both the final determination and incident-relevance conclusion"
+  },
   "enrichment_validation_gates": {
     "urlscan": "Applicable IOC was successfully enriched using a read-only URLscan search or result lookup",
     "virustotal": "Applicable IOC was successfully enriched using the matching VirusTotal lookup"
-  },
-  "required_enrichments": {
-    "guardduty:ec2-coinminer-dns": ["urlscan", "virustotal"],
-    "guardduty:c2-contact": ["urlscan", "virustotal"],
-    "wiz_defend:linux-rce-c2": ["urlscan", "virustotal"],
-    "defender_cloud:linux-suspicious-network": ["urlscan", "virustotal"],
-    "sigma:web-password-spray": ["urlscan", "virustotal"],
-    "sigma:web-password-spray-repeat-01": ["urlscan", "virustotal"]
   }
 }

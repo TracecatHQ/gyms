@@ -60,10 +60,12 @@ services:
 
   eval-runner:
     image: ${GYM_CONTROL_IMAGE:?missing Gym 002 control image}
+    user: "${GYM_HOST_UID:?missing host UID}:${GYM_HOST_GID:?missing host GID}"
     profiles: [evaluation]
     restart: "no"
     networks: [core]
     environment:
+      HOME: /tmp
       TRACEcat_INTERNAL_API_URL: http://api:8000
       TRACEcat_PUBLIC_APP_URL: ${PUBLIC_APP_URL}
       TRACEcat_TENANT_EMAIL: ${TRACEcat_TENANT_EMAIL}

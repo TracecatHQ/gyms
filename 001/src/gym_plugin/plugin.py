@@ -5,7 +5,7 @@ from __future__ import annotations
 
 def dispatch(args):
     if args.command == "seed":
-        from .seed import main
+        from gymctl.seed import main
 
         return main()
     if args.command == "mcp-proxy":
@@ -51,7 +51,7 @@ def dispatch(args):
     elif args.command == "eval":
         if args.alert_id:
             raise ValueError("Gym 001 eval does not accept --alert-id")
-        host.evaluate(args.runs if args.runs is not None else 1)
+        return host.evaluate(args.runs if args.runs is not None else 1)
     elif args.command == "logs":
         host.logs(args.service)
     elif args.command == "down":

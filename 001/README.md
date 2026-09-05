@@ -49,16 +49,19 @@ retained, and gitignored reports are stored in `eval-results/`. Reconciliation
 creates the published alert as a native Tracecat case and the published
 scorecard as a separate, unlinked `validation_gates` table. Only the tool-free
 grader reads that table; the investigator receives the case and the Splunk MCP
-integration. The source declaration is a Tracecat-maintained transcription of
-the benchmark authors' public article—not an evaluator distributed by the
-dataset repository. Each completed investigation report is also appended to the
-alert case as a native comment. See
+integration. Before each evaluation, the harness verifies that integration's
+pinned internal URI, HTTP/auth types, live connection, exact locked tool set,
+and approval-free read policy. The source declaration is a Tracecat-maintained
+transcription of the benchmark authors' public article—not an evaluator
+distributed by the dataset repository. Each completed investigation report is
+also appended to the alert case as a native comment. See
 [`benchmark/README.md`](./benchmark/README.md) and [`PROVENANCE.md`](./PROVENANCE.md).
 
 After preserving any useful session links and files, `just reset-evals
 CONFIRM=artifacts-captured` replaces only the managed alert case and its
-case-scoped chats. It retains the validation table, Splunk data, integration,
-presets, credentials, and `eval-results/`.
+case-scoped chats, and removes any gym-titled grader session left by interrupted
+cleanup. It retains the validation table, Splunk data, integration, presets,
+credentials, and `eval-results/`.
 
 ## Restart or rebuild
 

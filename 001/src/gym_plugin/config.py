@@ -1,27 +1,14 @@
-"""Paths, lock data, deterministic image hashes, and Compose invocation."""
+"""Gym 001 definition and deterministic image identities."""
 
 from __future__ import annotations
 
 import hashlib
 import json
 import os
-import subprocess
-import base64
 from pathlib import Path
-from typing import Iterable
 
-
-PROJECT = "tracecat-gym-001"
-LEGACY_PROJECT = "the-bigger-interview"
-VOLUME_SUFFIXES = (
-    "core-db",
-    "temporal-db",
-    "minio-data",
-    "redis-data",
-    "sandbox-cache",
-    "splunk-etc",
-    "splunk-var",
-)
+from gymctl import compose
+from gymctl.definition import GymDefinition
 
 
 def root() -> Path:
@@ -33,6 +20,26 @@ def root() -> Path:
 
 ROOT = root()
 REPO_ROOT = ROOT.parent
+DEFINITION = GymDefinition(
+    gym_id="001",
+    root=ROOT,
+    compose_project="tracecat-gym-001",
+    legacy_compose_project="the-bigger-interview",
+    volume_suffixes=(
+        "core-db",
+        "temporal-db",
+        "minio-data",
+        "redis-data",
+        "sandbox-cache",
+        "splunk-etc",
+        "splunk-var",
+    ),
+    host_port=18080,
+    prefer_gym_upstream_images=True,
+)
+PROJECT = DEFINITION.compose_project
+LEGACY_PROJECT = DEFINITION.legacy_compose_project or ""
+VOLUME_SUFFIXES = DEFINITION.volume_suffixes
 LOCK_PATH = ROOT / "gym.lock.json"
 PLATFORM_LOCK_PATH = REPO_ROOT / "platform.lock.json"
 
@@ -46,23 +53,11 @@ def load_platform_lock() -> dict:
 
 
 def parse_env(path: Path | None = None) -> dict[str, str]:
-    values: dict[str, str] = {}
-    source = path or ROOT / ".env"
-    if not source.is_file():
-        return values
-    for raw in source.read_text().splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        values[key] = value.strip().strip('"').strip("'")
-    return values
+    return compose.parse_env(DEFINITION, path)
 
 
 def upstream_image(name: str) -> str:
-    local = load_lock().get("images", {}).get("upstream", {})
-    item = local.get(name) or load_platform_lock()["images"][name]
-    return f"{item['source_ref']}@{item['digest']}"
+    return compose.upstream_image(DEFINITION, name)
 
 
 def _hash_file(hasher: "hashlib._Hash", path: Path, label: str) -> None:
@@ -130,73 +125,34 @@ def local_image(component: str) -> str:
 
 
 def compose_environment() -> dict[str, str]:
-    env = os.environ.copy()
-    env.update(
+    return compose.compose_environment(
+        DEFINITION,
         {
-            "GYM_ROOT": str(ROOT),
-            "COMPOSE_PROJECT_NAME": PROJECT,
             "GYM_SPLUNK_IMAGE": local_image("splunk"),
             "GYM_CONTROL_IMAGE": local_image("control"),
-            "GYM_CADDYFILE_B64": base64.b64encode(
-                (REPO_ROOT / "upstream/tracecat/Caddyfile").read_bytes()
-            ).decode(),
-            "IMAGE_CADDY": upstream_image("caddy"),
-            "IMAGE_TRACECAT": upstream_image("tracecat"),
-            "IMAGE_TRACECAT_UI": upstream_image("tracecat_ui"),
-            "IMAGE_POSTGRES": upstream_image("postgres"),
-            "IMAGE_TEMPORAL_POSTGRES": upstream_image("temporal_postgres"),
-            "IMAGE_TEMPORAL": upstream_image("temporal"),
-            "IMAGE_TEMPORAL_UI": upstream_image("temporal_ui"),
-            "IMAGE_MINIO": upstream_image("minio"),
-            "IMAGE_REDIS": upstream_image("redis"),
-        }
+        },
     )
-    return env
 
 
 def compose_args(*args: str, project: str = PROJECT) -> list[str]:
-    common_env = REPO_ROOT / "config/tracecat.env.example"
-    gym_env = ROOT / (".env" if (ROOT / ".env").is_file() else ".env.example")
-    return [
-        "docker",
-        "compose",
-        "--project-name",
-        project,
-        "--project-directory",
-        str(ROOT),
-        "--env-file",
-        str(common_env),
-        "--env-file",
-        str(gym_env),
-        "-f",
-        str(REPO_ROOT / "upstream/tracecat/docker-compose.yml"),
-        "-f",
-        str(REPO_ROOT / "compose/tracecat.override.yml"),
-        "-f",
-        str(ROOT / "compose.override.yml"),
-        *args,
-    ]
+    return compose.compose_args(DEFINITION, *args, project=project)
 
 
 def run_compose(
     *args: str, project: str = PROJECT, check: bool = True, capture: bool = False
 ):
-    return subprocess.run(
-        compose_args(*args, project=project),
-        cwd=ROOT,
-        env=compose_environment(),
+    return compose.run_compose(
+        DEFINITION,
+        {
+            "GYM_SPLUNK_IMAGE": local_image("splunk"),
+            "GYM_CONTROL_IMAGE": local_image("control"),
+        },
+        *args,
+        project=project,
         check=check,
-        text=True,
-        capture_output=capture,
+        capture=capture,
     )
 
 
 def volume_name(project: str, suffix: str) -> str:
-    return f"{project}_{suffix}"
-
-
-def sha256_paths(paths: Iterable[Path]) -> str:
-    hasher = hashlib.sha256()
-    for path in sorted(paths):
-        _hash_file(hasher, path, path.relative_to(ROOT).as_posix())
-    return hasher.hexdigest()
+    return compose.volume_name(project, suffix)

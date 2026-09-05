@@ -8,7 +8,6 @@
     "core.cases.add_case_tag",
     "core.cases.create_comment",
     "core.cases.get_case",
-    "core.cases.search_cases",
     "core.cases.update_case",
     "core.duckdb.execute_sql",
     "tools.urlscan.get_result",

@@ -1,0 +1,1 @@
+Investigate this alert. Decide its true-positive or false-positive determination independently from whether it is related or unrelated to the main incident. Update and close the case with both decisions and verified evidence.

@@ -1,0 +1,16 @@
+{
+  "name": "Gym 002 Evaluation Grader",
+  "slug": "gym-002-evaluation-grader",
+  "description": "Managed by Gym 002. Grades one BOTSv3 case investigation against hidden case-specific requirements.",
+  "prompt_file": "grader-prompt.md",
+  "model_provider": "openai",
+  "model_name": "gpt-5.6-sol",
+  "actions": [],
+  "namespaces": [],
+  "tool_approvals": {},
+  "mcp_integrations": [],
+  "agents": {"enabled": false, "subagents": []},
+  "retries": 1,
+  "enable_thinking": true,
+  "enable_internet_access": false
+}

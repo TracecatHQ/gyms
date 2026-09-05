@@ -1,0 +1,25 @@
+{
+  "schema_version": 2,
+  "classification": "gym-owned",
+  "investigator_timeout_seconds": 2700,
+  "judge_timeout_seconds": 300,
+  "max_attempts": 3,
+  "investigation_prompt_file": "../agent/investigation-prompt.md",
+  "investigator_preset_slug": "gym-002-soc-t1-analyst",
+  "judge": {
+    "model_provider": "openai",
+    "model_name": "gpt-5.6-sol",
+    "preset_slug": "gym-002-evaluation-grader"
+  },
+  "validation_gates": {
+    "determination": "Case determination matches the hidden true-positive or false-positive outcome",
+    "incident_relevance": "Case incident relevance matches the hidden related or unrelated outcome",
+    "exact_object": "Investigation queried only the case's exact evidence object with DuckDB",
+    "case_evidence": "Closed case records both decision tags and cites a stored anchor event_ref returned by the exact-object query",
+    "evidence_support": "The cited case-scoped evidence supports both the final determination and incident-relevance conclusion"
+  },
+  "enrichment_validation_gates": {
+    "urlscan": "Applicable IOC was successfully enriched using a read-only URLscan search or result lookup",
+    "virustotal": "Applicable IOC was successfully enriched using the matching VirusTotal lookup"
+  }
+}

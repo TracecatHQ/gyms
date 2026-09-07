@@ -1,0 +1,23 @@
+003/README.md
+  s_35bf4dfa751518::t_3fa8578617b2b3 124-126,131-133
+003/src/gym_plugin/reconcile.py
+  s_35bf4dfa751518::t_4fa0d81796ff9c 28-45,73,157-173
+003/gym.lock.json
+  s_35bf4dfa751518::t_8ef2254a91dd5d 13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "32736ec9370421359ab7d8b165b952724b00795d",
+  "prompts": {},
+  "sessions": {
+    "s_35bf4dfa751518": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a07701-2e9b-7ab3-ac7f-cd3ffd9f5422",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Chris Lo <46541035+topher-lo@users.noreply.github.com>"
+    }
+  }
+}

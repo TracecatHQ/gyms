@@ -33,6 +33,8 @@ check-upstreams:
     @{{gymctl}} check-upstreams
 verify-supply-chain:
     @PYTHONDONTWRITEBYTECODE=1 python3 tools/verify_supply_chain.py
+brief:
+    @bash docs/solution-brief/build.sh
 update-upstreams:
     @{{gymctl}} update-upstreams
 scenario-reset CONFIRM="":

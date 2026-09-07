@@ -4,6 +4,8 @@
 > checks, a case-scoped Analyst run, the human firewall workflow, and all 15
 > acceptance gates. The dark-mode screenshots below were recaptured from that
 > live environment and reviewed at full resolution.
+>
+> Customer-facing solution brief: [docs/solution-brief/tracecat-solution-brief-zero-day-mitigation.pdf](docs/solution-brief/tracecat-solution-brief-zero-day-mitigation.pdf)
 
 Gym 003 is a reproducible, isolated exercise for this lifecycle:
 

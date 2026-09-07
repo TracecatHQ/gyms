@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tracecat · Verified zero-day mitigation</title>
+<style>
+@font-face { font-family: "Inter"; font-weight: 400; font-style: normal; src: url("fonts/inter-400.woff2") format("woff2"); }
+@font-face { font-family: "Inter"; font-weight: 500; font-style: normal; src: url("fonts/inter-500.woff2") format("woff2"); }
+@font-face { font-family: "Inter"; font-weight: 600; font-style: normal; src: url("fonts/inter-600.woff2") format("woff2"); }
+@font-face { font-family: "Newsreader"; font-weight: 400; font-style: normal; src: url("fonts/newsreader-400.woff2") format("woff2"); }
+@font-face { font-family: "Newsreader"; font-weight: 500; font-style: normal; src: url("fonts/newsreader-500.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 400; font-style: normal; src: url("fonts/jetbrains-mono-400.woff2") format("woff2"); }
+
+@page { size: A4; margin: 0; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0B0D10; --panel: #12151A; --raised: #171B21; --line: #232830; --line2: #2C323C;
+  --text: #E6E8EB; --muted: #8B929C; --dim: #5F6670;
+  --accent: #6B7CFF; --accent-soft: #9AA6FF; --green: #3DDC97; --amber: #F5B94B; --red: #F0554B;
+  --serif: "Newsreader", "Iowan Old Style", "Times New Roman", ui-serif, serif;
+  --sans: "Inter", system-ui, -apple-system, "Helvetica Neue", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+html, body { background: var(--bg); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { font-family: var(--sans); color: var(--text); font-size: 10.5px; line-height: 1.45; -webkit-font-smoothing: antialiased; }
+.page { width: 210mm; height: 297mm; padding: 13mm 15mm 12mm; overflow: hidden; position: relative; background: var(--bg); display: flex; flex-direction: column; }
+.page + .page { break-before: page; }
+code, .mono { font-family: var(--mono); }
+b, strong { font-weight: 600; }
+a { color: inherit; text-decoration: none; }
+.arr { font-family: system-ui, -apple-system, "Helvetica Neue", sans-serif; }
+
+/* header */
+.hdr { display: flex; align-items: center; justify-content: space-between; padding-bottom: 9px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+.brand { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: 14px; letter-spacing: -0.01em; }
+.brand .pg { font-family: var(--mono); font-size: 9px; color: var(--muted); margin-left: 8px; letter-spacing: 0.04em; }
+.hdr-r { font-size: 10px; color: var(--muted); }
+
+/* type */
+.kicker { font-size: 8.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent-soft); font-weight: 600; margin-bottom: 6px; }
+h1 { font-family: var(--serif); font-weight: 400; font-size: 33px; line-height: 1.08; letter-spacing: -0.012em; color: #F4F5F7; }
+.lede { font-size: 12px; line-height: 1.45; color: #B7BDC6; margin-top: 9px; }
+h2 { font-family: var(--serif); font-weight: 400; font-size: 20px; line-height: 1.15; letter-spacing: -0.01em; color: #F4F5F7; }
+h3 { font-size: 11.5px; font-weight: 600; letter-spacing: -0.005em; color: #F4F5F7; }
+.muted { color: var(--muted); }
+.cap { font-size: 9px; color: var(--muted); line-height: 1.35; margin-top: 6px; }
+
+/* chips */
+.chips { display: flex; gap: 6px; margin-top: 11px; }
+.chip { font-size: 9px; font-weight: 500; color: var(--accent-soft); border: 1px solid rgba(107,124,255,0.45); background: rgba(107,124,255,0.08); border-radius: 999px; padding: 3px 9px; }
+
+/* cards */
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 11px 12px; }
+.card h3 { margin-bottom: 8px; }
+
+/* hero row */
+.hero { display: grid; grid-template-columns: 206px 1fr; gap: 12px; margin-top: 14px; }
+.glance .row { display: grid; grid-template-columns: 52px 1fr; gap: 6px; padding: 8px 0; border-top: 1px solid var(--line); font-size: 9.4px; line-height: 1.4; }
+.glance .row:first-of-type { border-top: 0; padding-top: 0; }
+.glance .k { font-size: 7.6px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); font-weight: 600; padding-top: 1px; }
+.glance .v { color: #C9CED6; }
+.works { display: flex; align-items: flex-start; gap: 10px; margin-top: 8px; padding-top: 9px; border-top: 1px solid var(--line); }
+.works .k { flex: none; width: 58px; font-size: 7.6px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); font-weight: 600; padding-top: 4px; }
+.badges { display: flex; flex-wrap: wrap; gap: 4px; }
+.badge { display: inline-flex; align-items: center; gap: 4px; font-size: 8.2px; font-weight: 500; color: #C9CED6; background: var(--raised); border: 1px solid var(--line2); border-radius: 999px; padding: 3px 8px 3px 4px; white-space: nowrap; line-height: 1; }
+.badge svg { width: 10px; height: 10px; flex: none; }
+
+/* UI mocks */
+.ui { background: #0B0D10; border: 1px solid var(--line2); border-radius: 8px; overflow: hidden; font-size: 8.6px; line-height: 1.3; color: #D5D9DF; }
+.ui .sb { background: #0B0D10; border-right: 1px solid var(--line); padding: 7px 6px; width: 88px; flex: none; white-space: nowrap; overflow: hidden; }
+.ui .sb .ws { display: flex; align-items: center; gap: 4px; font-weight: 600; color: #EDEFF2; font-size: 7.4px; letter-spacing: -0.01em; margin-bottom: 8px; }
+.ui .sb .ws i { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid #EDEFF2; display: inline-block; flex: none; }
+.ui .sb .h { font-size: 7.4px; color: var(--muted); margin: 6px 0 3px 4px; }
+.ui .sb .i { display: flex; align-items: center; gap: 5px; padding: 2.4px 4px; border-radius: 4px; color: #C1C6CE; font-size: 8.2px; }
+.ui .sb .i::before { content: ""; width: 7px; height: 7px; border: 1px solid #6A717B; border-radius: 2px; flex: none; }
+.ui .sb .i.on { background: #1B2027; color: #F4F5F7; }
+.ui .sb .i.on::before { border-color: #C9CED6; }
+.ui .sb .beta { margin-left: auto; font-size: 6.5px; color: var(--muted); background: #171B21; padding: 0 3px; border-radius: 3px; }
+.ui .topbar { display: flex; align-items: center; gap: 6px; padding: 6px 9px; border-bottom: 1px solid var(--line); font-weight: 600; color: #F4F5F7; white-space: nowrap; }
+.ui .sq { width: 8px; height: 8px; border: 1px solid #8B929C; border-radius: 2px; display: inline-block; flex: none; }
+.ui .cd { font-family: var(--mono); font-size: 7.6px; background: #1E232B; color: #E1E5EA; padding: 0 3px; border-radius: 3px; white-space: nowrap; }
+.ok { display: inline-block; width: 8px; height: 8px; border-radius: 50%; border: 1px solid var(--green); position: relative; flex: none; }
+.ok::after { content: ""; position: absolute; left: 2px; top: 1px; width: 2px; height: 3.5px; border: solid var(--green); border-width: 0 1px 1px 0; transform: rotate(45deg); }
+.smac { width: 100%; border-collapse: collapse; margin: 4px 0 6px; font-size: 7.9px; line-height: 1.25; }
+.smac th { text-align: left; color: #8B929C; font-weight: 500; background: #12161B; padding: 2.5px 5px; border: 1px solid var(--line); width: 46px; white-space: nowrap; }
+.smac td { padding: 2.5px 5px; border: 1px solid var(--line); vertical-align: top; color: #DDE1E6; white-space: nowrap; }
+
+.inbox { display: flex; height: 298px; }
+.inbox .mid { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.inbox .search { display: flex; align-items: center; gap: 6px; padding: 6px 9px; color: var(--muted); border-bottom: 1px solid var(--line); white-space: nowrap; }
+.inbox .search .fbtn { margin-left: auto; color: #C1C6CE; }
+.inbox .filtrow { padding: 5px 9px; border-bottom: 1px solid var(--line); }
+.inbox .filt { display: inline-flex; align-items: center; gap: 4px; background: #171B21; border: 1px solid var(--line2); border-radius: 4px; padding: 1.5px 5px; color: #C1C6CE; font-size: 7.6px; white-space: nowrap; }
+.inbox .filt .x { color: var(--muted); }
+.inbox .cols, .inbox .item { display: grid; grid-template-columns: 1.1fr 0.8fr 1fr; gap: 4px; padding: 4px 9px; white-space: nowrap; }
+.inbox .cols { color: var(--muted); font-size: 7.6px; border-bottom: 1px solid var(--line); }
+.inbox .grp { display: flex; align-items: center; gap: 5px; padding: 5px 9px; background: #10161A; color: #DDE1E6; font-weight: 600; border-bottom: 1px solid var(--line); }
+.inbox .grp .n { color: var(--muted); font-weight: 400; }
+.inbox .item { margin: 3px 6px; border: 1px solid var(--accent); border-radius: 5px; background: #10131A; align-items: center; }
+.inbox .item .s { display: inline-flex; align-items: center; gap: 3px; color: #C1C6CE; }
+.inbox .item .s i { width: 7px; height: 7px; border: 1px solid #9AA0A8; border-radius: 2px; display: inline-block; }
+.inbox .item .t { color: var(--muted); }
+.inbox .pane { width: 226px; flex: none; border-left: 1px solid var(--line); background: #0F1216; padding: 7px 9px; display: flex; flex-direction: column; }
+.inbox .pane .ph { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--line); padding-bottom: 5px; margin-bottom: 6px; }
+.inbox .pane .ph b { display: block; color: #F4F5F7; font-size: 9px; }
+.inbox .pane .ph span { color: var(--muted); font-size: 7.8px; }
+.inbox .pane p { margin: 0 0 5px; font-size: 8.4px; line-height: 1.32; color: #D5D9DF; }
+.inbox .pane p b { color: #F4F5F7; }
+.inbox .pane .box { margin-top: auto; border: 1px solid var(--line2); border-radius: 6px; background: #13171C; padding: 5px 7px; }
+.inbox .pane .box .ask { color: var(--dim); font-size: 7.8px; margin-bottom: 6px; }
+.inbox .pane .model { display: inline-flex; align-items: center; gap: 4px; background: #1B2027; border-radius: 999px; padding: 2px 6px; font-size: 7.6px; color: #E1E5EA; }
+.inbox .pane .model i { width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid #E1E5EA; display: inline-block; }
+.inbox .pane .model em { font-style: normal; color: var(--muted); }
+
+/* below-hero */
+.grid2 { display: grid; grid-template-columns: 240px 1fr; gap: 14px; margin-top: 10px; }
+.kh .m { display: grid; grid-template-columns: 62px 1fr; gap: 6px; align-items: baseline; padding: 5px 0; border-top: 1px solid var(--line); }
+.kh .m:first-of-type { border-top: 0; padding-top: 1px; }
+.kh .m:last-of-type { padding-bottom: 0; }
+.kh .n { font-family: var(--serif); font-size: 20px; line-height: 1; color: #F4F5F7; letter-spacing: -0.02em; white-space: nowrap; }
+.kh .n small { font-size: 11px; }
+.kh .d { font-size: 8.4px; line-height: 1.3; color: #B7BDC6; }
+.prob p { font-size: 10.1px; line-height: 1.4; color: #C4C9D1; margin-top: 6px; }
+.prob p b { color: #F4F5F7; }
+.prob h2 { margin-bottom: 2px; }
+
+/* quotes */
+.quotes { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: auto; padding-top: 10px; border-top: 1px solid var(--line); }
+.q .wm { font-weight: 600; font-size: 9.5px; letter-spacing: 0.08em; color: #F4F5F7; display: flex; align-items: center; gap: 4px; margin-bottom: 5px; }
+.q .wm.neo { font-family: var(--serif); font-size: 14px; letter-spacing: -0.02em; font-weight: 500; }
+.q p { font-family: var(--serif); font-size: 11px; line-height: 1.3; color: #E6E8EB; }
+.q .who { font-size: 9px; color: var(--muted); margin-top: 4px; }
+
+/* page 2 */
+.p2 h1 { font-size: 25.5px; white-space: nowrap; }
+.sub { font-size: 12px; color: #B7BDC6; margin-top: 4px; }
+.steps { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-top: 10px; }
+.step { position: relative; }
+.step .tag { font-size: 7.2px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 600; height: 12px; display: flex; align-items: center; gap: 4px; margin-bottom: 3px; }
+.step .tag::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.step .tag.none::before { display: none; }
+.tag.agent { color: var(--green); } .tag.human { color: var(--accent-soft); } .tag.appr { color: var(--amber); }
+.step .bx { border: 1px solid var(--line); border-radius: 7px; background: var(--panel); padding: 7px 8px; height: 100%; }
+.step .bx b { display: block; font-size: 9.6px; color: #F4F5F7; margin-bottom: 3px; white-space: nowrap; }
+.step .bx b code { color: var(--accent-soft); font-size: 8.5px; margin-right: 3px; }
+.step .bx p { font-size: 8.1px; line-height: 1.3; color: #AEB4BD; }
+.step .bx p code { font-size: 7.4px; color: #DDE1E6; background: #1E232B; padding: 0 2px; border-radius: 3px; }
+.step::after { content: ""; position: absolute; right: -5.5px; top: 36px; width: 4px; height: 4px; border-right: 1px solid var(--dim); border-bottom: 1px solid var(--dim); transform: rotate(-45deg); }
+.step:last-child::after { display: none; }
+
+.two { display: grid; grid-template-columns: 336px 1fr; gap: 12px; margin-top: 10px; }
+.diagram .frame { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 5px; }
+.diagram svg { width: 100%; height: auto; display: block; }
+
+/* case view mock */
+.casev { font-size: 8.4px; }
+.casev .top { display: flex; align-items: center; gap: 5px; padding: 5px 9px; border-bottom: 1px solid var(--line); color: var(--muted); white-space: nowrap; overflow: hidden; }
+.casev .top b { color: #F4F5F7; }
+.casev .top .btn { margin-left: auto; border: 1px solid var(--line2); border-radius: 4px; padding: 1px 5px; color: #E1E5EA; font-size: 7.2px; }
+.casev .body { display: flex; }
+.casev .main { flex: 1; padding: 7px 9px 7px; min-width: 0; }
+.casev .props { display: flex; gap: 10px; font-size: 7.6px; color: var(--muted); margin: 2px 0 7px; white-space: nowrap; }
+.casev .props b { font-weight: 500; color: #C1C6CE; }
+.casev .tabs { display: flex; gap: 6px; margin-bottom: 6px; }
+.casev .tabs i { width: 12px; height: 10px; border: 1px solid #4B525C; border-radius: 3px; display: inline-block; }
+.casev .tabs i.on { background: #1B2027; border-color: #6A717B; }
+.casev h4 { font-size: 10.5px; line-height: 1.2; color: #F4F5F7; font-weight: 600; margin-bottom: 2px; }
+.casev .notags { color: var(--muted); font-size: 7.2px; margin-bottom: 6px; }
+.casev .tasks { border: 1px solid var(--line); border-radius: 6px; background: #0F1216; padding: 2px 7px; margin-bottom: 5px; }
+.casev .task { display: flex; align-items: center; gap: 5px; padding: 3px 0; color: #EDEFF2; font-weight: 500; white-space: nowrap; }
+.casev .task .o { width: 8px; height: 8px; border-radius: 50%; border: 1px solid #8B929C; display: inline-block; flex: none; }
+.casev .task .chev { color: var(--muted); font-size: 8px; }
+.casev .task .sev { margin-left: auto; width: 8px; height: 8px; flex: none; }
+.casev .task .wf { display: inline-flex; align-items: center; gap: 3px; border: 1px solid var(--line2); border-radius: 4px; padding: 0 4px; font-size: 7.2px; color: #C1C6CE; font-weight: 400; }
+.casev .task .wf::before { content: ""; width: 0; height: 0; border-left: 4px solid #C1C6CE; border-top: 2.5px solid transparent; border-bottom: 2.5px solid transparent; }
+.casev .cm { border: 1px solid var(--line); border-radius: 6px; background: #0F1216; padding: 5px 7px 5px; margin-bottom: 5px; }
+.casev .cm:last-child { margin-bottom: 0; }
+.casev .cm .ch { display: flex; align-items: center; gap: 4px; margin-bottom: 3px; color: #EDEFF2; font-weight: 600; }
+.casev .cm .ch .av { width: 9px; height: 9px; border-radius: 50%; background: #2A2F38; display: inline-flex; align-items: center; justify-content: center; font-size: 6px; color: #EDEFF2; font-weight: 600; }
+.casev .cm .ch .pill { font-size: 6.6px; font-weight: 500; background: #1E232B; color: #C1C6CE; padding: 0 4px; border-radius: 999px; }
+.casev .cm .ch .when { margin-left: auto; color: var(--muted); font-weight: 400; font-size: 7.2px; }
+.casev .cm p { color: #D5D9DF; line-height: 1.3; }
+.casev .cm h5 { font-size: 9px; color: #F4F5F7; margin: 1px 0 2px; }
+.casev .cm ul { list-style: none; margin: 3px 0 4px; }
+.casev .cm li { padding-left: 8px; position: relative; line-height: 1.35; color: #D5D9DF; }
+.casev .cm li::before { content: ""; position: absolute; left: 1px; top: 4.5px; width: 3px; height: 3px; border-radius: 50%; background: #8B929C; }
+.casev .mm { border: 1px solid var(--line); border-radius: 5px; background: #0B0D10; padding: 4px 6px; }
+.casev .mm svg { width: 100%; max-width: 300px; height: auto; display: block; margin: 0 auto; }
+.casev .smac { margin: 4px 0 0; }
+
+/* ROI */
+.roi { margin-top: 10px; display: grid; grid-template-columns: 206px 1fr; gap: 14px; align-items: start; }
+.roi .lead p { font-size: 9.6px; color: #B7BDC6; line-height: 1.4; margin-top: 5px; }
+.roi .lead .assume { display: inline-block; margin-top: 7px; font-size: 7.4px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 600; color: var(--amber); border: 1px solid rgba(245,185,75,0.5); border-radius: 999px; padding: 2px 7px; white-space: nowrap; }
+.roi table { width: 100%; border-collapse: collapse; font-size: 9px; }
+.roi th { text-align: left; font-size: 7.6px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 600; padding: 0 0 4px; border-bottom: 1px solid var(--line); }
+.roi td { padding: 3px 0; border-bottom: 1px solid var(--line); vertical-align: top; color: #C4C9D1; line-height: 1.3; }
+.roi td small { display: block; font-size: 7.6px; color: var(--muted); }
+.roi td.v { text-align: right; white-space: nowrap; color: #F4F5F7; font-weight: 500; padding-left: 10px; width: 1%; }
+.roi td.v.big { color: var(--green); font-family: var(--serif); font-size: 13px; letter-spacing: -0.01em; line-height: 1; }
+.roi td.v.big small { color: var(--green); font-family: var(--sans); font-size: 8px; font-weight: 500; margin-top: 2px; }
+.roi .cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.roi .note { grid-column: 1 / -1; font-size: 8.4px; color: var(--muted); line-height: 1.35; margin-top: 4px; }
+.roi .note b { color: #C4C9D1; font-weight: 500; }
+
+/* why */
+.why { margin-top: 10px; }
+.why .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 7px; }
+.why .card { padding: 8px 10px 9px; }
+.why .card b { display: block; font-size: 9.8px; color: #F4F5F7; margin-bottom: 3px; line-height: 1.25; }
+.why .card p { font-size: 8.3px; line-height: 1.34; color: #AEB4BD; }
+.why .card p code { font-size: 7.6px; color: #DDE1E6; background: #1E232B; padding: 0 2px; border-radius: 3px; }
+.why .head { display: flex; align-items: baseline; justify-content: space-between; }
+.why .head span { font-size: 9.5px; color: var(--muted); }
+
+/* footer */
+.foot { margin-top: auto; padding-top: 10px; border-top: 1px solid var(--line); display: grid; grid-template-columns: 1fr 1.15fr; gap: 0 28px; align-items: start; }
+.foot h2 { font-size: 18px; }
+.foot p { font-size: 9.4px; color: #B7BDC6; margin-top: 4px; line-height: 1.4; }
+.cta { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+.btn-primary { background: var(--accent); color: #fff; font-weight: 600; font-size: 10px; border-radius: 7px; padding: 6px 13px; }
+.cta a { font-size: 10px; color: var(--accent-soft); font-weight: 500; }
+.links { display: flex; gap: 14px; font-size: 8.8px; color: #B7BDC6; padding: 4px 0 6px; border-bottom: 1px solid var(--line); }
+.links span { text-decoration: underline; text-underline-offset: 2px; text-decoration-color: var(--dim); }
+.sources { font-size: 7.1px; color: var(--dim); line-height: 1.4; padding-top: 5px; }
+.sources b { color: var(--muted); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<!-- ===================================================== PAGE 1 -->
+<section class="page">
+  <header class="hdr">
+    <div class="brand">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.5 5.2A6 6 0 1 0 14 8" stroke="#F4F5F7" stroke-width="1.8" stroke-linecap="round"/><path d="M11.2 2.4h2.6v2.6" stroke="#F4F5F7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Tracecat <span class="pg">01 / 02</span>
+    </div>
+    <div class="hdr-r">Solution brief · AI-accelerated zero-day response</div>
+  </header>
+
+  <p class="kicker">Solution brief · Vulnerability mitigation</p>
+  <h1>Verified mitigation for the post-Mythos<br>zero-day clock.</h1>
+  <p class="lede">Tracecat agents prove which scanner findings are really exploitable at your ingress, propose a narrow compensating control, and let one analyst approve, apply, and retest it in minutes — on your infrastructure, with your models.</p>
+  <div class="chips">
+    <span class="chip">Open source, AGPL v3.0</span>
+    <span class="chip">Self-hosted &amp; air-gapped</span>
+    <span class="chip">Bring your own LLM</span>
+    <span class="chip">500+ integrations</span>
+  </div>
+
+  <div class="hero">
+    <div class="card glance">
+      <h3>At a glance</h3>
+      <div class="row"><div class="k">Threat</div><div class="v">Unauthenticated RCE or auth bypass on internet-facing services: Grafana admin, Kubernetes dashboards, workflow and web apps</div></div>
+      <div class="row"><div class="k">Trigger</div><div class="v">Scanner finding (Nuclei or your vulnerability scanner) with a version match but no proof of impact</div></div>
+      <div class="row"><div class="k">Outcome</div><div class="v">Route-scoped WAF control. Attack denied, required traffic preserved, evidence on the case</div></div>
+      <div class="row"><div class="k">Deploy</div><div class="v">Self-hosted, air-gapped capable. vLLM, Ollama, LiteLLM, or hosted models</div></div>
+    </div>
+
+    <div>
+      <div class="ui inbox">
+        <aside class="sb">
+          <div class="ws"><i></i>Default Workspace</div>
+          <div class="h">Workspace</div>
+          <div class="i">Chat <span class="beta">Beta</span></div>
+          <div class="i">Workflows</div>
+          <div class="i">Cases</div>
+          <div class="i">Agents</div>
+          <div class="i">Tables</div>
+          <div class="i">Variables</div>
+          <div class="i">Credentials</div>
+          <div class="i">Integrations</div>
+          <div class="i">MCP servers</div>
+          <div class="i">Skills</div>
+          <div class="i">Actions</div>
+          <div class="h">Monitor</div>
+          <div class="i">Runs</div>
+          <div class="i on">Inbox</div>
+        </aside>
+        <div class="mid">
+          <div class="topbar"><span class="sq"></span>Inbox</div>
+          <div class="search">Search sessions… <span class="fbtn">Filter <span class="muted">1</span></span></div>
+          <div class="filtrow"><span class="filt">Filtered by case <span class="cd">80d99999</span><span class="x">×</span></span></div>
+          <div class="cols"><span>Title</span><span>Source</span><span>Updated</span></div>
+          <div class="grp"><span class="ok"></span>Completed <span class="n">1</span></div>
+          <div class="item"><span>Analyst</span><span class="s"><i></i>Case</span><span class="t">Sep 7, 10:31</span></div>
+        </div>
+        <aside class="pane">
+          <div class="ph"><div><b>Analyst</b><span>Completed</span></div><span>×</span></div>
+          <p><b>Conclusion:</b> Fresh bounded verification returned <span class="cd">confirmed_rce</span> for CVE-2026-21858 at the exposed supplier-intake ingress.</p>
+          <table class="smac">
+            <tr><th>Status</th><td>Confirmed RCE</td></tr>
+            <tr><th>Malice</th><td>Pre-auth exploitation confirmed</td></tr>
+            <tr><th>Action</th><td>BLOCK proposal persisted; awaiting approval</td></tr>
+            <tr><th>Context</th><td>Tested ingress only; benign traffic passed</td></tr>
+          </table>
+          <p><b>What I found:</b> Unauthenticated command execution through the intake route. Cleanup completed and verification-created state removed.</p>
+          <p><b>What this means:</b> Exposure is real, not a version match. Required traffic (upload, webhook, login, health) still passes.</p>
+          <p><b>What I need from you:</b> Approve <b>Create BLOCK rule</b>, or rehearse with <b>Create LOG-only rule</b> first.</p>
+          <div class="box"><div class="ask">Type to ask follow-up questions…</div><span class="model"><i></i>gpt-5.6-terra <em>openai</em></span></div>
+        </aside>
+      </div>
+      <p class="cap">The Analyst session in the Inbox: fixed-target verification confirmed exploitability, wrote sanitised evidence and a route-scoped BLOCK proposal to the case, and asked one human for one decision.</p>
+    </div>
+  </div>
+  <div class="works"><div class="k">Works with</div><div class="badges">
+        <span class="badge"><svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.2" fill="none" stroke="#9AA6FF" stroke-width="1.2"/><circle cx="6" cy="6" r="1.3" fill="#9AA6FF"/><path d="M6 0.5v2M6 9.5v2M0.5 6h2M9.5 6h2" stroke="#9AA6FF" stroke-width="1.1"/></svg>ProjectDiscovery Nuclei</span>
+        <span class="badge"><svg viewBox="0 0 12 12"><path d="M3.3 9.5A2.3 2.3 0 0 1 3 4.9a3.1 3.1 0 0 1 6-.6 2.4 2.4 0 0 1 .4 4.8z" fill="#F6821F"/><path d="M2.3 9.5h7" stroke="#FBAD41" stroke-width="1.2"/></svg>Cloudflare</span>
+        <span class="badge"><svg viewBox="0 0 12 12"><path d="M6 .8 10.6 2.5v3.3c0 2.7-1.9 4.6-4.6 5.6C3.3 10.4 1.4 8.5 1.4 5.8V2.5z" fill="#3B82F6"/><path d="M4 6l1.5 1.5L8.3 4.6" stroke="#fff" stroke-width="1.1" fill="none"/></svg>BunkerWeb / ModSecurity</span>
+        <span class="badge"><svg viewBox="0 0 12 12"><text x="6" y="7.2" text-anchor="middle" font-family="Inter, sans-serif" font-size="6.2" font-weight="700" fill="#F4F5F7">aws</text><path d="M1.6 8.6q4.4 2.6 8.8 0" stroke="#FF9900" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>AWS</span>
+        <span class="badge"><svg viewBox="0 0 12 12"><path d="M6 .6 10.9 3v4.6L6 11.4 1.1 7.6V3z" fill="#326CE5"/><circle cx="6" cy="6" r="2.2" fill="none" stroke="#fff" stroke-width=".9"/><path d="M6 2.8v6.4M2.9 4.4l6.2 3.2M2.9 7.6l6.2-3.2" stroke="#fff" stroke-width=".8"/></svg>Kubernetes</span>
+        <span class="badge"><svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="5.4" fill="#0B3D91"/><path d="M6 1.6 1.6 6 6 10.4 10.4 6z" fill="#C8102E"/><circle cx="6" cy="6" r="1.7" fill="#fff"/></svg>CISA KEV</span>
+        <span class="badge"><svg viewBox="0 0 12 12"><rect x=".7" y=".7" width="10.6" height="10.6" rx="2.2" fill="#D62828"/><text x="6" y="8.9" text-anchor="middle" font-family="Inter, sans-serif" font-size="7.6" font-weight="700" fill="#fff">F</text></svg>FIRST EPSS</span>
+        <span class="badge"><svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="5.4" fill="#1B1F26" stroke="#F0554B" stroke-width="1"/><path d="M3.4 8.4a3.7 3.7 0 0 1 5.2-5.2M4.7 7.1a1.8 1.8 0 0 1 2.4-2.4" stroke="#F0554B" stroke-width="1" fill="none" stroke-linecap="round"/><circle cx="6" cy="6" r=".9" fill="#F0554B"/></svg>Shodan</span>
+        <span class="badge"><svg viewBox="0 0 12 12"><path d="M1 6.6c2.4-.3 4-1.1 5.3-2.5C7.5 2.8 8.9 2 11 1.6c-1.4 1-2.2 2.2-2.7 3.6-.6 1.9-1.5 3.9-3.9 5.5.9-1.5 1.1-2.8.9-4.1C4 6.7 2.6 6.9 1 6.6z" fill="#FC0000"/></svg>CrowdStrike Falcon</span>
+        <span class="badge"><svg viewBox="0 0 12 12"><rect x="4.2" y=".6" width="1.9" height="4.6" rx=".95" fill="#36C5F0"/><rect x="6.8" y="1.2" width="1.9" height="4.6" rx=".95" fill="#2EB67D" transform="rotate(90 7.75 3.5)"/><rect x="5.9" y="6.8" width="1.9" height="4.6" rx=".95" fill="#ECB22E"/><rect x="3.3" y="6.2" width="1.9" height="4.6" rx=".95" fill="#E01E5A" transform="rotate(90 4.25 8.5)"/></svg>Slack</span>
+        <span class="badge"><svg viewBox="0 0 12 12"><path d="M6 .8 11.2 6 6 11.2.8 6z" fill="#2684FF"/><path d="M6 3.4 8.6 6 6 8.6 3.4 6z" fill="#0052CC"/></svg>Jira</span>
+        <span class="badge"><svg viewBox="0 0 12 12"><rect x=".7" y=".7" width="10.6" height="10.6" rx="2.2" fill="#06AC38"/><path d="M4 9.6V2.6h2.6a2.1 2.1 0 0 1 0 4.2H5.5" stroke="#fff" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg>PagerDuty</span>
+      </div></div>
+
+  <div class="grid2">
+    <div class="card kh">
+      <h3>Key highlights</h3>
+      <div class="m"><div class="n">&lt;2<small> min</small></div><div class="d">Scanner signal to a verified, retested control; full loop measured at 78–102 s, 15 of 15 acceptance gates.</div></div>
+      <div class="m"><div class="n">0</div><div class="d">Firewall credentials or free-form rule syntax exposed to the agent, which can propose but never apply.</div></div>
+      <div class="m"><div class="n">100%</div><div class="d">Required traffic preserved: upload, webhook, login, and health are retested on every apply.</div></div>
+      <div class="m"><div class="n">1<small> click</small></div><div class="d">Human approval applies the exact reviewed rule, verifies activation, and rolls back on failure.</div></div>
+      <div class="m"><div class="n">Same<small> day</small></div><div class="d">Exposure window per finding, versus a 55–61 day industry patch MTTR (Edgescan; modeled).</div></div>
+    </div>
+    <div class="prob">
+      <h2>The problem</h2>
+      <p><b>Discovery has gone machine-scale.</b> Anthropic's Project Glasswing (Claude Mythos, Apr–May 2026) reported 23,019 issues across 1,000+ open-source projects, 10,000+ of them high or critical, and more than 99% unpatched at disclosure. OpenAI's GPT-6 Astra (Sep 3, 2026) is the first model rated "Critical" for cyber under its Preparedness Framework, and found and exploited two zero-days unaided. Open-weight Z.ai GLM-5.3 claims 2,436 findings across 269 projects and 105 of 130 ExploitGym targets, and anyone, including attackers, can run it.</p>
+      <p><b>The zero-day clock is negative.</b> Mandiant/GTIG time-to-exploit fell from 63 days (2018–19) to 5 days (2023), then to about −1 day (2024) and about −7 days (2025). VulnCheck's 1H-2026 data shows 23% of KEVs exploited on or before CVE publication. Defender patch MTTR is still 55–61 days, and about 60% of breaches involve a vulnerability with a patch already available.</p>
+      <p><b>Where teams get stuck.</b> Vulnerability management receives thousands of version-match findings and cannot tell exploitable from noise. Patching waits on owners and change windows. A hand-written WAF rule is risky (a global JSON or POST block breaks the business), so nobody writes one, and the finding sits open. Every hour is exposure.</p>
+    </div>
+  </div>
+
+  <div class="quotes">
+    <div class="q">
+      <div class="wm"><svg width="9" height="11" viewBox="0 0 9 11" aria-hidden="true"><path d="M5.5 0 0 6.5h3.2L2.3 11 9 4.2H5.6z" fill="#F4F5F7"/></svg>SARONIC</div>
+      <p>“Tracecat is a cheat code for corporate security teams that want to build and own their own agentic future.”</p>
+      <div class="who">Principal Threat Researcher, Saronic</div>
+    </div>
+    <div class="q">
+      <div class="wm neo">neo</div>
+      <p>“A genuine thank you to the team. I built an end-to-end IoC enrichment pipeline with Claude and Tracecat MCP and created more value for our SOC in a day than I probably would have in weeks on my own. You're making my one-man SOC assignment possible.”</p>
+      <div class="who">Senior Security Engineer, Neo Financial</div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================================================== PAGE 2 -->
+<section class="page p2">
+  <header class="hdr">
+    <div class="brand">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.5 5.2A6 6 0 1 0 14 8" stroke="#F4F5F7" stroke-width="1.8" stroke-linecap="round"/><path d="M11.2 2.4h2.6v2.6" stroke="#F4F5F7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Tracecat <span class="pg">02 / 02</span>
+    </div>
+    <div class="hdr-r">Solution brief · AI-accelerated zero-day response</div>
+  </header>
+
+  <h1>Verify first. Contain narrowly. Keep the analyst in command.</h1>
+  <p class="sub">How the Tracecat Analyst turns a scanner finding into a reviewed, retested ingress control.</p>
+
+  <div class="steps">
+    <div class="step"><div class="tag none">&nbsp;</div><div class="bx"><b><code>01</code>Finding</b><p>A scanner hit or KEV/EPSS feed opens a case.</p></div></div>
+    <div class="step"><div class="tag agent">Agent</div><div class="bx"><b><code>02</code>Verify</b><p><code>scan</code> + <code>verify</code>: fixed target, sanitised evidence only.</p></div></div>
+    <div class="step"><div class="tag agent">Agent</div><div class="bx"><b><code>03</code>Propose</b><p>Immutable, revision-bound, route-scoped policy with rollback.</p></div></div>
+    <div class="step"><div class="tag human">Human</div><div class="bx"><b><code>04</code>Approve</b><p>One case task: Create BLOCK rule, or LOG-only to rehearse.</p></div></div>
+    <div class="step"><div class="tag appr">Approval</div><div class="bx"><b><code>05</code>Apply</b><p>Exact proposal applied, retested, rolled back on failure.</p></div></div>
+    <div class="step"><div class="tag agent">Agent</div><div class="bx"><b><code>06</code>Close</b><p>Before/after verdict, firewall events, remaining patch risk.</p></div></div>
+  </div>
+
+  <div class="two">
+    <div class="diagram">
+      <div class="frame">
+      <svg viewBox="0 0 326 336" xmlns="http://www.w3.org/2000/svg" font-family="Inter, system-ui, sans-serif" font-size="8.4" fill="#D5D9DF">
+        <defs>
+          <marker id="ag" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0.5 8 4 0 7.5z" fill="#3DDC97"/></marker>
+          <marker id="aa" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0.5 8 4 0 7.5z" fill="#F5B94B"/></marker>
+          <marker id="am" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0.5 8 4 0 7.5z" fill="#8B929C"/></marker>
+          <marker id="ab" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0.5 8 4 0 7.5z" fill="#9AA6FF"/></marker>
+        </defs>
+
+        <!-- subgraph: Analyst agent -->
+        <rect x="2" y="12" width="186" height="180" rx="7" fill="rgba(61,220,151,0.045)" stroke="#3DDC97" stroke-width=".8" stroke-dasharray="3 2.5"/>
+        <text x="10" y="22.5" font-size="7.2" font-weight="600" fill="#3DDC97" letter-spacing="1.1">ANALYST AGENT</text>
+
+        <rect x="10" y="29" width="170" height="27" rx="5" fill="#171B21" stroke="#2C323C"/>
+        <text x="17" y="40.5" font-weight="600" fill="#F4F5F7">Analyst preset</text>
+        <text x="17" y="50.5" font-size="7.2" fill="#8B929C">case-scoped · thinking on · no internet access</text>
+
+        <rect x="10" y="66" width="170" height="36" rx="5" fill="#171B21" stroke="#2C323C"/>
+        <text x="17" y="77" font-size="7.2" fill="#8B929C">Skill</text>
+        <text x="38" y="77" font-family="JetBrains Mono, monospace" font-size="7.8" fill="#F4F5F7">verify-exploitability</text>
+        <text x="17" y="88" font-size="6.9" fill="#B7BDC6">verdicts: confirmed_rce · blocked_by_waf</text>
+        <text x="17" y="97" font-size="6.9" fill="#B7BDC6">not_reproduced · inconclusive · confirmed_file_read</text>
+
+        <rect x="10" y="110" width="170" height="36" rx="5" fill="#171B21" stroke="#2C323C"/>
+        <text x="17" y="121" font-size="7.2" fill="#8B929C">Skill</text>
+        <text x="38" y="121" font-family="JetBrains Mono, monospace" font-size="7.8" fill="#F4F5F7">propose-firewall-mitigation</text>
+        <text x="17" y="132" font-size="6.9" fill="#B7BDC6">fixed policy: route · POST · allowed content-type</text>
+        <text x="17" y="141" font-size="6.9" fill="#B7BDC6">mode BLOCK or LOG_ONLY · rationale · rollback</text>
+
+        <path d="M95 56v10" stroke="#3DDC97" stroke-width=".9" marker-end="url(#ag)"/>
+        <path d="M95 102v8" stroke="#3DDC97" stroke-width=".9" marker-end="url(#ag)"/>
+
+        <!-- bounded actions -->
+        <rect x="10" y="158" width="40" height="17" rx="4" fill="rgba(61,220,151,0.12)" stroke="#3DDC97" stroke-width=".8"/>
+        <text x="30" y="169.5" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="7.8" fill="#3DDC97">scan</text>
+        <rect x="56" y="158" width="46" height="17" rx="4" fill="rgba(61,220,151,0.12)" stroke="#3DDC97" stroke-width=".8"/>
+        <text x="79" y="169.5" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="7.8" fill="#3DDC97">verify</text>
+        <rect x="108" y="158" width="72" height="17" rx="4" fill="rgba(61,220,151,0.12)" stroke="#3DDC97" stroke-width=".8"/>
+        <text x="144" y="169.5" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="7.8" fill="#3DDC97">propose_policy</text>
+        <path d="M30 146v12" stroke="#3DDC97" stroke-width=".9" marker-end="url(#ag)"/>
+        <path d="M79 146v12" stroke="#3DDC97" stroke-width=".9" marker-end="url(#ag)"/>
+        <path d="M144 146v12" stroke="#3DDC97" stroke-width=".9" marker-end="url(#ag)"/>
+        <text x="95" y="186" text-anchor="middle" font-size="6.9" fill="#3DDC97">fixed target · no approval · no secrets</text>
+
+        <!-- case -->
+        <rect x="200" y="29" width="118" height="44" rx="5" fill="#171B21" stroke="#6B7CFF"/>
+        <text x="259" y="43" text-anchor="middle" font-weight="600" fill="#F4F5F7">Tracecat case</text>
+        <text x="259" y="54" text-anchor="middle" font-size="7" fill="#B7BDC6">evidence · proposal (revision 1)</text>
+        <text x="259" y="64" text-anchor="middle" font-size="7" fill="#B7BDC6">tasks · closure comment</text>
+        <path d="M180 40h20" stroke="#9AA6FF" stroke-width=".9" marker-start="url(#ab)" marker-end="url(#ab)"/>
+        <path d="M180 166c14 0 10-106 20-106" stroke="#3DDC97" stroke-width=".9" fill="none" marker-end="url(#ag)"/>
+
+        <!-- subgraph: human approval -->
+        <rect x="192" y="86" width="132" height="152" rx="7" fill="rgba(245,185,75,0.045)" stroke="#F5B94B" stroke-width=".8" stroke-dasharray="3 2.5"/>
+        <text x="316" y="96.5" text-anchor="end" font-size="7.2" font-weight="600" fill="#F5B94B" letter-spacing="1.1">HUMAN APPROVAL</text>
+
+        <rect x="200" y="103" width="118" height="36" rx="5" fill="#171B21" stroke="#2C323C"/>
+        <text x="207" y="114" font-weight="600" fill="#F4F5F7">Case task</text>
+        <text x="207" y="124" font-size="7" fill="#B7BDC6">Create BLOCK rule</text>
+        <text x="207" y="133" font-size="7" fill="#B7BDC6">or Create LOG-only rule first</text>
+        <path d="M225 73v30" stroke="#9AA6FF" stroke-width=".9" marker-end="url(#ab)"/>
+        <text x="230" y="81" font-size="6.6" fill="#8B929C">one click</text>
+
+        <rect x="200" y="148" width="118" height="30" rx="5" fill="#171B21" stroke="#2C323C"/>
+        <text x="207" y="159" font-weight="600" fill="#F4F5F7">Workflow</text>
+        <text x="207" y="170" font-size="7" fill="#B7BDC6">Apply reviewed firewall rule</text>
+        <path d="M259 139v9" stroke="#F5B94B" stroke-width=".9" marker-end="url(#aa)"/>
+
+        <rect x="200" y="187" width="118" height="46" rx="5" fill="rgba(245,185,75,0.1)" stroke="#F5B94B" stroke-dasharray="3 2"/>
+        <text x="207" y="199" font-family="JetBrains Mono, monospace" font-size="7.8" fill="#F5B94B">apply_reviewed_policy</text>
+        <text x="207" y="210" font-size="7" fill="#B7BDC6">requires human approval</text>
+        <text x="207" y="219.5" font-size="7" fill="#B7BDC6">holds WAF + app secrets</text>
+        <text x="207" y="229" font-size="6.6" font-weight="600" fill="#F0554B" letter-spacing=".3">ABSENT FROM THE AGENT</text>
+        <path d="M259 178v9" stroke="#F5B94B" stroke-width=".9" marker-end="url(#aa)"/>
+        <path d="M318 164h4v-100h-4" stroke="#8B929C" stroke-width=".8" fill="none" stroke-dasharray="2 2" marker-end="url(#am)"/>
+
+        <!-- subgraph: your ingress -->
+        <rect x="2" y="202" width="186" height="96" rx="7" fill="rgba(139,146,156,0.05)" stroke="#5F6670" stroke-width=".8" stroke-dasharray="3 2.5"/>
+        <text x="10" y="212.5" font-size="7.2" font-weight="600" fill="#8B929C" letter-spacing="1.1">YOUR INGRESS</text>
+
+        <rect x="10" y="219" width="170" height="30" rx="5" fill="#171B21" stroke="#2C323C"/>
+        <text x="17" y="230" font-weight="600" fill="#F4F5F7">BunkerWeb / ModSecurity</text>
+        <text x="17" y="241" font-size="7" fill="#B7BDC6">route-scoped rule · revision 1 · retested</text>
+
+        <rect x="10" y="260" width="170" height="30" rx="5" fill="#171B21" stroke="#2C323C"/>
+        <text x="17" y="271" font-weight="600" fill="#F4F5F7">Internet-facing app</text>
+        <text x="17" y="282" font-size="7" fill="#B7BDC6">upload · webhook · login · health preserved</text>
+        <path d="M95 249v11" stroke="#8B929C" stroke-width=".9" marker-end="url(#am)"/>
+
+        <path d="M79 175v44" stroke="#3DDC97" stroke-width=".9" stroke-dasharray="2.5 2" marker-end="url(#ag)"/>
+        <text x="84" y="200" font-size="6.6" fill="#8B929C">pinned scanner · fixed probe</text>
+        <path d="M200 228c-8 0-12 2-20 2" stroke="#F5B94B" stroke-width=".9" fill="none" marker-end="url(#aa)"/>
+        <text x="190" y="220" font-size="6.6" fill="#F5B94B" text-anchor="middle">apply</text>
+
+        <!-- legend -->
+        <rect x="10" y="308" width="9" height="9" rx="2" fill="rgba(61,220,151,0.12)" stroke="#3DDC97" stroke-width=".8"/>
+        <text x="24" y="315.5" font-size="7" fill="#B7BDC6">Agent-run · no approval · no secrets</text>
+        <rect x="10" y="323" width="9" height="9" rx="2" fill="rgba(245,185,75,0.12)" stroke="#F5B94B" stroke-width=".8"/>
+        <text x="24" y="330.5" font-size="7" fill="#B7BDC6">Human-approved · workflow only</text>
+        <rect x="172" y="308" width="9" height="9" rx="2" fill="none" stroke="#F0554B" stroke-width=".8" stroke-dasharray="2 1.5"/>
+        <text x="186" y="315.5" font-size="7" fill="#B7BDC6">Never given to the agent</text>
+        <rect x="172" y="323" width="9" height="9" rx="2" fill="none" stroke="#6B7CFF" stroke-width=".8"/>
+        <text x="186" y="330.5" font-size="7" fill="#B7BDC6">Shared record every party writes to</text>
+      </svg>
+      </div>
+      <p class="cap">What the Analyst preset can use, and the one action it cannot. The firewall credential exists only inside the human-launched workflow.</p>
+    </div>
+
+    <div>
+      <div class="ui casev">
+        <div class="top"><span class="sq"></span>Cases <span>/</span> <b>CASE-0001</b> <span>· 11 hours ago · edited 20 min ago</span><span class="btn">View agent runs</span></div>
+        <div class="body">
+          <div class="main">
+            <h4>Suspected unauthenticated RCE on supplier intake</h4>
+            <div class="props"><span>Status <b style="color:#F5B94B">New</b></span><span>Priority <b style="color:#F0554B">High</b></span><span>Severity <b style="color:#F0554B">Critical</b></span><span>Assignee <b>Unassigned</b></span></div>
+            <div class="tasks">
+              <div class="task"><span class="ok"></span>Create BLOCK rule <span class="chev">›</span><svg class="sev" viewBox="0 0 10 10"><path d="M5 1 9.4 8.6H.6z" fill="none" stroke="#F0554B" stroke-width="1.1"/><path d="M5 4v2.2" stroke="#F0554B" stroke-width="1.1"/></svg><span class="wf">Apply reviewed fi…</span></div>
+              <div class="task"><span class="o"></span>Create LOG-only rule <span class="chev">›</span><svg class="sev" viewBox="0 0 10 10"><path d="M1.5 8.5v-2M4 8.5v-4M6.5 8.5v-6M9 8.5v-8" stroke="#F0554B" stroke-width="1.2"/></svg><span class="wf">Apply reviewed fi…</span></div>
+            </div>
+            <div class="cm">
+              <div class="ch"><span class="av">✦</span>Analyst <span class="pill">Agent</span><span class="when">38m ago</span></div>
+              <p>I confirmed unauthenticated command execution through the supplier intake route.</p>
+              <table class="smac">
+                <tr><th>Status</th><td>Confirmed RCE</td></tr>
+                <tr><th>Malice</th><td>Pre-auth exploitation confirmed</td></tr>
+                <tr><th>Action</th><td>BLOCK proposal persisted; awaiting approval</td></tr>
+                <tr><th>Context</th><td>Tested ingress only; benign traffic passed</td></tr>
+              </table>
+            </div>
+            <div class="cm">
+              <div class="ch"><span class="av">A</span>analyst<span class="when">20m ago</span></div>
+              <h5>Firewall change verification</h5>
+              <p>The reviewed control completed with <span class="cd">mitigated at tested ingress</span>.</p>
+              <ul>
+                <li>Attack verdict: <span class="cd">confirmed_rce</span> to <span class="cd">blocked_by_waf</span>. Required traffic passed: <span class="cd">True</span>.</li>
+                <li>Correlated firewall events: <span class="cd">9</span>. Rollback attempted: <span class="cd">False</span>.</li>
+              </ul>
+              <div class="mm">
+                <svg viewBox="0 0 300 30" xmlns="http://www.w3.org/2000/svg" font-family="Inter, system-ui, sans-serif" font-size="7.2">
+                  <defs><marker id="mmA" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0.5 8 4 0 7.5z" fill="#8B929C"/></marker></defs>
+                  <rect x="1" y="3" width="64" height="24" rx="3" fill="#ECEDF1"/>
+                  <text x="33" y="13" text-anchor="middle" fill="#1B1F26">Before</text>
+                  <text x="33" y="22.5" text-anchor="middle" fill="#1B1F26" font-family="JetBrains Mono, monospace" font-size="6.6">confirmed_rce</text>
+                  <rect x="79" y="3" width="64" height="24" rx="3" fill="#ECEDF1"/>
+                  <text x="111" y="13" text-anchor="middle" fill="#1B1F26">BLOCK control</text>
+                  <text x="111" y="22.5" text-anchor="middle" fill="#1B1F26">revision 1</text>
+                  <rect x="157" y="3" width="64" height="24" rx="3" fill="#ECEDF1"/>
+                  <text x="189" y="13" text-anchor="middle" fill="#1B1F26">After</text>
+                  <text x="189" y="22.5" text-anchor="middle" fill="#1B1F26" font-family="JetBrains Mono, monospace" font-size="6.6">blocked_by_waf</text>
+                  <rect x="235" y="3" width="64" height="24" rx="3" fill="#ECEDF1"/>
+                  <text x="267" y="13" text-anchor="middle" fill="#1B1F26">Required traffic</text>
+                  <text x="267" y="22.5" text-anchor="middle" fill="#1B1F26" font-family="JetBrains Mono, monospace" font-size="6.6">True</text>
+                  <path d="M65 15h14" stroke="#8B929C" stroke-width=".9" marker-end="url(#mmA)"/>
+                  <path d="M143 15h14" stroke="#8B929C" stroke-width=".9" marker-end="url(#mmA)"/>
+                  <path d="M221 15h14" stroke="#8B929C" stroke-width=".9" marker-end="url(#mmA)"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="cap">The case at the approval moment: the confirmed-RCE comment, two human-owned tasks bound to the apply workflow, and the closure verdict.</p>
+    </div>
+  </div>
+
+  <div class="roi">
+    <div class="lead">
+      <h2>Return on investment</h2>
+      <p>A modeled month for one team. Every input is an assumption; swap in your own volumes, hours, and rates. The control is mitigation at the tested ingress, not a patch.</p>
+      <span class="assume">Assumptions · replace with your own</span>
+    </div>
+    <div class="cols2">
+      <table>
+        <tr><th colspan="2">Inputs</th></tr>
+        <tr><td>Internet-facing high/critical findings needing exploitability triage</td><td class="v">30 / month</td></tr>
+        <tr><td>Manual path per finding<small>validate 2h · author and test a compatible WAF rule 3h · retest and document 1h</small></td><td class="v">≈ 6 h</td></tr>
+        <tr><td>Tracecat path per finding<small>review evidence · approve · read the closure</small></td><td class="v">≈ 0.5 h</td></tr>
+        <tr><td>Loaded analyst cost</td><td class="v">$125 / h</td></tr>
+      </table>
+      <table>
+        <tr><th colspan="2">Outputs</th></tr>
+        <tr><td>Analyst hours returned each month</td><td class="v">165 h</td></tr>
+        <tr><td>Value of returned analyst time</td><td class="v big">≈ $20.6k / month<small>≈ $248k / year</small></td></tr>
+        <tr><td>Exposure window per finding</td><td class="v">55–61 days <span class="arr">→</span> same shift</td></tr>
+        <tr><td>Acceptance checks on every apply</td><td class="v">15 automated</td></tr>
+      </table>
+      <p class="note"><b>Not counted:</b> breach-cost avoidance (IBM Cost of a Data Breach 2025, global average $4.44M per incident).</p>
+    </div>
+  </div>
+
+  <div class="why">
+    <div class="head"><h2>Why Tracecat</h2><span>What makes this loop safe to run on the finding that matters.</span></div>
+    <div class="cards">
+      <div class="card"><b>Your network, your models.</b><p>Self-host in your VPC, on-prem, or fully air-gapped on Kubernetes with zero internet routes. Point agents at vLLM or Ollama, directly or via bundled LiteLLM. Evidence never leaves your boundary.</p></div>
+      <div class="card"><b>Bounded tools, not a shell.</b><p>Fixed-target Python actions with pinned dependencies. The agent gets <code>scan</code>, <code>verify</code>, <code>propose</code>; never the firewall credential or rule syntax. Default-deny tool policy, sandboxing, full audit log.</p></div>
+      <div class="card"><b>Integrations in an afternoon.</b><p>Any WAF, scanner, or ticketing system becomes an agent tool via a Python file or YAML template (500+ integrations, 50+ MCP servers). Tracecat MCP turns a Claude Code, Codex, or Cursor prompt into workflows, tasks, and skills.</p></div>
+      <div class="card"><b>Analysts stay in command.</b><p>Immutable, revision-bound proposals, one-click approval, automatic rollback, LOG-only rehearsal. Skills and memory are versioned and reviewed. Open source under AGPL v3.0, so the operating model is inspectable.</p></div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <div>
+      <h2>Talk to a Tracecat expert</h2>
+      <p>Discuss your exposed services, scanner feeds, WAF estate, and approval requirements with the Tracecat team.</p>
+      <div class="cta"><span class="btn-primary">Book a demo</span><a href="https://tracecat.com/contact">tracecat.com/contact <span class="arr">→</span></a></div>
+    </div>
+    <div>
+    <div class="links"><span>tracecat.com</span><span>docs.tracecat.com</span><span>github.com/TracecatHQ/tracecat</span></div>
+    <div class="sources"><b>Sources.</b> Anthropic, Project Glasswing update (May 26, 2026) · OpenAI, GPT-6 Astra announcement (Sep 3, 2026) · Z.ai, GLM-5.3 release · Mandiant / Google Threat Intelligence Group, time-to-exploit analyses · VulnCheck, 1H-2026 exploitation report · Edgescan, vulnerability statistics (patch MTTR) · IBM, Cost of a Data Breach Report 2025. Loop timings and gate counts are from Tracecat's reference environment for this scenario. Every Tracecat feature works offline; see docs.tracecat.com/self-hosting/air-gapped.</div>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>

@@ -162,6 +162,7 @@ venv.bak/
 001/eval-results/
 002/eval-results/
 003/eval-results/
+003/docs/solution-brief/build/
 .refactor-backup/
 
 # Spyder project settings

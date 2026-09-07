@@ -1,0 +1,60 @@
+003/src/gym_plugin/validate.py
+  s_35bf4dfa751518::t_45c716e91d93ae 155,157-163
+  s_35bf4dfa751518::t_c975e90658b081 7,135,143-147
+  s_35bf4dfa751518::t_953c8a5e820126 136-142,148-151
+  s_35bf4dfa751518::t_f4ac9950b067c2 152-154,156,164
+003/tools/acceptance_contract_test.py
+  s_35bf4dfa751518::t_68a045cf8a7394 7,10,16,86-142
+  s_35bf4dfa751518::t_eec86a68786216 143
+003/src/gym_plugin/acceptance.py
+  s_35bf4dfa751518::t_c975e90658b081 148,150,152,159
+003/benchmark/workflows/legacy/verification.json
+  s_35bf4dfa751518::t_f370dd8b00d266 5-6,11,91
+003/gym.lock.json
+  s_35bf4dfa751518::t_0c35b820b9b0a8 13
+003/src/gym_plugin/waf.py
+  s_35bf4dfa751518::t_f4ac9950b067c2 93,97-104,172,376
+003/tools/probe_contract_test.py
+  s_35bf4dfa751518::t_953c8a5e820126 162-164
+  s_35bf4dfa751518::t_68a045cf8a7394 13,128-161,165-168
+  s_35bf4dfa751518::t_714f8ec36256a6 169
+003/compose.override.yml
+  s_35bf4dfa751518::t_c975e90658b081 281
+  s_35bf4dfa751518::t_45c716e91d93ae 288,295-296
+  s_35bf4dfa751518::t_953c8a5e820126 71-76,282
+003/tools/waf_contract_test.py
+  s_35bf4dfa751518::t_75d0c0573ce9f4 9
+  s_35bf4dfa751518::t_f4ac9950b067c2 1-8,10-48
+003/src/gym_plugin/host.py
+  s_35bf4dfa751518::t_c975e90658b081 11,87-93
+003/src/gym_plugin/scanner.py
+  s_35bf4dfa751518::t_45c716e91d93ae 28,82-89
+  s_35bf4dfa751518::t_2e6c87ca89cdd3 90
+003/tools/job_api_contract_test.py
+  s_35bf4dfa751518::t_68a045cf8a7394 1-73,75-112
+  s_35bf4dfa751518::t_953c8a5e820126 74
+003/src/gym_plugin/probe.py
+  s_35bf4dfa751518::t_c975e90658b081 468-470
+003/tools/workflow_contract_test.py
+  s_35bf4dfa751518::t_08b9b20d6f21e2 101-117
+003/src/gym_plugin/job_api.py
+  s_35bf4dfa751518::t_c975e90658b081 132-146,263-282,338
+003/benchmark/workflows/verification.json
+  s_35bf4dfa751518::t_4b6922defcc97f 91
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "bb499aebc0459bde973da9cae5fa0c74fb1bd9b3",
+  "prompts": {},
+  "sessions": {
+    "s_35bf4dfa751518": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a07701-2e9b-7ab3-ac7f-cd3ffd9f5422",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Chris Lo <46541035+topher-lo@users.noreply.github.com>"
+    }
+  }
+}

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Render index.html to the committed PDF with headless Chrome, assert two A4
+# Render index.html to the committed PDF with headless Chrome, assert two or three A4
 # pages, and rasterise each page to build/page-N.png for visual QA.
 set -euo pipefail
 
@@ -67,5 +67,5 @@ w, h = pdf[0].get_size()
 print(f"pages={n} size={w:.1f}x{h:.1f}pt")
 for i, page in enumerate(pdf, start=1):
     page.render(scale=2).to_pil().save(os.path.join(os.environ["OUT_DIR"], f"page-{i}.png"))
-assert n == 2, f"expected 2 pages, got {n}"
+assert n in (2, 3), f"expected 2 or 3 pages, got {n}"
 EOF

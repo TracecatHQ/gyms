@@ -1,0 +1,38 @@
+003/src/gym_plugin/workflows.py
+  s_35bf4dfa751518::t_5b1b3cfb41e7e0 312
+  s_35bf4dfa751518::t_2a143a2346c3a8 272,342-347
+  s_35bf4dfa751518::t_1ffaf8ffa79e36 3-6,53-54,58-60,168,174,181,184,242,247,276,298-300,320-321,323,341,348-352,355,358-362,364,368-369
+003/src/gym_plugin/job_api.py
+  s_35bf4dfa751518::t_32a58787fdfc68 36-44,127-131,135-136,191-216,233-234,270
+003/README.md
+  s_35bf4dfa751518::t_c6125e9f8b54aa 17,31-32
+  s_35bf4dfa751518::t_56d2a93f6b8987 214-216
+  s_35bf4dfa751518::t_ae40c1d1a4ac53 13-16,18-30,33-48,188-213,217-268
+  s_35bf4dfa751518::t_ea87fe29305c02 269
+003/tools/job_api_contract_test.py
+  s_35bf4dfa751518::t_32a58787fdfc68 8-9,88-92,122-164
+  s_35bf4dfa751518::t_a6189fcb026f2b 76-78,93-121
+003/gym.lock.json
+  s_35bf4dfa751518::t_bfdd3cd8cd7c2d 13
+003/tools/workflow_contract_test.py
+  s_35bf4dfa751518::t_2a143a2346c3a8 147-165
+  s_35bf4dfa751518::t_6cb1f06e06189b 183-194
+  s_35bf4dfa751518::t_5b1b3cfb41e7e0 30-31,61-71,114-145
+  s_35bf4dfa751518::t_c9c7ffd869d739 146
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "8a0df86eb7ba9ac8a3228ae5ebd10fb9250492c5",
+  "prompts": {},
+  "sessions": {
+    "s_35bf4dfa751518": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a07701-2e9b-7ab3-ac7f-cd3ffd9f5422",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Chris Lo <46541035+topher-lo@users.noreply.github.com>"
+    }
+  }
+}

@@ -1,0 +1,64 @@
+{
+  "name": "Gym 003 / Supplier intake",
+  "active": true,
+  "nodes": [
+    {
+      "parameters": {
+        "path": "supplier-intake",
+        "formTitle": "Supplier document intake",
+        "formDescription": "Upload one supplier document for processing.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Supplier Document",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "requiredField": true
+            }
+          ]
+        },
+        "responseMode": "responseNode",
+        "options": {
+          "appendAttribution": false,
+          "buttonLabel": "Submit document"
+        }
+      },
+      "id": "315b5d5d-550d-4d56-b9ea-798f71f9bb8a",
+      "name": "Supplier Intake Form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.1,
+      "position": [0, 0],
+      "webhookId": "9dfd70da-2f33-46c9-a721-2200f36d7003"
+    },
+    {
+      "parameters": {
+        "respondWith": "binary",
+        "responseDataSource": "set",
+        "inputFieldName": "Supplier_Document",
+        "options": {}
+      },
+      "id": "c67c5de1-3c3a-45dd-a40a-7bfa18c2364f",
+      "name": "Return processed document",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [260, 0]
+    }
+  ],
+  "connections": {
+    "Supplier Intake Form": {
+      "main": [
+        [
+          {
+            "node": "Return processed document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}

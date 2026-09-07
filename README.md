@@ -8,6 +8,7 @@ change without breaking automation or persisted Docker state.
 |---|---|---|---|---|
 | [`001`](./001/) | The Bigger Interview | [Kerberosse/soc-dataset-thebiggerinterview](https://github.com/Kerberosse/soc-dataset-thebiggerinterview) | Tracecat, Splunk Enterprise, Splunk MCP Server | CC BY-NC-SA 4.0 |
 | [`002`](./002/) | BOTSv3 analyst | Splunk Boss of the SOC v3 | Tracecat, MinIO, DuckDB | Upstream dataset terms |
+| [`003`](./003/) | Vulnerability-driven firewall mitigation | n8n 1.65.0 / CVE-2026-21858 | Tracecat, n8n, Nuclei, BunkerWeb, MinIO | Mixed; see provenance |
 
 Each gym documents which files are verbatim upstream material, derived benchmark
 material, locally authored control code, and user-supplied artifacts.

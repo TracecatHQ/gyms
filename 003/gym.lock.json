@@ -1,0 +1,211 @@
+{
+  "gym": {
+    "component_version": "1",
+    "compose_project": "tracecat-gym-003",
+    "display_name": "Vulnerability-driven firewall mitigation",
+    "id": "003"
+  },
+  "images": {
+    "local": {
+      "control": {
+        "classification": "gym-owned",
+        "future_repository": "ghcr.io/tracecathq/gym-003-control",
+        "input_sha256": "ad0da011e7cbcb3a169e9ceda0179b4969f57c72a3e1ebed2c924ab30f27a1ca",
+        "repository": "tracecat-gyms/gym-003-control"
+      }
+    }
+  },
+  "schema_version": 2,
+  "sources": {
+    "bunkerweb_api": {
+      "classification": "official-documentation",
+      "url": "https://docs.bunkerweb.io/1.6.14/api/"
+    },
+    "nuclei_template": {
+      "classification": "official-vendored",
+      "path": "assets/nuclei/CVE-2026-21858.yaml",
+      "repository": "projectdiscovery/nuclei-templates",
+      "revision": "b78b60c84a754c0ce2a8b9f0710edc8987adeb85",
+      "sha256": "c4240eec698f1cf9bbc6739f944afe4ef49f30f95227142ec744f555a566c28f"
+    },
+    "scenario": {
+      "classification": "official-advisories",
+      "cve_2025_68613": "https://github.com/n8n-io/n8n/security/advisories/GHSA-v98v-ff95-f3cp",
+      "cve_2026_21858": "https://github.com/n8n-io/n8n/security/advisories/GHSA-v4pr-fm98-w9pg",
+      "n8n_tag": "https://github.com/n8n-io/n8n/tree/n8n%401.65.0",
+      "runtime": "official n8nio/n8n:1.65.0 image"
+    }
+  },
+  "supply_chain": {
+    "image_cooldown_cutoff": "2026-08-30",
+    "image_cooldown_days": 7,
+    "verified_images": {
+      "bunkerweb": {
+        "cooldown_complete_at": "2026-08-28T14:24:47.559000Z",
+        "digest": "sha256:2026544f5b8e10e3db52c018cb583193d273fc8ca9e25a5f5c21ef0b5f833586",
+        "official_source": "https://hub.docker.com/r/bunkerity/bunkerweb",
+        "platforms": [
+          "linux/arm64"
+        ],
+        "published_at": "2026-08-21T14:24:47.559Z",
+        "registry_metadata_url": "https://hub.docker.com/v2/repositories/bunkerity/bunkerweb/tags/1.6.14",
+        "source_ref": "bunkerity/bunkerweb:1.6.14"
+      },
+      "bunkerweb_api": {
+        "cooldown_complete_at": "2026-08-28T14:24:46.051106Z",
+        "digest": "sha256:dafde8bd366f1d01514a4e669221c3dc152acb9a19fb5d923f953d69b63fda47",
+        "official_source": "https://hub.docker.com/r/bunkerity/bunkerweb-api",
+        "platforms": [
+          "linux/arm64"
+        ],
+        "published_at": "2026-08-21T14:24:46.051106Z",
+        "registry_metadata_url": "https://hub.docker.com/v2/repositories/bunkerity/bunkerweb-api/tags/1.6.14",
+        "source_ref": "bunkerity/bunkerweb-api:1.6.14"
+      },
+      "bunkerweb_scheduler": {
+        "cooldown_complete_at": "2026-08-28T14:24:55.180414Z",
+        "digest": "sha256:0b68b1fe27977d713804a1460f7fd713db49e90385e19dc7c0baf14ea3b06060",
+        "official_source": "https://hub.docker.com/r/bunkerity/bunkerweb-scheduler",
+        "platforms": [
+          "linux/arm64"
+        ],
+        "published_at": "2026-08-21T14:24:55.180414Z",
+        "registry_metadata_url": "https://hub.docker.com/v2/repositories/bunkerity/bunkerweb-scheduler/tags/1.6.14",
+        "source_ref": "bunkerity/bunkerweb-scheduler:1.6.14"
+      },
+      "caddy": {
+        "cooldown_complete_at": "2026-02-18T19:53:40.885933Z",
+        "digest": "sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d",
+        "official_source": "https://hub.docker.com/_/caddy",
+        "platform_digest": "sha256:8dbca3525dd8dce671e495665a0eb297a83ec87ee30f373947d0ea93115949db",
+        "platforms": [
+          "linux/arm64"
+        ],
+        "published_at": "2026-02-11T19:53:40.885933Z",
+        "registry_metadata_url": "https://hub.docker.com/v2/repositories/library/caddy/tags/2.10.2-alpine",
+        "source_ref": "caddy:2.10.2-alpine"
+      },
+      "mariadb": {
+        "cooldown_complete_at": "2025-10-17T00:36:21.898002Z",
+        "digest": "sha256:ae6119716edac6998ae85508431b3d2e666530ddf4e94c61a10710caec9b0f71",
+        "official_source": "https://hub.docker.com/_/mariadb",
+        "platforms": [
+          "linux/arm64"
+        ],
+        "published_at": "2025-10-10T00:36:21.898002Z",
+        "registry_metadata_url": "https://hub.docker.com/v2/repositories/library/mariadb/tags/11.8.3",
+        "source_ref": "mariadb:11.8.3"
+      },
+      "minio": {
+        "cooldown_complete_at": "2025-09-14T18:45:34.689393Z",
+        "digest": "sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e",
+        "official_source": "https://hub.docker.com/r/minio/minio",
+        "platforms": [
+          "linux/arm64"
+        ],
+        "published_at": "2025-09-07T18:45:34.689393Z",
+        "registry_metadata_url": "https://hub.docker.com/v2/repositories/minio/minio/tags/RELEASE.2025-09-07T16-13-09Z",
+        "source_ref": "minio/minio:RELEASE.2025-09-07T16-13-09Z"
+      },
+      "n8n": {
+        "cooldown_complete_at": "2024-10-31T10:40:09.930810Z",
+        "digest": "sha256:b1b1c1597a17a71a6906ab1fda0c760747ade1c02c4e7154880f84f7338992ce",
+        "official_source": "https://hub.docker.com/r/n8nio/n8n",
+        "platforms": [
+          "linux/arm64"
+        ],
+        "published_at": "2024-10-24T10:40:09.93081Z",
+        "registry_metadata_url": "https://hub.docker.com/v2/repositories/n8nio/n8n/tags/1.65.0",
+        "source_ref": "n8nio/n8n:1.65.0"
+      },
+      "nuclei": {
+        "cooldown_complete_at": "2025-08-30T14:42:53.696418Z",
+        "digest": "sha256:aeb5ea2db32a252b8135707d2ad0e89b90e19a18ea7816d38759bc51efb46b97",
+        "official_source": "https://hub.docker.com/r/projectdiscovery/nuclei",
+        "platforms": [
+          "linux/arm64"
+        ],
+        "published_at": "2025-08-23T14:42:53.696418Z",
+        "registry_metadata_url": "https://hub.docker.com/v2/repositories/projectdiscovery/nuclei/tags/v3.4.10",
+        "source_ref": "projectdiscovery/nuclei:v3.4.10"
+      },
+      "postgres": {
+        "cooldown_complete_at": "2026-09-02T22:07:44.572500Z",
+        "digest": "sha256:f1c3376c26f2609ab9f29f71f824103fe2fcd8ee0346485cb6122a4f93df6f94",
+        "official_source": "https://hub.docker.com/_/postgres",
+        "platforms": [
+          "linux/arm64"
+        ],
+        "published_at": "2026-08-26T22:07:44.5725Z",
+        "registry_metadata_url": "https://hub.docker.com/v2/repositories/library/postgres/tags/16",
+        "source_ref": "postgres:16"
+      },
+      "redis": {
+        "cooldown_complete_at": "2026-08-27T16:35:55.808392Z",
+        "digest": "sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf",
+        "official_source": "https://hub.docker.com/_/redis",
+        "platforms": [
+          "linux/arm64"
+        ],
+        "published_at": "2026-08-20T16:35:55.808392Z",
+        "registry_metadata_url": "https://hub.docker.com/v2/repositories/library/redis/tags/7-alpine",
+        "source_ref": "redis:7-alpine"
+      },
+      "temporal": {
+        "cooldown_complete_at": "2025-03-05T22:55:02.612969Z",
+        "digest": "sha256:b76fb70af37ef50084d97e1559822ab223ed59e74ac9e3679f4930b5e34d7eee",
+        "official_source": "https://hub.docker.com/r/temporalio/auto-setup",
+        "platforms": [
+          "linux/arm64"
+        ],
+        "published_at": "2025-02-26T22:55:02.612969Z",
+        "registry_metadata_url": "https://hub.docker.com/v2/repositories/temporalio/auto-setup/tags/1.27.1",
+        "source_ref": "temporalio/auto-setup:1.27.1"
+      },
+      "temporal_postgres": {
+        "cooldown_complete_at": "2025-11-21T18:07:30.568947Z",
+        "digest": "sha256:4689940c683801b4ab839ab3b0a0a3555a5fe425371422310944e89eca7d8068",
+        "official_source": "https://hub.docker.com/_/postgres",
+        "platforms": [
+          "linux/arm64"
+        ],
+        "published_at": "2025-11-14T18:07:30.568947Z",
+        "registry_metadata_url": "https://hub.docker.com/v2/repositories/library/postgres/tags/13",
+        "source_ref": "postgres:13"
+      },
+      "temporal_ui": {
+        "cooldown_complete_at": "2026-08-20T17:22:43.972402Z",
+        "digest": "sha256:eef301146e60fad34b47adaecfae4149016e34b2d44ba94fca5fd8e5441f182a",
+        "official_source": "https://hub.docker.com/r/temporalio/ui",
+        "platforms": [
+          "linux/arm64"
+        ],
+        "published_at": "2026-08-13T17:22:43.972402Z",
+        "registry_metadata_url": "https://hub.docker.com/v2/repositories/temporalio/ui/tags/latest",
+        "source_ref": "temporalio/ui:latest"
+      },
+      "tracecat": {
+        "cooldown_complete_at": "2026-09-10T20:14:58Z",
+        "cooldown_exception": "exact digest verified already local; never pull before cooldown completion",
+        "digest": "sha256:a1efce2a90593a269bc23a0ff555df53990f786c9e5dca30ea6249b3c76f1ea2",
+        "official_source": "https://github.com/TracecatHQ/tracecat/releases/tag/1.0.0-beta.52-rc.22",
+        "platforms": [
+          "linux/arm64"
+        ],
+        "published_at": "2026-09-03T20:14:58Z",
+        "source_ref": "ghcr.io/tracecathq/tracecat:1.0.0-beta.52-rc.22"
+      },
+      "tracecat_ui": {
+        "cooldown_complete_at": "2026-09-10T20:14:58Z",
+        "cooldown_exception": "exact digest verified already local; never pull before cooldown completion",
+        "digest": "sha256:089fb7c4f9b55dcf3da19262ba4c9ea7be21aab7150aff19da4d0e5a3be30c29",
+        "official_source": "https://github.com/TracecatHQ/tracecat/releases/tag/1.0.0-beta.52-rc.22",
+        "platforms": [
+          "linux/arm64"
+        ],
+        "published_at": "2026-09-03T20:14:58Z",
+        "source_ref": "ghcr.io/tracecathq/tracecat-ui:1.0.0-beta.52-rc.22"
+      }
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "scenario": "supplier-intake",
+  "evaluator": "deterministic",
+  "criteria": [
+    "baseline_scanner_suspects_version",
+    "baseline_rce_confirmed",
+    "baseline_benign_passes",
+    "log_attack_still_succeeds",
+    "log_event_correlated",
+    "log_benign_unchanged",
+    "block_stops_fresh_attack",
+    "block_event_correlated",
+    "block_benign_unchanged",
+    "removal_restores_rce",
+    "outage_not_success",
+    "malformed_proposal_rejected",
+    "stale_revision_rejected",
+    "duplicate_click_idempotent",
+    "failed_reload_rolled_back"
+  ],
+  "notes": [
+    "Scanner suspicion and active verification are separate observations.",
+    "Mitigated means blocked at the tested ingress; it does not mean patched.",
+    "Evaluation expectations are not included in either agent preset."
+  ]
+}

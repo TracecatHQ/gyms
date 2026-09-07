@@ -1,0 +1,56 @@
+{
+  "workflow_id": "00000000-0000-4000-8000-000000000302",
+  "version": 1,
+  "definition": {
+    "title": "Gym 003 - Scan supplier intake",
+    "description": "Starts and bounded-polls the fixed Nuclei scan, then appends its evidence to the managed case. Managed by Gym 003.",
+    "entrypoint": {
+      "ref": "start_scan",
+      "expects": {
+        "case_id": {"type": "str", "description": "Managed Tracecat case UUID"},
+        "scenario": {"type": "enum['supplier-intake']", "description": "Fixed server-side scenario"}
+      }
+    },
+    "config": {"timeout": 210},
+    "actions": [
+      {
+        "ref": "start_scan",
+        "action": "core.http_request",
+        "args": {
+          "url": "http://test-api:8080/v1/jobs",
+          "method": "POST",
+          "headers": {
+            "Authorization": "Bearer ${{ SECRETS.gym_003_test_api.TOKEN }}",
+            "Content-Type": "application/json"
+          },
+          "payload": {"kind": "scan", "scenario": "supplier-intake", "case_id": "${{ TRIGGER.case_id }}"},
+          "timeout": 10
+        }
+      },
+      {
+        "ref": "wait_for_scan",
+        "action": "core.http_poll",
+        "depends_on": ["start_scan"],
+        "args": {
+          "url": "http://test-api:8080/v1/jobs/${{ ACTIONS.start_scan.result.data.run_id }}",
+          "method": "GET",
+          "headers": {"Authorization": "Bearer ${{ SECRETS.gym_003_test_api.TOKEN }}"},
+          "timeout": 10,
+          "poll_interval": 2,
+          "poll_max_attempts": 90,
+          "poll_condition": "lambda response: response['data'].get('status') in ['completed', 'inconclusive', 'failed', 'cancelled', 'timed_out']"
+        }
+      },
+      {
+        "ref": "record_scan_evidence",
+        "action": "core.cases.create_comment",
+        "depends_on": ["wait_for_scan"],
+        "args": {
+          "case_id": "${{ TRIGGER.case_id }}",
+          "content": "## Gym 003 scan evidence\n\n- Execution: `${{ ENV.workflow.execution_id }}`\n- Run: `${{ ACTIONS.wait_for_scan.result.data.run_id }}`\n- Verdict: `${{ ACTIONS.wait_for_scan.result.data.verdict }}`\n\n```json\n${{ FN.prettify_json({'evidence': ACTIONS.wait_for_scan.result.data.evidence, 'error': ACTIONS.wait_for_scan.result.data.error}) }}\n```"
+        }
+      }
+    ],
+    "returns": "${{ ACTIONS.wait_for_scan.result.data }}"
+  }
+}

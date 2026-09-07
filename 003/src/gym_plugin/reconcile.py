@@ -23,6 +23,27 @@ ASSET = "supplier.intake.test"
 CVE = "CVE-2026-21858"
 DEDUP_KEY = f"{SCENARIO}|{ASSET}|{CVE}"
 ANALYST_SLUG = "analyst"
+ANALYST_DISPATCH_KEY = "analyst_intake_dispatch"
+PROPOSAL_FIELDS = {
+    "scenario",
+    "revision",
+    "route",
+    "method",
+    "allowed_content_type",
+    "recommended_mode",
+    "rationale",
+    "proposal_id",
+    "created_at",
+}
+PROPOSAL_DIGEST_FIELDS = (
+    "scenario",
+    "revision",
+    "route",
+    "method",
+    "allowed_content_type",
+    "recommended_mode",
+    "rationale",
+)
 RETIRED_PRESET_SLUGS = {
     "gym-003-attack-surface",
     "gym-003-mitigation-analyst",
@@ -44,7 +65,7 @@ REGISTRY_ACTIONS = {
     "security.supplier_intake.propose_policy",
     "security.supplier_intake.apply_reviewed_policy",
 }
-REGISTRY_IMPLEMENTATION_MARKER = "supplier-intake-actions-v4"
+REGISTRY_IMPLEMENTATION_MARKER = "supplier-intake-actions-v5"
 MANAGED_SECRETS = {
     "supplier_intake_n8n": {
         "description": "Credentials for bounded supplier intake compatibility checks.",
@@ -84,10 +105,11 @@ The exposed route accepts supplier submissions and supports production business 
 
 ```mermaid
 flowchart LR
-    A["Scanner signal"] --> B["Analyst<br/>confirm impact"]
-    B --> C["Analyst<br/>propose control"]
-    C --> D["Human review<br/>apply rule"]
-    D --> E["Retest<br/>attack denied<br/>required traffic passes"]
+    A["Scanner finding"] --> B["Intake workflow"]
+    B --> C["Analyst<br/>verify and propose"]
+    C --> D["Human review<br/>launch case task"]
+    D --> E["Firewall workflow<br/>apply and retest"]
+    E --> F["Analyst closure<br/>review evidence"]
 ```
 
 ## Decision boundary
@@ -261,6 +283,167 @@ def append_case_evidence(
         body={"payload": payload},
         expected=(204,),
     )
+    return True
+
+
+def _is_reviewable_firewall_proposal(value: Any) -> bool:
+    """Recognize only the immutable proposal persisted by the Analyst action."""
+
+    if not isinstance(value, dict) or set(value) != PROPOSAL_FIELDS:
+        return False
+    expected = {
+        "scenario": SCENARIO,
+        "revision": 1,
+        "route": "/form/supplier-intake",
+        "method": "POST",
+        "allowed_content_type": "multipart/form-data",
+    }
+    if any(value.get(key) != expected_value for key, expected_value in expected.items()):
+        return False
+    if value.get("recommended_mode") not in {"BLOCK", "LOG_ONLY"}:
+        return False
+    rationale = value.get("rationale")
+    if not isinstance(rationale, str) or not 20 <= len(rationale) <= 2_000:
+        return False
+    created_at = value.get("created_at")
+    proposal_id = value.get("proposal_id")
+    if not isinstance(created_at, str) or not isinstance(proposal_id, str):
+        return False
+    signed = {key: value[key] for key in PROPOSAL_DIGEST_FIELDS}
+    canonical = json.dumps(signed, sort_keys=True, separators=(",", ":")).encode()
+    return proposal_id == hashlib.sha256(canonical).hexdigest()
+
+
+def reconcile_initial_analyst_dispatch(
+    client: ClientLike,
+    workspace_id: str,
+    case_id: str,
+    intake_workflow: dict[str, Any],
+) -> bool:
+    """Send the seeded finding through the published intake webhook exactly once.
+
+    The marker is persisted before dispatch. If the caller loses the webhook
+    response, a later reconciliation refuses to submit a potentially duplicate
+    Agent run. A proposal is the durable proof that the initial investigation
+    reached the human-review boundary.
+    """
+
+    actual = request(client, "GET", f"/workspaces/{workspace_id}/cases/{case_id}")
+    if not isinstance(actual, dict) or not isinstance(actual.get("payload"), dict):
+        raise ReconcileError("managed case response has no payload")
+    payload = dict(actual["payload"])
+    marker = payload.get(ANALYST_DISPATCH_KEY)
+    proposal = payload.get("firewall_proposal")
+    workflow_id = str(intake_workflow.get("id", ""))
+
+    if _is_reviewable_firewall_proposal(proposal):
+        expected = {
+            "status": "complete",
+            "source": "webhook",
+            "workflow_id": workflow_id,
+        }
+        if marker != expected:
+            payload[ANALYST_DISPATCH_KEY] = expected
+            request(
+                client,
+                "PATCH",
+                f"/workspaces/{workspace_id}/cases/{case_id}",
+                body={"payload": payload},
+                expected=(204,),
+            )
+        return False
+
+    if isinstance(marker, dict) and marker.get("status") in {
+        "requested",
+        "complete",
+    }:
+        raise ReconcileError(
+            "Analyst intake was already dispatched without a proposal; "
+            "refusing to launch a duplicate run"
+        )
+
+    webhook = intake_workflow.get("webhook")
+    secret = webhook.get("secret") if isinstance(webhook, dict) else None
+    if not workflow_id or not isinstance(secret, str) or not secret:
+        raise ReconcileError("scanner intake workflow has no usable webhook")
+    if webhook.get("status") != "online":
+        raise ReconcileError("scanner intake workflow webhook is not online")
+
+    requested = {
+        "status": "requested",
+        "source": "webhook",
+        "workflow_id": workflow_id,
+    }
+    payload[ANALYST_DISPATCH_KEY] = requested
+    request(
+        client,
+        "PATCH",
+        f"/workspaces/{workspace_id}/cases/{case_id}",
+        body={"payload": payload},
+        expected=(204,),
+    )
+
+    try:
+        response = client.request(
+            "POST",
+            f"/webhooks/{workflow_id}/{secret}/wait",
+            json={
+                "case_id": case_id,
+                "source": "webhook",
+                "scanner_assessment": "suspected_vulnerable_version",
+            },
+            timeout=540,
+        )
+    except Exception:
+        # HTTP client exceptions can include the full URL, including its webhook
+        # secret. Keep that material out of bootstrap output and tracebacks.
+        raise ReconcileError(
+            "scanner intake webhook request failed after dispatch was marked"
+        ) from None
+    if response.status_code != 200:
+        # A validation/authentication rejection is known to occur before dispatch,
+        # so a later reconcile may retry. Server failures are ambiguous and retain
+        # the requested marker to protect against duplicate Agent runs.
+        if 400 <= response.status_code < 500:
+            refreshed = request(
+                client, "GET", f"/workspaces/{workspace_id}/cases/{case_id}"
+            )
+            failed_payload = dict(refreshed.get("payload") or {})
+            failed_payload[ANALYST_DISPATCH_KEY] = {
+                **requested,
+                "status": "failed_before_start",
+            }
+            request(
+                client,
+                "PATCH",
+                f"/workspaces/{workspace_id}/cases/{case_id}",
+                body={"payload": failed_payload},
+                expected=(204,),
+            )
+        raise ReconcileError(
+            f"scanner intake webhook returned HTTP {response.status_code}"
+        )
+
+    refreshed = request(client, "GET", f"/workspaces/{workspace_id}/cases/{case_id}")
+    refreshed_payload = dict(refreshed.get("payload") or {})
+    if not _is_reviewable_firewall_proposal(
+        refreshed_payload.get("firewall_proposal")
+    ):
+        raise ReconcileError(
+            "Analyst intake completed without producing a reviewable proposal"
+        )
+    refreshed_payload[ANALYST_DISPATCH_KEY] = {
+        **requested,
+        "status": "complete",
+    }
+    request(
+        client,
+        "PATCH",
+        f"/workspaces/{workspace_id}/cases/{case_id}",
+        body={"payload": refreshed_payload},
+        expected=(204,),
+    )
+    log("Analyst completed the initial scanner investigation")
     return True
 
 
@@ -693,19 +876,25 @@ def reconcile() -> None:
             raise ReconcileError(str(exc)) from exc
         reconcile_registry(client)
         reconcile_action_secrets(client, workspace_id)
+        case = reconcile_case(client, workspace_id)
+        retire_legacy_case_artifacts(client, workspace_id, str(case["id"]))
+        skill_ids = reconcile_skills(client, workspace_id)
+        reconcile_presets(client, workspace_id, skill_ids)
         try:
             managed_workflows = workflows.reconcile_workflows(
                 client, workspace_id, request, logger=log
             )
         except workflows.WorkflowError as exc:
             raise ReconcileError(str(exc)) from exc
-        case = reconcile_case(client, workspace_id)
-        retire_legacy_case_artifacts(client, workspace_id, str(case["id"]))
         reconcile_tasks(client, workspace_id, str(case["id"]), managed_workflows)
-        skill_ids = reconcile_skills(client, workspace_id)
-        reconcile_presets(client, workspace_id, skill_ids)
+        reconcile_initial_analyst_dispatch(
+            client,
+            workspace_id,
+            str(case["id"]),
+            managed_workflows["gym-003-scanner-intake"],
+        )
     log(
-        "READY: case, two workflow-backed tasks, one workflow, four actions, "
+        "READY: case, two workflow-backed tasks, two workflows, four actions, "
         "two skills, and one Analyst preset"
     )
 

@@ -1,4 +1,4 @@
-# Gym 003 benchmark boundary
+# Vulnerability mitigation benchmark boundary
 
 `scenario.json` is agent-visible business and route context. It intentionally
 contains no expected verdicts, rule identifiers, exploit payloads, or grader

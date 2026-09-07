@@ -1,0 +1,54 @@
+{
+  "workflow_id": "00000000-0000-4000-8000-000000000305",
+  "version": 1,
+  "layout": {
+    "trigger": {
+      "x": 0,
+      "y": 0
+    },
+    "actions": [
+      {
+        "ref": "run_analyst",
+        "x": 0,
+        "y": 300
+      }
+    ]
+  },
+  "definition": {
+    "title": "Investigate vulnerability scanner finding",
+    "description": "Automatically runs the Analyst preset when a vulnerability finding has been reconciled to a Tracecat case.",
+    "entrypoint": {
+      "ref": "run_analyst",
+      "expects": {
+        "case_id": {
+          "type": "str",
+          "description": "Tracecat case UUID returned by the finding reconciliation step"
+        },
+        "source": {
+          "type": "enum['webhook','schedule']",
+          "description": "Scanner intake mechanism"
+        },
+        "scanner_assessment": {
+          "type": "enum['suspected_vulnerable_version']",
+          "description": "Bounded scanner verdict requiring active validation"
+        }
+      }
+    },
+    "config": {
+      "timeout": 480
+    },
+    "actions": [
+      {
+        "ref": "run_analyst",
+        "action": "ai.preset_agent",
+        "args": {
+          "preset": "analyst",
+          "user_prompt": "A vulnerability finding received by `${{ TRIGGER.source }}` was reconciled to Tracecat case `${{ TRIGGER.case_id }}` with assessment `${{ TRIGGER.scanner_assessment }}`. Investigate this case now. You are authorized to scan, verify impact, persist a justified proposal, and add material case comments without waiting for human confirmation. Stop before running either firewall task; the human reviews the case and decides whether to run one.",
+          "max_tool_calls": 15,
+          "max_requests": 45
+        }
+      }
+    ],
+    "returns": "${{ ACTIONS.run_analyst.result }}"
+  }
+}

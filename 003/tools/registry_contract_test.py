@@ -30,6 +30,26 @@ ACTION_NAMES = {
 }
 
 
+def _managed_payload(*, verified: bool = False) -> dict:
+    payload = {
+        "gym_id": "003",
+        "dedup_key": "supplier-intake|supplier.intake.test|CVE-2026-21858",
+        "scenario": "supplier-intake",
+        "asset": "supplier.intake.test",
+        "cve": "CVE-2026-21858",
+    }
+    if verified:
+        payload["latest_exploitability_verification"] = {
+            "run_id": "run-confirmed",
+            "verdict": "confirmed_rce",
+            "cleanup": {"status": "completed", "workflow_removed": True},
+            "benign_passed": True,
+            "evidence_refs": ["attack.json", "benign.json"],
+            "verified_at": "2026-09-07T00:00:00+00:00",
+        }
+    return payload
+
+
 class _Registry:
     def __init__(self) -> None:
         self.actions: dict[str, dict] = {}
@@ -82,7 +102,7 @@ class RegistryContractTests(unittest.TestCase):
             self.assertEqual(action["namespace"], "security.supplier_intake")
             self.assertTrue(action["description"].strip(), name)
         self.assertIn(
-            "supplier-intake-actions-v4",
+            "supplier-intake-actions-v5",
             self.actions["security.supplier_intake.scan"]["description"],
         )
 
@@ -197,15 +217,99 @@ class RegistryContractTests(unittest.TestCase):
 
         self.assertEqual(updates, [])
 
+    def test_proposal_requires_persisted_confirmed_verification(self):
+        updates = []
+        previous_cases = self.module.ctx.cases
+        self.module.ctx.cases = types.SimpleNamespace(
+            get_case=lambda case_id: {"id": case_id, "payload": _managed_payload()},
+            update_case_simple=lambda *args, **kwargs: updates.append((args, kwargs)),
+        )
+        try:
+            propose = self.actions[
+                "security.supplier_intake.propose_policy"
+            ]["function"]
+            with tempfile.TemporaryDirectory() as directory:
+                with (
+                    patch.object(
+                        self.module,
+                        "_execution_context",
+                        return_value={"state_dir": Path(directory)},
+                    ),
+                    self.assertRaisesRegex(
+                        ValueError, "confirmed exploitability verification"
+                    ),
+                ):
+                    propose(
+                        case_id="managed-case",
+                        recommended_mode="BLOCK",
+                        rationale="This rationale is long enough to pass validation.",
+                    )
+        finally:
+            self.module.ctx.cases = previous_cases
+
+        self.assertEqual(updates, [])
+
+    def test_verify_persists_sanitized_evidence_for_the_proposal_gate(self):
+        stored_payload = _managed_payload()
+
+        def get_case(case_id):
+            return {"id": case_id, "payload": dict(stored_payload)}
+
+        def update_case_simple(_case_id, *, payload):
+            stored_payload.clear()
+            stored_payload.update(payload)
+
+        previous_cases = self.module.ctx.cases
+        self.module.ctx.cases = types.SimpleNamespace(
+            get_case=get_case,
+            update_case_simple=update_case_simple,
+        )
+        verify = self.actions["security.supplier_intake.verify"]["function"]
+        try:
+            with tempfile.TemporaryDirectory() as directory:
+                with (
+                    patch.object(
+                        self.module,
+                        "_execution_context",
+                        return_value={
+                            "run_id": "run-confirmed",
+                            "state_dir": Path(directory),
+                        },
+                    ),
+                    patch(
+                        "gym_plugin.probe.verify",
+                        return_value={
+                            "verdict": "confirmed_rce",
+                            "cleanup": {
+                                "status": "completed",
+                                "workflow_removed": True,
+                            },
+                            "evidence": ["/var/lib/gym/jobs/run-confirmed/attack.json"],
+                        },
+                    ),
+                    patch(
+                        "gym_plugin.traffic.run_benign_suite",
+                        return_value={
+                            "passed": True,
+                            "transactions": [],
+                            "evidence": ["/var/lib/gym/jobs/run-confirmed/benign.json"],
+                        },
+                    ),
+                ):
+                    result = verify("managed-case")
+        finally:
+            self.module.ctx.cases = previous_cases
+
+        evidence = stored_payload["latest_exploitability_verification"]
+        self.assertEqual(evidence["run_id"], "run-confirmed")
+        self.assertEqual(evidence["verdict"], "confirmed_rce")
+        self.assertEqual(evidence["evidence_refs"], ["attack.json", "benign.json"])
+        self.assertNotIn("/var/lib", json.dumps(evidence))
+        self.assertEqual(result["verdict"], "confirmed_rce")
+
     def test_concurrent_proposals_cannot_overwrite_each_other(self):
         case_id = "managed-case"
-        stored_payload = {
-            "gym_id": "003",
-            "dedup_key": "supplier-intake|supplier.intake.test|CVE-2026-21858",
-            "scenario": "supplier-intake",
-            "asset": "supplier.intake.test",
-            "cve": "CVE-2026-21858",
-        }
+        stored_payload = _managed_payload(verified=True)
         updates = []
 
         def get_case(requested_case_id):

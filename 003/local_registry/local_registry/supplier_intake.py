@@ -24,8 +24,9 @@ ROUTE = "/form/supplier-intake"
 METHOD = "POST"
 ALLOWED_CONTENT_TYPE = "multipart/form-data"
 PROPOSAL_REVISION = 1
+VERIFICATION_EVIDENCE_KEY = "latest_exploitability_verification"
 NUCLEI_BINARY = "/usr/local/bin/nuclei"
-IMPLEMENTATION_MARKER = "supplier-intake-actions-v4"
+IMPLEMENTATION_MARKER = "supplier-intake-actions-v5"
 
 N8N_SECRET = RegistrySecret(
     name="supplier_intake_n8n",
@@ -163,6 +164,30 @@ def _safe_verification(result: dict[str, Any], run_id: str) -> dict[str, Any]:
     }
 
 
+def _require_confirmed_verification(payload: dict[str, Any]) -> dict[str, Any]:
+    """Require the latest persisted run to prove safe, compatible RCE impact."""
+
+    evidence = payload.get(VERIFICATION_EVIDENCE_KEY)
+    if not isinstance(evidence, dict):
+        raise ValueError("confirmed exploitability verification is required before proposal")
+    cleanup = evidence.get("cleanup")
+    valid = (
+        evidence.get("verdict") == "confirmed_rce"
+        and isinstance(evidence.get("run_id"), str)
+        and bool(evidence.get("run_id"))
+        and evidence.get("benign_passed") is True
+        and isinstance(evidence.get("evidence_refs"), list)
+        and bool(evidence.get("evidence_refs"))
+        and isinstance(evidence.get("verified_at"), str)
+        and isinstance(cleanup, dict)
+        and cleanup.get("status") == "completed"
+        and cleanup.get("workflow_removed") is True
+    )
+    if not valid:
+        raise ValueError("confirmed exploitability verification is required before proposal")
+    return dict(evidence)
+
+
 @registry.register(
     default_title="Scan supplier intake",
     display_group="Supplier intake response",
@@ -211,12 +236,26 @@ def verify(case_id: str) -> dict[str, Any]:
     from gym_plugin.probe import verify as run_verification
     from gym_plugin.traffic import run_benign_suite
 
-    _case_payload(case_id)
     execution = _execution_context()
     with exclusive_operation(execution["state_dir"]):
+        _case_payload(case_id)
         attack = run_verification(execution)
         benign = run_benign_suite(execution)
-    safe_attack = _safe_verification(attack, str(execution["run_id"]))
+        safe_attack = _safe_verification(attack, str(execution["run_id"]))
+        verification_evidence = {
+            "run_id": str(execution["run_id"]),
+            "verdict": safe_attack["verdict"],
+            "cleanup": safe_attack["cleanup"],
+            "benign_passed": benign.get("passed") is True,
+            "evidence_refs": [
+                *safe_attack["evidence_refs"],
+                *_evidence_refs(list(benign.get("evidence") or [])),
+            ],
+            "verified_at": datetime.now(UTC).isoformat(),
+        }
+        payload = _case_payload(case_id)
+        payload[VERIFICATION_EVIDENCE_KEY] = verification_evidence
+        ctx.cases.update_case_simple(case_id, payload=payload)
     return {
         "case_id": case_id,
         **safe_attack,
@@ -287,6 +326,7 @@ def propose_policy(
             if checked["proposal_id"] != proposal["proposal_id"]:
                 raise ValueError("an immutable firewall proposal already exists for this case")
             return checked
+        _require_confirmed_verification(payload)
         payload["firewall_proposal"] = proposal
         ctx.cases.update_case_simple(case_id, payload=payload)
     return proposal

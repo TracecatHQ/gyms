@@ -1,15 +1,15 @@
-# Gym 003: vulnerability-driven firewall mitigation
+# Vulnerability-driven firewall mitigation
 
-> Live status: the direct-action architecture passed reconciliation, health
-> checks, a case-scoped Analyst run, the human firewall workflow, and all 15
-> acceptance gates. The dark-mode screenshots below were recaptured from that
-> live environment and reviewed at full resolution.
+> Live demo status: automated scanner intake, workflow-launched Analyst
+> verification and proposal, a human-launched BLOCK task, automatic Analyst
+> closure, and all 15 acceptance gates passed. The walkthrough screenshots were
+> captured from that live environment in dark mode.
 >
 > Customer-facing solution brief: [docs/solution-brief/tracecat-solution-brief-zero-day-mitigation.pdf](docs/solution-brief/tracecat-solution-brief-zero-day-mitigation.pdf)
 
-Gym 003 is a reproducible, isolated exercise for this lifecycle:
+This repository contains a reproducible, isolated exercise for this lifecycle:
 
-`Nuclei suspicion → Tracecat case → Analyst verification → Analyst proposal → human-approved case task → BunkerWeb rule → Analyst review`
+`Webhook or scheduled pull → case upsert → vulnerability intake workflow → automatic Analyst verification and proposal → human-reviewed case task → BunkerWeb rule → automatic Analyst closure review`
 
 The fictional service accepts supplier documents, receives independent JSON
 order updates, supports staff login, and exposes a health check. n8n 1.65.0 is
@@ -23,7 +23,10 @@ human-launched application workflow.
 
 ```mermaid
 flowchart LR
-    C["Tracecat case<br/>Supplier intake RCE"] <--> A["Tracecat Analyst"]
+    E["Scanner finding<br/>webhook or scheduled pull"] --> C["Upsert Tracecat case<br/>Supplier intake RCE"]
+    C --> I["Tracecat workflow<br/>Vulnerability intake"]
+    I --> A["Run Analyst preset<br/>case ID supplied"]
+    A <--> C
     A --> S["Custom action<br/>scan"]
     A --> V["Custom action<br/>verify"]
     A --> P["Custom action<br/>persist proposal"]
@@ -34,6 +37,8 @@ flowchart LR
     T --> RW["Tracecat workflow<br/>Apply reviewed firewall rule"]
     RW --> F["Custom action<br/>apply exact proposal"]
     F --> BW
+    RW --> A2["Run Analyst preset<br/>closure review"]
+    A2 --> C
     N --> BW
     BW --> N8N["n8n<br/>Supplier intake"]
     N8N --> R["Receipt service"]
@@ -42,8 +47,8 @@ flowchart LR
     RW --> C
 ```
 
-Tracecat owns the case, Analyst, skills, direct security actions, immutable
-proposal, review tasks, and firewall workflow. The pinned Nuclei binary, n8n,
+Tracecat owns vulnerability intake, the case, Analyst, skills, direct security
+actions, immutable proposal, review tasks, and firewall workflow. The pinned Nuclei binary, n8n,
 BunkerWeb, and the receipt service remain external execution targets. There is no
 custom HTTP job or test API between the Analyst and Tracecat. BunkerWeb applies
 the reviewed ingress control, while n8n and the receipt service provide the
@@ -57,7 +62,7 @@ official publisher or Docker Official Image registry and is recorded in
 seven-day cooldown. The repository's September 3 Tracecat images were already
 present on this host; startup refuses to fetch them before their September 10
 cooldown date. Python dependencies inherited from Tracecat are exact `==` pins;
-Gym 003 adds no floating package requirement.
+This exercise adds no floating package requirement.
 
 Run `just verify-supply-chain` to query the recorded official Docker Hub metadata
 without pulling images. Review any digest or publication-date change before
@@ -82,14 +87,27 @@ Tracecat must have a provider and organization-default model before it can creat
 the Analyst preset. If the initial reconcile reports that no default model is
 configured, set one in the Tracecat UI, then run `just reconcile` and `just wait`.
 
-The reconciler creates one CVE-2026-21858 case, one Analyst preset, two published
-Analyst skills, one published workflow, and two independently runnable case
-tasks. The Analyst directly invokes the fixed-target `scan`, `verify`, and
-`propose_policy` registry actions. The sole managed workflow is **Apply reviewed
-firewall rule**.
+The reconciler creates one case, one Analyst preset, two published Analyst skills, an
+automated **Investigate vulnerability scanner finding** workflow, the **Apply reviewed firewall rule**
+workflow, and two independently runnable case tasks. A webhook or scheduled pull
+upserts the case, then invokes **Investigate vulnerability scanner finding** with
+`case_id`, source, and the bounded scanner verdict. That workflow launches the
+Analyst preset and supplies the canonical case ID in its prompt. The Analyst directly invokes the fixed-target `scan`, `verify`, and
+`propose_policy` registry actions without waiting for a person to start a chat.
+On a fresh start, reconciliation sends the seeded finding through the same
+published webhook and waits until Analyst has persisted the proposal, leaving the
+case ready for human review. Repeated reconciliation does not launch another
+Analyst run after that proposal exists.
 
 - `Create LOG-only rule` installs the same predicate in observation mode, retests, and records correlated events.
 - `Create BLOCK rule` snapshots configuration, installs the blocking predicate, confirms activation, retests attack and benign behavior, and rolls back on incomplete verification or regression.
+
+The authority boundary is explicit: the upstream collector may upsert a case and
+invoke intake; intake may run the Analyst preset; the Analyst may scan, verify, persist a proposal,
+and comment; a human may review the case and launch one of its tasks; only the
+task-launched firewall workflow may change BunkerWeb. Completing that workflow
+automatically runs the Analyst preset again to review the result and close the
+case narrative.
 
 Material case updates retain the exact proposal identifier and revision, action
 and workflow execution references, before/after verdicts, benign results,
@@ -130,7 +148,7 @@ Retained evidence remains. Full volume deletion uses
 
 ## Baseline boundary
 
-ModSecurity starts enabled with only the declared Gym 003 baseline configuration.
+ModSecurity starts enabled with only the declared baseline configuration.
 BunkerWeb bad-behavior bans and request-rate limits are disabled for deterministic
 replay, and the reverse proxy forwards the editor methods needed for verified
 cleanup.
@@ -139,13 +157,14 @@ evaluation outcomes are kept separately under `benchmark/evals/`.
 
 ## Case walkthrough
 
-The reference set covers the case, Analyst, direct action execution, approval
-tasks, final evidence, preset prompt and tools, published skills, and the sole
-firewall workflow. All images use dark mode at a consistent 1707 × 960 viewport.
-Before presenting, start and reconcile the gym:
+The reference set covers automated intake, the case, Analyst, direct action
+execution, review tasks, final evidence, preset prompt and tools, published
+skills, and the firewall workflow. All images use dark mode at a consistent
+1707 × 960 viewport.
+Before presenting, start and reconcile the exercise:
 
 ```sh
-cd /Users/chris/repos/gyms/003
+cd 003
 just up
 just wait
 just reconcile
@@ -153,26 +172,36 @@ just status
 just check
 ```
 
-`just status` must report one case, two tasks, one managed workflow, one
-preset, and two published skills. If Tracecat has no organization default, open
+`just status` must report one case, two tasks, two managed workflows, one preset,
+and two published skills. If Tracecat has no organization default, open
 <http://127.0.0.1:38080/organization/settings/agent>, configure OpenAI, select
 `gpt-5.6-terra`, and run the commands again. Do not place a key in a terminal,
 README, screenshot, or case comment.
 
-### 1. Establish the scanner finding
+### 1. Show automated vulnerability intake
 
-**Action:** Open <http://127.0.0.1:38080>, select **Cases**, and open
-**CASE-0001 — Suspected unauthenticated n8n RCE on supplier intake**.
+**Action:** Open <http://127.0.0.1:38080>, select **Workflows**, and open
+**Investigate vulnerability scanner finding**. Show that its trigger accepts the
+upstream-reconciled `case_id`, source (`webhook` or `schedule`), and bounded
+scanner verdict, then runs the **Analyst** preset with that case ID in its prompt.
+Then select **Cases** and open
+**Suspected unauthenticated n8n RCE on supplier intake**. The case number may
+change after a full reset.
 
-**Expected state:** The case is Critical/High. Its Markdown description presents
+**Expected state:** The latest intake run links to the case and the automatically
+started Analyst run. The case is Critical/High. Its Markdown description presents
 the Nuclei version signal in a compact evidence table and renders a Mermaid flow
-from scanner suspicion through verification, proposal, human action, and retest.
+from scanner suspicion through automatic verification and proposal, human task
+execution, and automatic result review.
+
+![Automatic vulnerability intake workflow](docs/screenshots/11-vulnerability-intake-workflow.png)
 
 ![Case overview and scanner evidence](docs/screenshots/01-case-overview.png)
 
-**Presenter notes:** “The scanner starts the investigation, but a version match is
-only a signal. The table defines the evidence and compatibility boundary; the
-diagram previews the human-controlled path from finding to verified mitigation.”
+**Presenter notes:** “Scanner findings arrive by webhook or scheduled pull. The
+collector upserts the case and invokes intake, which immediately runs Analyst
+with the canonical case ID supplied. A version match is still only a signal;
+Analyst must verify impact before recommending a control.”
 
 ### 2. Show the Analyst and its skills
 
@@ -185,9 +214,10 @@ specialist, or investigation-wrapper agent.
 
 ![Single Analyst preset](docs/screenshots/02-agents.png)
 
-**Presenter notes:** “One Analyst owns the investigation narrative. Its skills
-constrain verification and proposal work to reviewed actions, and it has no
-firewall-write permission. Applying a control remains a human decision.”
+**Presenter notes:** “One Analyst owns the investigation narrative. Intake starts
+it automatically, its skills constrain verification and proposal work to
+reviewed actions, and it has no firewall-write permission. Applying a control
+remains a human decision.”
 
 #### 2a. Inspect the Analyst prompt
 
@@ -196,16 +226,17 @@ the top so the Analyst name, description, and opening prompt instructions are
 visible. The prompt is the large document pane; the tabs on the right configure
 chat and capabilities.
 
-**Expected state:** The prompt tells the Analyst to own the vulnerability case,
-treat the scanner result as an initial signal, use fresh sanitized evidence, and
-leave firewall changes to human-launched case tasks. The visible copy contains no
-exercise label or specialist-agent handoff.
+**Expected state:** The prompt tells the Analyst to begin when invoked by
+vulnerability intake, treat the scanner result as an initial signal, use fresh
+sanitized evidence, prepare a reviewable proposal, and leave firewall changes to
+human-launched case tasks. The visible copy contains no exercise label,
+specialist-agent handoff, or instruction to copy a case identifier.
 
 ![Analyst prompt and investigation boundary](docs/screenshots/06-analyst-prompt.png)
 
-**Presenter notes:** “The preset carries the durable operating contract. One
-Analyst follows the case from assignment through closure, but the prompt keeps
-claims evidence-based and keeps firewall execution behind a human task.”
+**Presenter notes:** “The preset carries the durable operating contract. The
+workflow supplies the active case; Analyst verifies and proposes automatically,
+while firewall execution stays behind a human task.”
 
 #### 2b. Inspect the Analyst tools
 
@@ -215,15 +246,18 @@ pane. Scroll until **Allowed tools** and the configured approval rows are visibl
 **Expected state:** The allowed set contains case read/comment operations plus
 the fixed-target `security.supplier_intake.scan`,
 `security.supplier_intake.verify`, and
-`security.supplier_intake.propose_policy` actions. It does not contain
+`security.supplier_intake.propose_policy` actions. Those investigation actions
+are configured to run without human confirmation after scanner intake. The set
+does not contain
 `core.workflow.execute`, the firewall application action, a credential, shell,
 generic HTTP, or arbitrary code tool.
 
 ![Analyst tools and execution boundary](docs/screenshots/07-analyst-tools.png)
 
-**Presenter notes:** “The Analyst can gather case context, run the pinned scanner
-and verification directly, persist a constrained proposal, and write accountable
-updates. The tool boundary offers no path to apply a firewall rule.”
+**Presenter notes:** “Scanner intake is enough authority for Analyst to gather
+case context, run the pinned scanner and verification, persist a constrained
+proposal, and write accountable updates. The tool boundary offers no path to
+apply a firewall rule.”
 
 #### 2c. Inspect the published skills
 
@@ -249,47 +283,46 @@ identity. Verification is bounded and evidence-producing; mitigation design is
 narrow and reviewable. Neither skill gives the model a credential or a free-form
 rule interface.”
 
-#### 2d. Inspect the customized workflow
+#### 2d. Inspect the controlled firewall workflow
 
-**Action:** Select **Workflows**, open **Apply reviewed firewall rule**, select
-**Apply reviewed rule**, and frame the builder with its input bindings visible.
+**Action:** Select **Workflows** and open **Apply reviewed firewall rule**. Frame
+the full graph and its trigger input schema.
 
-**Expected state:** Exactly one managed workflow is visible. **Apply reviewed
-firewall rule** reads the case's persisted proposal, invokes the constrained
-application action, and records the sanitized result. The selected action shows
-that case, mode, proposal revision, and task identity come from reviewed trigger
-inputs. It exposes no credential, internal endpoint, raw request body, or exploit
-material.
+**Expected state:** Two managed workflows are visible. **Investigate
+vulnerability scanner finding** receives the supplied case ID, source, and scanner
+verdict and invokes Analyst.
+**Apply reviewed firewall rule**
+reads the case's persisted proposal, invokes the constrained application action,
+records the sanitized result, and invokes Analyst for closure review. The graph
+shows **Apply reviewed rule**, **Record rule result**, and **Review rule result**;
+the schema shows that case, mode, proposal revision, and task identity come from
+reviewed trigger inputs. It exposes no credential, internal endpoint, raw
+request body, or exploit material.
 
 ![Reviewed firewall workflow builder](docs/screenshots/12-rule-application-workflow.png)
 
-**Presenter notes:** “The Analyst performs investigation through native Tracecat
-actions. This one workflow is intentionally reserved for the human-controlled,
-stateful firewall change. It applies the exact persisted proposal and posts the
-result for the Analyst to interpret.”
+**Presenter notes:** “The intake workflow can run Analyst, but it cannot alter the
+firewall. This workflow is reserved for the human-launched, stateful firewall
+change. It applies the exact persisted proposal, posts the result, and starts an
+automatic Analyst review.”
 
-### 3. Verify exploitability from the case
+### 3. Review the automatic Analyst investigation
 
-**Action:** Return to CASE-0001, click **Toggle Chat**, start a new case chat,
-select **Analyst**, and send this prompt, replacing
-`<case_uuid>` with the UUID in the case URL:
-
-```text
-Take ownership of this case. Validate whether the scanner finding has real impact at the exposed supplier intake ingress. Use the available exploitability verification skill for case_id=<case_uuid>. Record only material assignment and finding updates as concise Analyst comments with sanitized evidence.
-```
+**Action:** Return to the reconciled case and review its comments and linked
+Analyst run. No chat prompt or copied case identifier is needed.
 
 **Expected state:** The Analyst first posts: “I’m validating whether this scanner
-finding has real impact at the exposed ingress.” It invokes the fixed-target
+finding has real impact at the exposed ingress.” The intake-launched run invokes the fixed-target
 **scan** and **verify** actions. Their results record `confirmed_rce`, required
 traffic success, and completed cleanup as sanitized evidence. The Analyst
 then posts: “I confirmed unauthenticated command execution through the supplier
-intake route.” Its durable finding includes separate `Status`, `Malice`,
-`Action`, and `Context` values, what was found, what it means, and the next
-decision without copying raw exploit material.
+intake route.” Its durable finding uses one compact `Status` / `Malice` / `Action`
+/ `Context` table, followed by brief findings, meaning, next decision, and
+sanitized references without copying raw exploit material.
 
 ![Case-filtered Analyst session with sanitized scan verdict](docs/screenshots/03-verifier-run.png)
 
-The reference image shows the completed case-scoped session and sanitized scanner
+The reference image shows the completed workflow-launched Analyst session associated with the case and sanitized scanner
 verdict. Expand `security.supplier_intake.scan` during a live demo to show its
 direct Tracecat action call; the following case view shows the independently
 confirmed active-verification finding and persisted proposal.
@@ -299,15 +332,10 @@ closure. Tracecat runs the pinned tools directly, a harmless marker proves impac
 raw exploit material is never written to the case, and the temporary target
 workflow is removed.”
 
-### 4. Produce a proposal without changing the WAF
+### 4. Review the proposal without changing the WAF
 
-**Action:** Continue with **Analyst** in the same case chat and send:
-
-```text
-Review the confirmed finding and use the firewall-mitigation proposal skill. Propose the narrowest compatible ingress control, record a decision-ready recommendation on the case, and identify the human approval required before any firewall change. Do not execute a firewall workflow.
-```
-
-Then click the case’s **0/2** task control.
+**Action:** Continue reviewing the automated Analyst run, then click the case’s
+**0/2** task control.
 
 **Expected state:** The Analyst uses **Propose firewall mitigation** to produce a
 structured route/content-type proposal and persist its exact identifier,
@@ -317,20 +345,22 @@ the demonstrated impact, blast radius, compatibility checks, rollback path, and
 the decision required. The two human-controlled tasks are **Create BLOCK rule**
 and **Create LOG-only rule**.
 
-![Analyst recommendation and controlled case tasks](docs/screenshots/04-proposal-and-tasks.png)
+![Pending human-controlled firewall tasks](docs/screenshots/04-proposal-and-tasks.png)
+
+![Analyst mitigation proposal awaiting review](docs/screenshots/04b-analyst-proposal.png)
 
 **Presenter notes:** “The analyst narrows the policy to the demonstrated route,
 method, and normalized media type, then persists the exact proposal that the
 workflow must use. It explains compatibility and rollback, then stops. A person
 chooses whether to observe or block.”
 
-### 5. Apply BLOCK and ask the Analyst to review it
+### 5. Apply BLOCK and review the automatic closure
 
 **Action:** In the task list, select **Create BLOCK rule**, click **Apply reviewed
 firewall rule**, choose `BLOCK`, keep the case-populated values, and click
-**Trigger**. Wait for the run to complete, then return to the case chat and ask
-**Analyst** to review the task result and close the investigation narrative. For
-the complete acceptance run, execute:
+**Trigger**. Wait for the firewall workflow and its automatic Analyst closure
+review to complete. No follow-up chat prompt is required. For the complete
+acceptance run, execute:
 
 ```sh
 just evaluate
@@ -347,7 +377,9 @@ also states that the underlying application still requires remediation.
 `just evaluate` writes its JSON result beneath
 `eval-results/supplier-intake/acceptance/` and restores the managed WAF state.
 
-![Firewall evidence and Analyst closure](docs/screenshots/05-final-result.png)
+![Firewall workflow evidence](docs/screenshots/05-final-result.png)
+
+![Automatic Analyst closure assessment](docs/screenshots/13-analyst-closure.png)
 
 **Presenter notes:** “The workflow supplies the technical evidence and the Analyst
 turns it into a decision-grade closure. The control is active, the tested attack
@@ -367,6 +399,16 @@ just status
 just check
 ```
 
-Use `just reset CONFIRM=artifacts-captured` only when you intend to delete the
-Gym 003 volumes. Review the case before presenting again and avoid displaying
-credentials, cookies, extracted values, raw payloads, or secret-bearing logs.
+This retains the case, proposal, comments, and task history. To repeat the full
+automatic intake from a clean workspace, delete the exercise volumes and rebuild
+the seeded environment:
+
+```sh
+just reset CONFIRM=artifacts-captured
+just init
+just up
+just wait
+```
+
+Review the case before presenting again and avoid displaying credentials,
+cookies, extracted values, raw payloads, or secret-bearing logs.

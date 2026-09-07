@@ -1,7 +1,7 @@
 {
   "name": "Analyst",
   "slug": "analyst",
-  "description": "Investigates vulnerability findings, validates impact, and prepares reviewable mitigations.",
+  "description": "Automatically investigates vulnerability intake, validates impact, prepares reviewable mitigations, and reviews completed task evidence.",
   "prompt_file": "analyst-prompt.md",
   "model_selection": "organization_default",
   "actions": [

@@ -1,8 +1,9 @@
 """Reconcile Gym 003's managed Tracecat workflows.
 
 The checked-in JSON files use Tracecat's external workflow definition format. The
-reconciler imports the human-launched firewall workflow with a stable UUID,
-publishes it, and refuses to silently overwrite a workflow whose graph has drifted.
+reconciler imports the automatic scanner-intake and human-launched firewall
+workflows with stable UUIDs, publishes them, and refuses to silently overwrite a
+workflow whose graph has drifted.
 """
 
 from __future__ import annotations
@@ -54,8 +55,18 @@ class WorkflowSpec:
 
 
 WORKFLOW_SPECS = (
+    WorkflowSpec(
+        "scanner-intake.json", "gym-003-scanner-intake", "scanner-intake"
+    ),
     WorkflowSpec("rule-application.json", "gym-003-rule-application", None),
 )
+
+SCANNER_WEBHOOK_DESIRED = {
+    "status": "online",
+    "methods": ["POST"],
+    "allowlisted_cidrs": [],
+    "include_headers": False,
+}
 
 # Keep retired identities after removing their import fixtures. A title alone is
 # not proof of ownership: stable IDs, or alias and title together, establish it.
@@ -335,6 +346,40 @@ def _reconcile_layout(
     return updated
 
 
+def _reconcile_scanner_webhook(
+    client: ClientLike,
+    workspace_id: str,
+    workflow_id: str,
+    request: Callable[..., Any],
+) -> dict[str, Any]:
+    """Keep the scanner intake webhook published and attached to its action."""
+
+    path = f"/workspaces/{workspace_id}/workflows/{workflow_id}/webhook"
+    webhook = request(client, "GET", path)
+    if not isinstance(webhook, dict):
+        raise WorkflowError("scanner intake workflow has no webhook")
+    if any(
+        webhook.get(key) != value
+        for key, value in SCANNER_WEBHOOK_DESIRED.items()
+    ):
+        request(
+            client,
+            "PATCH",
+            path,
+            body=SCANNER_WEBHOOK_DESIRED,
+            expected=(204,),
+        )
+        webhook = request(client, "GET", path)
+    if not isinstance(webhook, dict) or any(
+        webhook.get(key) != value
+        for key, value in SCANNER_WEBHOOK_DESIRED.items()
+    ):
+        raise WorkflowError("scanner intake webhook did not converge")
+    if not isinstance(webhook.get("secret"), str) or not webhook["secret"]:
+        raise WorkflowError("scanner intake webhook has no secret")
+    return webhook
+
+
 def _is_subset(desired: Any, actual: Any) -> bool:
     """Compare authored fields while allowing server-populated DSL defaults."""
 
@@ -393,7 +438,7 @@ def reconcile_workflows(
     *,
     logger: Callable[[str], None] | None = None,
 ) -> dict[str, dict[str, Any]]:
-    """Retire obsolete wrappers, then reconcile the human firewall workflow."""
+    """Retire obsolete wrappers, then reconcile automatic and human workflows."""
 
     base = f"/workspaces/{workspace_id}/workflows"
     existing = _rows(request(client, "GET", base, params={"limit": 0}))
@@ -459,6 +504,10 @@ def reconcile_workflows(
         current = _reconcile_layout(
             client, workspace_id, workflow_id, document, current, request
         )
+        if spec.key == "gym-003-scanner-intake":
+            current["webhook"] = _reconcile_scanner_webhook(
+                client, workspace_id, workflow_id, request
+            )
         managed[spec.key] = current
         if logger:
             logger(f"workflow READY: {spec.key}")
@@ -510,5 +559,21 @@ def verify_workflows(
         current = request(client, "GET", f"{base}/{workflow['id']}")
         if not _layout_matches(document, current):
             raise WorkflowError(f"managed workflow {spec.key} layout has drifted")
+        if spec.key == "gym-003-scanner-intake":
+            webhook = request(
+                client,
+                "GET",
+                f"{base}/{workflow['id']}/webhook",
+            )
+            if not isinstance(webhook, dict) or any(
+                webhook.get(key) != value
+                for key, value in SCANNER_WEBHOOK_DESIRED.items()
+            ):
+                raise WorkflowError(
+                    "scanner intake webhook is not online with its expected policy"
+                )
+            if not isinstance(webhook.get("secret"), str) or not webhook["secret"]:
+                raise WorkflowError("scanner intake webhook has no secret")
+            current["webhook"] = webhook
         result[spec.key] = current
     return result

@@ -1,0 +1,20 @@
+003/README.md
+  s_35bf4dfa751518::t_4b19721338444f 211-212,230-231,258-259,279-280,308-309,336-337,369-370
+  s_35bf4dfa751518::t_83fc8d7a456d82 3-7,141-146
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "3a533538a9c3bc80831db53db44e1380213c2181",
+  "prompts": {},
+  "sessions": {
+    "s_35bf4dfa751518": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a07701-2e9b-7ab3-ac7f-cd3ffd9f5422",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Chris Lo <46541035+topher-lo@users.noreply.github.com>"
+    }
+  }
+}

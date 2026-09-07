@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "scenario": "supplier-intake",
+  "asset": "supplier.intake.test",
+  "business": "A supplier document intake service used for document processing and order receipts.",
+  "ingress": {
+    "base_url": "http://bunkerweb:8080",
+    "host_header": "supplier.intake.test",
+    "direct_target_access": false
+  },
+  "routes": [
+    {
+      "path": "/form/supplier-intake",
+      "methods": ["POST"],
+      "expected_content_types": ["multipart/form-data"],
+      "importance": "Suppliers upload documents and receive processed output."
+    },
+    {
+      "path": "/webhook/order-update",
+      "methods": ["POST"],
+      "expected_content_types": ["application/json"],
+      "importance": "Independent order updates produce downstream receipts."
+    },
+    {
+      "path": "/rest/login",
+      "methods": ["POST"],
+      "expected_content_types": ["application/json"],
+      "importance": "Staff authenticate to the n8n editor."
+    },
+    {
+      "path": "/healthz",
+      "methods": ["GET"],
+      "expected_content_types": [],
+      "importance": "Automated availability monitoring."
+    }
+  ],
+  "baseline_observations": {
+    "scanner": "Version detection is suspicion and does not establish impact.",
+    "verification": "A reviewed fixed-action probe independently classifies impact.",
+    "benign": "Upload, JSON order receipt, staff authentication, and health are required."
+  },
+  "mitigation_constraints": {
+    "class": "route-specific upload content-type policy",
+    "forbidden": ["block all JSON", "block all POST", "block all forms", "block scanner IP"],
+    "result_language": "mitigated at the tested ingress, not patched"
+  }
+}

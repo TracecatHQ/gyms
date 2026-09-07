@@ -1,0 +1,74 @@
+{
+  "name": "Gym 003 / Order update",
+  "active": true,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "order-update",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "30b5b793-8e52-4fb6-9776-e85c6864dad2",
+      "name": "Order update webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "264b6efe-aeb8-4be4-86f0-b9d38fe07baf"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://receipt-service:8090/receipts",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}",
+        "options": {}
+      },
+      "id": "f95baf24-86c7-46dd-9902-756787649b82",
+      "name": "Send downstream receipt",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [250, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {}
+      },
+      "id": "c8bd4aa6-6747-4ee1-bcdb-a40a0955228a",
+      "name": "Return receipt",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [500, 0]
+    }
+  ],
+  "connections": {
+    "Order update webhook": {
+      "main": [
+        [
+          {
+            "node": "Send downstream receipt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send downstream receipt": {
+      "main": [
+        [
+          {
+            "node": "Return receipt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}

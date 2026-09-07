@@ -1,0 +1,97 @@
+{
+  "workflow_id": "00000000-0000-4000-8000-000000000304",
+  "version": 1,
+  "layout": {
+    "trigger": {
+      "x": 0,
+      "y": 0
+    },
+    "actions": [
+      {
+        "ref": "apply_reviewed_rule",
+        "x": 0,
+        "y": 300
+      },
+      {
+        "ref": "record_rule_result",
+        "x": 0,
+        "y": 600
+      },
+      {
+        "ref": "review_rule_result",
+        "x": 0,
+        "y": 900
+      }
+    ]
+  },
+  "definition": {
+    "title": "Apply reviewed firewall rule",
+    "description": "Applies the exact proposal persisted by the Analyst, verifies activation and required traffic, and restores the previous firewall state on failure.",
+    "entrypoint": {
+      "ref": "apply_reviewed_rule",
+      "expects": {
+        "case_id": {
+          "type": "str",
+          "description": "Tracecat case UUID"
+        },
+        "task_id": {
+          "type": "str",
+          "description": "Injected case task UUID",
+          "default": "not-a-task"
+        },
+        "scenario": {
+          "type": "enum['supplier-intake']",
+          "description": "Supplier intake service profile"
+        },
+        "proposal_revision": {
+          "type": "int",
+          "description": "Reviewed proposal revision"
+        },
+        "mode": {
+          "type": "enum['BLOCK', 'LOG_ONLY']",
+          "description": "Requested deterministic rule mode"
+        }
+      }
+    },
+    "config": {
+      "timeout": 480
+    },
+    "actions": [
+      {
+        "ref": "apply_reviewed_rule",
+        "action": "security.supplier_intake.apply_reviewed_policy",
+        "args": {
+          "case_id": "${{ TRIGGER.case_id }}",
+          "task_id": "${{ TRIGGER.task_id }}",
+          "proposal_revision": "${{ TRIGGER.proposal_revision }}",
+          "mode": "${{ TRIGGER.mode }}"
+        }
+      },
+      {
+        "ref": "record_rule_result",
+        "action": "core.cases.create_comment",
+        "depends_on": [
+          "apply_reviewed_rule"
+        ],
+        "args": {
+          "case_id": "${{ TRIGGER.case_id }}",
+          "content": "## Firewall change verification\n\n**The reviewed control completed with `${{ ACTIONS.apply_reviewed_rule.result.verdict }}`.**\n\n| Review field | Value |\n| --- | --- |\n| Status | `${{ ACTIONS.apply_reviewed_rule.result.verdict }}` |\n| Malice | Pre-change verdict: `${{ ACTIONS.apply_reviewed_rule.result.before_verdict }}` |\n| Action | Review the control outcome and residual application risk |\n| Context | Route-scoped firewall control |\n\n### What I found\n\n- Attack verdict changed from `${{ ACTIONS.apply_reviewed_rule.result.before_verdict }}` to `${{ ACTIONS.apply_reviewed_rule.result.after_verdict }}`.\n- Required application traffic passed: `${{ ACTIONS.apply_reviewed_rule.result.benign.passed }}`.\n- Correlated firewall events recorded: `${{ FN.length(ACTIONS.apply_reviewed_rule.result.waf_events) }}`.\n- Rollback attempted: `${{ ACTIONS.apply_reviewed_rule.result.rollback.attempted }}`.\n- Rollback succeeded: `${{ ACTIONS.apply_reviewed_rule.result.rollback.succeeded }}`.\n\n```mermaid\nflowchart LR\n    A[\"Before<br/>${{ ACTIONS.apply_reviewed_rule.result.before_verdict }}\"] --> B[\"${{ TRIGGER.mode }} control<br/>revision ${{ TRIGGER.proposal_revision }}\"]\n    B --> C[\"After<br/>${{ ACTIONS.apply_reviewed_rule.result.after_verdict }}\"]\n    B --> D[\"Required traffic<br/>${{ ACTIONS.apply_reviewed_rule.result.benign.passed }}\"]\n```\n\n### What this means\n\nThis records one controlled execution at the exposed ingress. The underlying application remains vulnerable until it is patched.\n\n### What I need from you\n\nConfirm the tested attack is denied, required traffic remains compatible, firewall evidence is correlated, and any failed run restored the prior state.\n\n### Sanitized evidence\n\n- Task: `${{ TRIGGER.task_id }}`\n- Execution: `${{ ENV.workflow.execution_id }}`\n- Run: `${{ ACTIONS.apply_reviewed_rule.result.run_id }}`\n- Proposal: `${{ ACTIONS.apply_reviewed_rule.result.proposal_id }}`"
+        }
+      },
+      {
+        "ref": "review_rule_result",
+        "action": "ai.preset_agent",
+        "depends_on": [
+          "record_rule_result"
+        ],
+        "args": {
+          "preset": "analyst",
+          "user_prompt": "The reviewed firewall task `${{ TRIGGER.task_id }}` completed for Tracecat case `${{ TRIGGER.case_id }}` and its deterministic result is now recorded as a case comment. Review this case now and post the closure assessment. Do not run a workflow or apply another firewall change.",
+          "max_tool_calls": 8,
+          "max_requests": 24
+        }
+      }
+    ],
+    "returns": "${{ ACTIONS.apply_reviewed_rule.result }}"
+  }
+}

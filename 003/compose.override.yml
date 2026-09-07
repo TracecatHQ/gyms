@@ -1,0 +1,304 @@
+x-tracecat-enterprise: &tracecat-enterprise
+  ENTERPRISE_EDITION: "true"
+  TRACECAT__EE_MULTI_TENANT: "true"
+  TRACECAT__FEATURE_FLAGS: agent-channels,agent-fs-persistence,ai-ranking,workflow-concurrency-limits
+
+x-waf-control-env: &waf-control-env
+  BUNKERWEB_API_URL: http://bw-api:8888
+  BUNKERWEB_API_USERNAME: gym-admin
+  BUNKERWEB_API_TOKEN: ${BUNKERWEB_API_TOKEN:?missing BunkerWeb API token}
+  GYM_WAF_INGRESS: http://bunkerweb:8080
+  GYM_WAF_EVENTS_FILE: /var/lib/gym/jobs/waf-events.jsonl
+
+services:
+  caddy:
+    image: caddy:2.10.2-alpine@sha256:8dbca3525dd8dce671e495665a0eb297a83ec87ee30f373947d0ea93115949db
+    platform: linux/arm64
+    networks: [core]
+
+  n8n-target:
+    image: n8nio/n8n:1.65.0@sha256:b1b1c1597a17a71a6906ab1fda0c760747ade1c02c4e7154880f84f7338992ce
+    restart: unless-stopped
+    networks: [application]
+    environment:
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?missing n8n encryption key}
+      N8N_HOST: supplier.intake.test
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: http
+      N8N_SECURE_COOKIE: "false"
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+      N8N_TEMPLATES_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+      EXECUTIONS_DATA_SAVE_ON_SUCCESS: none
+      EXECUTIONS_DATA_SAVE_ON_ERROR: none
+      N8N_DEFAULT_LOCALE: en
+      GENERIC_TIMEZONE: UTC
+      TZ: UTC
+    volumes:
+      - n8n-data:/home/node/.n8n
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5678/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 20s
+
+  receipt-service:
+    image: ${GYM_CONTROL_IMAGE:?missing Gym 003 control image}
+    entrypoint: ["/app/.venv/bin/python", "/opt/gym/bin/receipt_service.py"]
+    restart: unless-stopped
+    networks: [application]
+    read_only: true
+    tmpfs:
+      - /tmp:size=1m,mode=1777
+    healthcheck:
+      test: ["CMD", "/app/.venv/bin/python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/healthz', timeout=2).read()"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  waf-audit-init:
+    image: bunkerity/bunkerweb-scheduler:1.6.14@sha256:0b68b1fe27977d713804a1460f7fd713db49e90385e19dc7c0baf14ea3b06060
+    user: "0:0"
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - if [ -L /var/log/bunkerweb/error.log ]; then rm /var/log/bunkerweb/error.log; fi;
+        if [ -L /var/log/bunkerweb/modsec_audit.log ]; then rm /var/log/bunkerweb/modsec_audit.log; fi;
+        touch /var/log/bunkerweb/error.log /var/log/bunkerweb/modsec_audit.log;
+        chown 101:101 /var/log/bunkerweb/error.log /var/log/bunkerweb/modsec_audit.log;
+        chmod 0644 /var/log/bunkerweb/error.log /var/log/bunkerweb/modsec_audit.log;
+        mkdir -p /var/lib/gym/jobs /var/lib/gym/state/supplier-intake;
+        touch /var/lib/gym/state/.operation.lock;
+        chown -R 1001:1001 /var/lib/gym/jobs /var/lib/gym/state;
+        chmod 0750 /var/lib/gym/jobs;
+        chmod 2770 /var/lib/gym/state /var/lib/gym/state/supplier-intake;
+        chmod 0660 /var/lib/gym/state/.operation.lock
+    restart: "no"
+    network_mode: none
+    volumes:
+      - waf-logs:/var/log/bunkerweb
+      - gym-jobs:/var/lib/gym
+
+  bunkerweb:
+    image: bunkerity/bunkerweb:1.6.14@sha256:2026544f5b8e10e3db52c018cb583193d273fc8ca9e25a5f5c21ef0b5f833586
+    restart: unless-stopped
+    environment:
+      API_WHITELIST_IP: "127.0.0.0/8 172.30.43.0/24"
+    ports:
+      - "127.0.0.1:38081:8080/tcp"
+    volumes:
+      - waf-logs:/var/log/bunkerweb
+    networks: [application, test-traffic, management, edge]
+    depends_on:
+      waf-audit-init: {condition: service_completed_successfully}
+      n8n-target: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null --header='Host: supplier.intake.test' http://127.0.0.1:8080/signin || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 40
+      start_period: 30s
+
+  bw-db:
+    image: mariadb:11.8.3@sha256:ae6119716edac6998ae85508431b3d2e666530ddf4e94c61a10710caec9b0f71
+    command: ["--max-allowed-packet=67108864"]
+    restart: unless-stopped
+    environment:
+      MARIADB_RANDOM_ROOT_PASSWORD: "yes"
+      MARIADB_DATABASE: bunkerweb
+      MARIADB_USER: bunkerweb
+      MARIADB_PASSWORD: ${BUNKERWEB_DB_PASSWORD:?missing BunkerWeb DB password}
+    volumes: [waf-data:/var/lib/mysql]
+    networks: [waf-database]
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 15s
+
+  bw-scheduler:
+    image: bunkerity/bunkerweb-scheduler:1.6.14@sha256:0b68b1fe27977d713804a1460f7fd713db49e90385e19dc7c0baf14ea3b06060
+    restart: unless-stopped
+    networks: [management, waf-database]
+    environment:
+      DATABASE_URI: mariadb+pymysql://bunkerweb:${BUNKERWEB_DB_PASSWORD:?missing BunkerWeb DB password}@bw-db:3306/bunkerweb
+      BUNKERWEB_INSTANCES: bunkerweb
+      API_WHITELIST_IP: "127.0.0.0/8 172.30.43.0/24"
+      SERVER_NAME: supplier.intake.test
+      MULTISITE: "yes"
+      SERVE_FILES: "no"
+      DISABLE_DEFAULT_SERVER: "yes"
+      AUTO_LETS_ENCRYPT: "no"
+      USE_BUNKERNET: "no"
+      USE_BLACKLIST: "no"
+      USE_WHITELIST: "no"
+      USE_GREYLIST: "no"
+      USE_DNSBL: "no"
+      SEND_ANONYMOUS_REPORT: "no"
+      CHECK_UPDATES: "no"
+      supplier.intake.test_USE_REVERSE_PROXY: "yes"
+      supplier.intake.test_REVERSE_PROXY_URL: /
+      supplier.intake.test_REVERSE_PROXY_HOST: http://n8n-target:5678
+      supplier.intake.test_USE_MODSECURITY: "yes"
+      supplier.intake.test_USE_MODSECURITY_CRS: "no"
+      supplier.intake.test_USE_BAD_BEHAVIOR: "no"
+      supplier.intake.test_USE_LIMIT_REQ: "no"
+      supplier.intake.test_ALLOWED_METHODS: "GET|POST|HEAD|OPTIONS|PUT|PATCH|DELETE"
+      supplier.intake.test_USE_MODSECURITY_CRS_PLUGINS: "no"
+      supplier.intake.test_MODSECURITY_SEC_RULE_ENGINE: "On"
+      supplier.intake.test_MODSECURITY_SEC_AUDIT_ENGINE: "On"
+      supplier.intake.test_MODSECURITY_SEC_AUDIT_LOG_PARTS: ABIJDEFHZ
+      supplier.intake.test_SECURITY_MODE: block
+    volumes: [waf-storage:/data]
+    depends_on:
+      bw-db: {condition: service_healthy}
+      bunkerweb: {condition: service_started}
+
+  bw-api:
+    image: bunkerity/bunkerweb-api:1.6.14@sha256:dafde8bd366f1d01514a4e669221c3dc152acb9a19fb5d923f953d69b63fda47
+    restart: unless-stopped
+    networks: [management, waf-database]
+    environment:
+      DATABASE_URI: mariadb+pymysql://bunkerweb:${BUNKERWEB_DB_PASSWORD:?missing BunkerWeb DB password}@bw-db:3306/bunkerweb
+      API_USERNAME: gym-admin
+      API_PASSWORD: ${BUNKERWEB_API_TOKEN:?missing BunkerWeb API token}
+      API_WHITELIST_IPS: "127.0.0.0/8 172.30.43.0/24"
+      API_LISTEN_ADDR: 0.0.0.0
+      API_LISTEN_PORT: "8888"
+      MAX_WORKERS: "1"
+      API_RATE_LIMIT_ENABLED: "no"
+    depends_on: {bw-db: {condition: service_healthy}}
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8888/health', timeout=2).read()"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+
+  waf-log-collector:
+    image: ${GYM_CONTROL_IMAGE:?missing Gym 003 control image}
+    user: "1001:101"
+    command: [internal-collector]
+    restart: unless-stopped
+    network_mode: none
+    environment:
+      GYM_WAF_LOG_DIR: /var/log/bunkerweb
+      GYM_WAF_EVENTS_FILE: /var/lib/gym/jobs/waf-events.jsonl
+    volumes:
+      - waf-logs:/var/log/bunkerweb:ro
+      - gym-jobs:/var/lib/gym
+    depends_on:
+      waf-audit-init: {condition: service_completed_successfully}
+      bunkerweb: {condition: service_started}
+    healthcheck:
+      test: ["CMD", "/app/.venv/bin/python", "-c", "from pathlib import Path; assert Path('/var/log/bunkerweb/error.log').is_file()"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  executor:
+    image: ${GYM_CONTROL_IMAGE:?missing Gym 003 control image}
+    entrypoint: ["/app/.venv/bin/python"]
+    command: ["-m", "tracecat.executor.worker"]
+    restart: unless-stopped
+    networks: [core, core-db, temporal, test-traffic, management]
+    volumes: !override
+      - sandbox-cache:/var/lib/tracecat/sandbox-cache
+      - gym-jobs:/var/lib/gym
+
+  target-seed:
+    image: ${GYM_CONTROL_IMAGE:?missing Gym 003 control image}
+    profiles: [bootstrap]
+    restart: "no"
+    networks: [application]
+    entrypoint: ["/app/.venv/bin/python", "-m", "gym_plugin.target_seed"]
+    environment:
+      GYM_N8N_STAFF_EMAIL: ${GYM_N8N_STAFF_EMAIL:?missing n8n staff email}
+      GYM_N8N_STAFF_PASSWORD: ${GYM_N8N_STAFF_PASSWORD:?missing n8n staff password}
+    depends_on: {n8n-target: {condition: service_healthy}}
+
+  tracecat-seed:
+    image: ${GYM_CONTROL_IMAGE:?missing Gym 003 control image}
+    profiles: [bootstrap]
+    restart: "no"
+    networks: [core-db]
+    environment:
+      <<: *tracecat-enterprise
+      TRACECAT__DB_URI: ${TRACECAT__DB_URI}
+      TRACECAT__DB_SSLMODE: ${TRACECAT__DB_SSLMODE}
+      TRACECAT__DB_ENCRYPTION_KEY: ${TRACECAT__DB_ENCRYPTION_KEY}
+      TRACECAT__SERVICE_KEY: ${TRACECAT__SERVICE_KEY}
+      TRACECAT__SIGNING_SECRET: ${TRACECAT__SIGNING_SECRET}
+      USER_AUTH_SECRET: ${USER_AUTH_SECRET}
+      TRACECAT__DEV_USER_EMAIL: ${TRACEcat_TENANT_EMAIL}
+      TRACECAT__DEV_USER_PASSWORD: ${TRACEcat_TENANT_PASSWORD}
+      TRACECAT__DEV_SUPERUSER_EMAIL: ${TRACEcat_SUPERADMIN_EMAIL}
+      TRACECAT__DEV_SUPERUSER_PASSWORD: ${TRACEcat_SUPERADMIN_PASSWORD}
+      TRACECAT__DEV_DEFAULT_TIER_ENTITLEMENTS: all
+      TRACECAT__DEV_ORG_ROLE: organization-owner
+      TRACECAT__DEV_WORKSPACE_ROLE: workspace-admin
+    command: [seed]
+    depends_on: {migrations: {condition: service_completed_successfully}}
+
+  gym-reconciler:
+    image: ${GYM_CONTROL_IMAGE:?missing Gym 003 control image}
+    profiles: [bootstrap]
+    restart: "no"
+    networks: [core]
+    environment:
+      <<: *tracecat-enterprise
+      TRACEcat_INTERNAL_API_URL: http://api:8000
+      TRACEcat_TENANT_EMAIL: ${TRACEcat_TENANT_EMAIL}
+      TRACEcat_TENANT_PASSWORD: ${TRACEcat_TENANT_PASSWORD}
+      BUNKERWEB_API_TOKEN: ${BUNKERWEB_API_TOKEN}
+      GYM_N8N_STAFF_EMAIL: ${GYM_N8N_STAFF_EMAIL}
+      GYM_N8N_STAFF_PASSWORD: ${GYM_N8N_STAFF_PASSWORD}
+    command: [internal-reconcile, reconcile]
+    depends_on:
+      api: {condition: service_healthy}
+      executor: {condition: service_started}
+
+  eval-runner:
+    image: ${GYM_CONTROL_IMAGE:?missing Gym 003 control image}
+    user: "${GYM_HOST_UID:?missing host UID}:${GYM_HOST_GID:?missing host GID}"
+    group_add: ["1001"]
+    profiles: [evaluation]
+    restart: "no"
+    networks: [core, test-traffic, management]
+    environment:
+      <<: *waf-control-env
+      HOME: /home/apiuser
+      GYM_EVAL_RESULTS: /opt/gym/eval-results
+      GYM_N8N_STAFF_EMAIL: ${GYM_N8N_STAFF_EMAIL}
+      GYM_N8N_STAFF_PASSWORD: ${GYM_N8N_STAFF_PASSWORD}
+    volumes:
+      - gym-jobs:/var/lib/gym
+      - ${GYM_ROOT:?missing GYM_ROOT}/eval-results:/opt/gym/eval-results
+    tmpfs:
+      - /home/apiuser:uid=${GYM_HOST_UID:?missing host UID},gid=${GYM_HOST_GID:?missing host GID},mode=0700
+    command: [internal-eval]
+    depends_on:
+      executor: {condition: service_started}
+
+volumes:
+  n8n-data:
+  waf-data:
+  waf-storage:
+  waf-logs:
+  gym-jobs:
+
+networks:
+  edge:
+  application:
+    internal: true
+  test-traffic:
+    internal: true
+  management:
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.30.43.0/24
+  waf-database:
+    internal: true

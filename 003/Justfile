@@ -1,0 +1,45 @@
+set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
+gymctl := "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=../src:src python3 -m gymctl"
+
+default:
+    @just --list
+init:
+    @{{gymctl}} init
+doctor:
+    @{{gymctl}} doctor
+build *components:
+    @{{gymctl}} build {{components}}
+up:
+    @{{gymctl}} up
+wait:
+    @{{gymctl}} wait
+info:
+    @{{gymctl}} info
+status:
+    @{{gymctl}} status
+reconcile:
+    @{{gymctl}} reconcile
+evaluate:
+    @{{gymctl}} eval
+logs service="":
+    @{{gymctl}} logs {{service}}
+down:
+    @{{gymctl}} down
+restart:
+    @{{gymctl}} restart
+check:
+    @{{gymctl}} check
+check-upstreams:
+    @{{gymctl}} check-upstreams
+verify-supply-chain:
+    @PYTHONDONTWRITEBYTECODE=1 python3 tools/verify_supply_chain.py
+brief:
+    @bash docs/solution-brief/build.sh
+update-upstreams:
+    @{{gymctl}} update-upstreams
+scenario-reset CONFIRM="":
+    @confirm="{{CONFIRM}}"; {{gymctl}} scenario-reset --confirm "${confirm#CONFIRM=}"
+reset CONFIRM="":
+    @confirm="{{CONFIRM}}"; {{gymctl}} reset --confirm "${confirm#CONFIRM=}"
+clean-restart CONFIRM="":
+    @confirm="{{CONFIRM}}"; {{gymctl}} clean-restart --confirm "${confirm#CONFIRM=}"

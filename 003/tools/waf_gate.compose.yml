@@ -1,0 +1,147 @@
+services:
+  bunkerweb:
+    image: bunkerity/bunkerweb:1.6.14@sha256:2026544f5b8e10e3db52c018cb583193d273fc8ca9e25a5f5c21ef0b5f833586
+    environment:
+      API_WHITELIST_IP: "127.0.0.0/8 172.30.33.0/24"
+    ports:
+      - "127.0.0.1:39080:8080/tcp"
+    volumes:
+      - bw-audit:/var/log/bunkerweb
+    networks:
+      - gate-edge
+      - gate-backend
+      - gate-management
+    depends_on:
+      audit-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null --header='Host: gate.test' http://127.0.0.1:8080/ || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 30s
+
+  audit-init:
+    image: bunkerity/bunkerweb-scheduler:1.6.14@sha256:0b68b1fe27977d713804a1460f7fd713db49e90385e19dc7c0baf14ea3b06060
+    user: "0:0"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - "rm -f /audit/error.log /audit/modsec_audit.log && touch /audit/error.log /audit/modsec_audit.log && chown 101:101 /audit/error.log /audit/modsec_audit.log && chmod 0640 /audit/error.log /audit/modsec_audit.log"
+    network_mode: none
+    volumes:
+      - bw-audit:/audit
+
+  bw-scheduler:
+    image: bunkerity/bunkerweb-scheduler:1.6.14@sha256:0b68b1fe27977d713804a1460f7fd713db49e90385e19dc7c0baf14ea3b06060
+    depends_on:
+      audit-init:
+        condition: service_completed_successfully
+      bunkerweb:
+        condition: service_started
+      bw-db:
+        condition: service_healthy
+    environment:
+      DATABASE_URI: "mariadb+pymysql://bunkerweb:GateDb-003!@bw-db:3306/bunkerweb"
+      BUNKERWEB_INSTANCES: bunkerweb
+      API_WHITELIST_IP: "127.0.0.0/8 172.30.33.0/24"
+      SERVER_NAME: gate.test
+      MULTISITE: "yes"
+      SERVE_FILES: "no"
+      DISABLE_DEFAULT_SERVER: "yes"
+      AUTO_LETS_ENCRYPT: "no"
+      USE_BUNKERNET: "no"
+      USE_BLACKLIST: "no"
+      USE_WHITELIST: "no"
+      SEND_ANONYMOUS_REPORT: "no"
+      gate.test_USE_REVERSE_PROXY: "yes"
+      gate.test_REVERSE_PROXY_URL: /
+      gate.test_REVERSE_PROXY_HOST: http://gate-backend:8080
+      gate.test_USE_MODSECURITY: "yes"
+      gate.test_USE_MODSECURITY_CRS: "no"
+      gate.test_USE_MODSECURITY_CRS_PLUGINS: "no"
+      gate.test_MODSECURITY_SEC_RULE_ENGINE: "On"
+      gate.test_MODSECURITY_SEC_AUDIT_ENGINE: "On"
+      gate.test_MODSECURITY_SEC_AUDIT_LOG_PARTS: ABIJDEFHZ
+      gate.test_SECURITY_MODE: block
+    volumes:
+      - bw-storage:/data
+    networks:
+      - gate-management
+      - gate-database
+
+  bw-api:
+    image: bunkerity/bunkerweb-api:1.6.14@sha256:dafde8bd366f1d01514a4e669221c3dc152acb9a19fb5d923f953d69b63fda47
+    depends_on:
+      bw-db:
+        condition: service_healthy
+    environment:
+      DATABASE_URI: "mariadb+pymysql://bunkerweb:GateDb-003!@bw-db:3306/bunkerweb"
+      API_USERNAME: gate-admin
+      API_PASSWORD: Gate-Admin-003!
+      API_WHITELIST_IPS: "127.0.0.0/8 172.30.33.0/24"
+      API_LISTEN_ADDR: 0.0.0.0
+      API_LISTEN_PORT: "8888"
+      MAX_WORKERS: "1"
+    ports:
+      - "127.0.0.1:18888:8888/tcp"
+    networks:
+      - gate-management
+      - gate-database
+
+  bw-db:
+    image: mariadb:11.8.3@sha256:ae6119716edac6998ae85508431b3d2e666530ddf4e94c61a10710caec9b0f71
+    command: ["--max-allowed-packet=67108864"]
+    environment:
+      MARIADB_RANDOM_ROOT_PASSWORD: "yes"
+      MARIADB_DATABASE: bunkerweb
+      MARIADB_USER: bunkerweb
+      MARIADB_PASSWORD: GateDb-003!
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 15s
+    volumes:
+      - bw-database:/var/lib/mysql
+    networks:
+      - gate-database
+
+  gate-backend:
+    image: bunkerity/bunkerweb-scheduler:1.6.14@sha256:0b68b1fe27977d713804a1460f7fd713db49e90385e19dc7c0baf14ea3b06060
+    entrypoint: ["python3", "-m", "http.server", "8080"]
+    networks:
+      - gate-backend
+
+  audit-collector:
+    image: bunkerity/bunkerweb-scheduler:1.6.14@sha256:0b68b1fe27977d713804a1460f7fd713db49e90385e19dc7c0baf14ea3b06060
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - "touch /tmp/collector-ready; while [ ! -r /audit/error.log ] || [ ! -r /audit/modsec_audit.log ]; do sleep 1; done; tail -n 0 -F /audit/error.log /audit/modsec_audit.log"
+    network_mode: none
+    read_only: true
+    healthcheck:
+      disable: true
+    tmpfs:
+      - /tmp:size=1m,mode=1777
+    volumes:
+      - bw-audit:/audit:ro
+    depends_on:
+      bunkerweb:
+        condition: service_started
+
+volumes:
+  bw-audit:
+  bw-database:
+  bw-storage:
+
+networks:
+  gate-edge:
+  gate-backend:
+    internal: true
+  gate-management:
+    ipam:
+      config:
+        - subnet: 172.30.33.0/24
+  gate-database:
+    internal: true

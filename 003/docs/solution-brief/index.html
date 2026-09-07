@@ -1,0 +1,738 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tracecat · Verified zero-day mitigation</title>
+<style>
+@font-face { font-family: "Geist"; font-weight: 100 900; font-style: normal; src: url("fonts/geist-latin.woff2") format("woff2"); }
+@font-face { font-family: "Inter"; font-weight: 500; font-style: normal; src: url("fonts/inter-500.woff2") format("woff2"); }
+@font-face { font-family: "Inter"; font-weight: 600; font-style: normal; src: url("fonts/inter-600.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 400; font-style: normal; src: url("fonts/jetbrains-mono-400.woff2") format("woff2"); }
+
+@page { size: A4; margin: 0; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #131213; --card: #1E1C1D; --text: #FCFCFD; --muted: #A9ABAF;
+  --hair: rgba(255,255,255,0.10); --pill: rgba(255,255,255,0.10); --soft: rgba(255,255,255,0.05); --soft2: rgba(255,255,255,0.08);
+  --figline: rgba(255,255,255,0.15);
+  /* Tracecat UI palette: used only inside figure mocks */
+  --uibg: #0C0C0E; --uicard: #141519; --uiline: rgba(255,255,255,0.11); --uisoft: rgba(255,255,255,0.05); --uichip: rgba(255,255,255,0.09);
+  --green: #30B86A; --red: #EF4444; --amber: #F5B94B; --indigo: #6B7CFF; --indigo-bg: rgba(107,124,255,0.14);
+  --display: "Inter", system-ui, -apple-system, "Helvetica Neue", sans-serif;
+  --sans: "Geist", system-ui, -apple-system, "Helvetica Neue", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+html, body { background: var(--bg); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { font-family: var(--sans); color: var(--text); font-size: 8.8px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+.page { width: 210mm; height: 297mm; padding: 10mm 10mm 9mm; overflow: hidden; position: relative; background: var(--bg); display: flex; flex-direction: column; }
+.page + .page { break-before: page; }
+code, .mono { font-family: var(--mono); }
+b, strong { font-weight: 600; }
+a { color: inherit; text-decoration: none; }
+.arr { font-family: system-ui, -apple-system, "Helvetica Neue", sans-serif; }
+.muted { color: var(--muted); }
+
+/* header */
+.hdr { display: flex; align-items: center; justify-content: space-between; padding-bottom: 8px; border-bottom: 1px solid var(--hair); margin-bottom: 12px; }
+.brand { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 12.5px; letter-spacing: -0.01em; }
+.brand .pg { font-size: 8.4px; color: var(--muted); margin-left: 8px; font-weight: 400; letter-spacing: 0.04em; }
+.hdr-r { font-size: 8.8px; color: var(--muted); }
+
+/* type */
+.kicker { font-size: 8.8px; color: var(--muted); margin-bottom: 6px; }
+.lede { font-size: 9.6px; line-height: 1.45; color: var(--muted); margin-top: 6px; max-width: 560px; }
+h1 { font-family: var(--display); font-weight: 600; font-size: 24.5px; line-height: 1.18; letter-spacing: -0.02em; max-width: 640px; }
+h2 { font-family: var(--display); font-weight: 600; font-size: 20.5px; line-height: 1.15; letter-spacing: -0.02em; margin-bottom: 5px; }
+h3 { font-family: var(--display); font-weight: 600; font-size: 12px; line-height: 1.28; letter-spacing: -0.02em; }
+p { font-size: 8.8px; line-height: 1.5; }
+p + p { margin-top: 6px; }
+.cd { font-family: var(--mono); font-size: 0.92em; background: var(--soft2); padding: 0 3px; border-radius: 3px; white-space: nowrap; }
+
+/* figures (word-doc style) */
+.fig { border: 1px solid var(--figline); border-radius: 2px; overflow: hidden; background: var(--bg); }
+.figcap { font-size: 8.4px; color: var(--muted); line-height: 1.35; margin-top: 5px; }
+.figrow { display: grid; grid-template-columns: 404px 1fr; gap: 14px 22px; margin: 0; align-items: start; }
+.figrow .fig { height: 344px; }
+.figrow .fig > svg { width: 100%; height: 100%; display: block; }
+.fig svg { width: 100%; height: auto; display: block; }
+.figfull { margin-top: 16px; }
+.figgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+.figgrid .fig { height: 268px; }
+.figfull .fig { height: 274px; }
+
+/* hero row */
+.hero { display: grid; grid-template-columns: 236px 1fr; gap: 12px; margin-top: 9px; height: 392px; }
+.facts { background: var(--card); border-radius: 8px; padding: 18px 20px; display: flex; flex-direction: column; }
+.facts .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.facts .k { font-size: 8.4px; color: var(--muted); margin-bottom: 2px; }
+.facts .v { font-size: 8.4px; line-height: 1.4; }
+.facts .row { margin-top: 11px; }
+.pills { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
+.pill { display: inline-flex; align-items: center; gap: 3px; font-size: 7.9px; color: var(--text); background: var(--pill); border-radius: 999px; padding: 2px 6px 2px 3px; white-space: nowrap; line-height: 1.15; }
+.pill svg { width: 9px; height: 9px; flex: none; }
+.hero .shot { display: flex; flex-direction: column; min-height: 0; }
+.hero .shot .fig { flex: 1; min-height: 0; }
+
+/* ===== UI mocks (Tracecat dark palette; the only place colour is used) ===== */
+.ui { background: var(--uibg); font-size: 8.7px; line-height: 1.3; color: var(--text); height: 100%; }
+.ui .sb { background: var(--uibg); border-right: 1px solid var(--uiline); padding: 7px 6px; width: 100px; flex: none; white-space: nowrap; overflow: hidden; }
+.ui .sb.narrow { width: 92px; }
+.ui .sb .ws { display: flex; align-items: center; gap: 4px; font-weight: 600; font-size: 8.7px; margin-bottom: 8px; padding-left: 2px; }
+.ui .sb .ws svg { width: 9px; height: 9px; flex: none; }
+.ui .sb .h { font-size: 8.7px; color: var(--muted); margin: 6px 0 3px 4px; }
+.ui .sb .i { display: flex; align-items: center; gap: 5px; padding: 2px 4px; border-radius: 4px; color: var(--muted); font-size: 8.7px; }
+.ui .sb .i svg { width: 9px; height: 9px; flex: none; fill: none; stroke: currentColor; stroke-width: 1; stroke-linecap: round; stroke-linejoin: round; }
+.ui .sb .i.on { background: var(--indigo-bg); color: var(--text); }
+.ui .sb .i.on svg { stroke: var(--indigo); }
+.ui .topbar { display: flex; align-items: center; gap: 6px; padding: 6px 9px; border-bottom: 1px solid var(--uiline); font-weight: 600; white-space: nowrap; }
+.ui .topbar .r { margin-left: auto; display: flex; gap: 4px; font-weight: 400; }
+.ui .sq { width: 8px; height: 8px; border: 1px solid var(--muted); border-radius: 2px; display: inline-block; flex: none; }
+.ui .ic { width: 9px; height: 9px; flex: none; fill: none; stroke: var(--muted); stroke-width: 1; stroke-linecap: round; stroke-linejoin: round; }
+.ui .bt { border: 1px solid var(--uiline); background: var(--uisoft); border-radius: 4px; padding: 1px 5px; display: inline-flex; gap: 3px; align-items: center; white-space: nowrap; color: var(--text); font-weight: 400; }
+.ui .bt.pri { background: var(--text); color: var(--uibg); border-color: var(--text); }
+.ui .chip { display: inline-flex; align-items: center; gap: 3px; background: var(--uichip); border-radius: 4px; padding: 0.5px 5px; color: var(--muted); white-space: nowrap; font-size: 8.7px; line-height: 1.3; }
+.ui .chip svg { width: 8px; height: 8px; fill: none; stroke: currentColor; stroke-width: 1.1; stroke-linecap: round; stroke-linejoin: round; }
+.ui .chip.live { color: var(--green); }
+.ui .cd { font-size: 8.5px; }
+.ok { display: inline-block; width: 9px; height: 9px; border-radius: 50%; border: 1px solid var(--green); position: relative; flex: none; }
+.ok::after { content: ""; position: absolute; left: 2.4px; top: 1.2px; width: 2.2px; height: 4px; border: solid var(--green); border-width: 0 1px 1px 0; transform: rotate(45deg); }
+.smac { width: 100%; border-collapse: collapse; margin: 3px 0 4px; font-size: 8.7px; line-height: 1.25; }
+.smac th { text-align: left; color: var(--muted); font-weight: 400; padding: 2px 5px; border: 1px solid var(--uiline); width: 42px; vertical-align: top; }
+.smac td { padding: 2px 5px; border: 1px solid var(--uiline); vertical-align: top; }
+
+/* inbox */
+.inbox { display: flex; }
+.inbox .mid { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.inbox .search { display: flex; align-items: center; gap: 6px; padding: 6px 9px; color: var(--muted); border-bottom: 1px solid var(--uiline); white-space: nowrap; overflow: hidden; }
+.inbox .search .fbtn { margin-left: auto; color: var(--text); }
+.inbox .filtrow { padding: 6px 9px; border-bottom: 1px solid var(--uiline); white-space: nowrap; overflow: hidden; }
+.inbox .filt { display: inline-flex; align-items: center; gap: 4px; background: var(--uisoft); border: 1px solid var(--uiline); border-radius: 4px; padding: 1.5px 5px; white-space: nowrap; }
+.inbox .cols, .inbox .item { display: grid; grid-template-columns: 1fr auto; gap: 6px; padding: 5px 9px; white-space: nowrap; }
+.inbox .cols { color: var(--muted); border-bottom: 1px solid var(--uiline); }
+.inbox .grp { display: flex; align-items: center; gap: 5px; padding: 6px 9px 6px 7px; background: rgba(48,184,106,0.06); border-left: 2px solid var(--green); font-weight: 600; border-bottom: 1px solid var(--uiline); }
+.inbox .grp .n { color: var(--muted); font-weight: 400; }
+.inbox .item { margin: 4px 6px; background: var(--uicard); border: 1px solid var(--uiline); border-radius: 5px; align-items: center; }
+.inbox .item .t { color: var(--muted); }
+.inbox .pane > * { flex: none; }
+.inbox .pane { width: 230px; flex: none; border-left: 1px solid var(--uiline); padding: 7px 9px; display: flex; flex-direction: column; }
+.inbox .pane .ph { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--uiline); padding-bottom: 4px; margin-bottom: 4px; }
+.inbox .pane .ph b { display: block; font-size: 9px; }
+.inbox .pane .ph span { color: var(--muted); }
+.inbox .pane .tool { display: flex; align-items: center; gap: 4px; border: 1px solid var(--uiline); background: var(--uicard); border-radius: 4px; padding: 1.5px 5px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; }
+.inbox .pane .tool span { overflow: hidden; text-overflow: ellipsis; }
+.inbox .pane .tool .ok { margin-left: auto; width: 8px; height: 8px; }
+.inbox .pane .tool .ok::after { left: 2px; top: 0.8px; width: 2px; height: 3.6px; }
+.inbox .pane .tool .cube { width: 9px; height: 9px; flex: none; fill: none; stroke: var(--indigo); stroke-width: 1; stroke-linejoin: round; }
+.inbox .pane p { margin: 3px 0 3px; font-size: 8.7px; line-height: 1.3; }
+.inbox .pane .box { margin-top: auto; border: 1px solid var(--uiline); border-radius: 6px; background: var(--uicard); padding: 4px 7px; }
+.inbox .pane .box .ask { color: var(--muted); margin-bottom: 4px; }
+.inbox .pane .model { display: inline-flex; align-items: center; gap: 4px; background: var(--uichip); border-radius: 999px; padding: 2px 6px; }
+.inbox .pane .model i { width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid var(--text); display: inline-block; }
+.inbox .pane .model em { font-style: normal; color: var(--muted); }
+
+/* case view (mirrors the case page with the sidebar collapsed) */
+.casev { display: flex; flex-direction: column; }
+.casev .top { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-bottom: 1px solid var(--uiline); color: var(--muted); white-space: nowrap; overflow: hidden; }
+.casev .top b { color: var(--text); font-weight: 600; }
+.casev .top .meta { display: inline-flex; align-items: center; gap: 4px; margin-left: 4px; }
+.casev .top .r { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.casev .body { display: grid; grid-template-columns: 1fr 186px; gap: 0 18px; padding: 9px 14px 11px 14px; }
+.casev .tabs { display: flex; gap: 3px; align-items: center; margin-bottom: 10px; }
+.casev .tab { padding: 2px 5px; border-radius: 4px; color: var(--muted); display: inline-flex; align-items: center; gap: 3px; }
+.casev .tab.on { background: var(--uichip); color: var(--text); }
+.casev h4 { font-size: 12px; line-height: 1.25; font-weight: 600; letter-spacing: -0.1px; }
+.casev .notags { color: var(--muted); margin: 3px 0 10px; }
+.casev .card { background: var(--uicard); border: 1px solid var(--uiline); border-radius: 6px; padding: 6px 9px; margin-bottom: 9px; }
+.casev .card:last-child { margin-bottom: 0; }
+.casev .task { display: flex; align-items: center; gap: 6px; padding: 3.5px 0; font-weight: 500; white-space: nowrap; }
+.casev .task .chev { color: var(--muted); font-weight: 400; }
+.casev .task .r { margin-left: auto; display: flex; align-items: center; gap: 7px; }
+.casev .task .o { width: 9px; height: 9px; border-radius: 50%; border: 1px solid var(--muted); display: inline-block; flex: none; }
+.casev .task .r svg { width: 9px; height: 9px; flex: none; }
+.casev .task .wf { display: inline-flex; align-items: center; gap: 3px; border: 1px solid var(--uiline); background: var(--uisoft); border-radius: 4px; padding: 1px 6px; color: var(--muted); font-weight: 400; }
+.casev .task .wf::before { content: ""; width: 0; height: 0; border-left: 4.5px solid var(--text); border-top: 2.8px solid transparent; border-bottom: 2.8px solid transparent; }
+.casev .add { color: var(--muted); padding: 4px 0 1px; display: flex; align-items: center; gap: 6px; }
+.casev .ch { display: flex; align-items: center; gap: 5px; font-weight: 600; margin-bottom: 5px; }
+.casev .ch .av { width: 11px; height: 11px; border-radius: 50%; background: rgba(255,255,255,0.12); display: inline-flex; align-items: center; justify-content: center; font-size: 6.8px; font-weight: 600; }
+.casev .ch .when { margin-left: auto; color: var(--muted); font-weight: 400; display: inline-flex; align-items: center; gap: 3px; }
+.casev .card p { font-size: 8.7px; line-height: 1.32; }
+.casev .reply { border-top: 1px solid var(--uiline); margin: 8px -9px -6px; padding: 7px 9px 6px; color: var(--muted); display: flex; justify-content: space-between; align-items: flex-end; min-height: 34px; }
+.casev .reply .up { width: 12px; height: 12px; border-radius: 50%; background: var(--uichip); display: inline-flex; align-items: center; justify-content: center; }
+.casev .reply .up svg { width: 7px; height: 7px; fill: none; stroke: var(--muted); stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; }
+.casev .t4 { width: 100%; border-collapse: collapse; margin: 5px 0 8px; font-size: 8.7px; line-height: 1.3; }
+.casev .t4 th { text-align: left; font-weight: 400; background: var(--uisoft); padding: 3px 6px; border: 1px solid var(--uiline); }
+.casev .t4 td { padding: 3px 6px; border: 1px solid var(--uiline); vertical-align: top; }
+.casev h5 { font-size: 9.8px; font-weight: 600; margin: 5px 0 4px; }
+.casev ul { margin: 0 0 1px 11px; }
+.casev li { line-height: 1.4; }
+.casev .props .ph { color: var(--muted); margin-bottom: 2px; }
+.casev .props .pr { display: flex; justify-content: space-between; align-items: center; padding: 3.5px 0; color: var(--muted); }
+.casev .props .pr b { font-weight: 500; color: var(--muted); display: inline-flex; gap: 3px; align-items: center; }
+.casev .props .pr b svg { width: 9px; height: 9px; fill: none; stroke: currentColor; stroke-width: 1.1; stroke-linecap: round; stroke-linejoin: round; }
+.casev .props .pr b.amber { color: var(--amber); }
+.casev .props .pr b.red { color: var(--red); }
+.casev .props .fields { margin-top: 14px; }
+
+/* list pages (Agents, Skills, MCP servers) */
+.lst { display: flex; }
+.lst .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.lst .search { display: flex; align-items: center; gap: 6px; padding: 6px 9px; border-bottom: 1px solid var(--uiline); color: var(--muted); white-space: nowrap; }
+.lst .search .n { margin-left: auto; }
+.lst .tools { display: flex; gap: 5px; padding: 6px 9px; color: var(--muted); white-space: nowrap; }
+.lst .tools .r { margin-left: auto; }
+.lst .row { display: flex; align-items: center; gap: 6px; padding: 4px 9px; white-space: nowrap; }
+.lst .row .nm { font-weight: 500; }
+.lst .row .chips { display: flex; gap: 4px; }
+.lst .row .chips.end { margin-left: auto; }
+.lst .row .glyph { width: 10px; height: 10px; flex: none; }
+.lst .row .glyph.stroke { fill: none; stroke: var(--indigo); stroke-width: 1.1; stroke-linecap: round; stroke-linejoin: round; }
+.lst .row .tile { width: 10px; height: 10px; border-radius: 2.5px; flex: none; display: inline-flex; align-items: center; justify-content: center; }
+.lst .row .tile svg { width: 7px; height: 7px; }
+.lst .row .tile span { font-size: 6.6px; font-weight: 700; color: #fff; line-height: 1; font-family: var(--sans); }
+
+/* page 1: two-column article grid */
+.grid2 { display: grid; grid-template-columns: 256px 1fr; gap: 30px; margin-top: 9px; }
+.kh { background: var(--soft); border-radius: 9px; padding: 10px 14px; align-self: start; }
+.kh h2 { font-size: 15px; letter-spacing: -0.02em; margin-bottom: 7px; }
+.kh .m { padding: 5px 0; border-top: 1px solid var(--hair); }
+.kh .m:first-of-type { border-top: 0; padding-top: 0; }
+.kh .m:last-of-type { padding-bottom: 0; }
+.kh .n { font-size: 11.5px; font-weight: 600; letter-spacing: -0.22px; line-height: 1.2; }
+.kh .d { font-size: 7.9px; line-height: 1.4; color: var(--muted); margin-top: 1px; }
+
+/* article */
+.art h2 { margin-top: 12px; }
+.p2 .art h2 { margin-top: 20px; }
+.p3 .art h2 { margin-top: 26px; }
+.p2 .art h2:first-child, .p3 .art h2:first-child { margin-top: 0; }
+.art h2:first-child { margin-top: 0; }
+.art h3 { margin-bottom: 4px; }
+.art ol { margin: 4px 0 0 14px; }
+.art ol li { padding-left: 3px; margin-top: 0; line-height: 1.4; }
+.art ol + p { margin-top: 5px; }
+.pairs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px; }
+.pairs p { line-height: 1.4; }
+.pairs h3 { margin-bottom: 2px; }
+.pairs.one { grid-template-columns: 1fr; gap: 8px; }
+.res h2 { margin-top: 0; }
+
+/* ROI table */
+.roi { display: grid; grid-template-columns: 1fr 1fr; gap: 0 24px; margin-top: 14px; }
+.roi table { width: 100%; border-collapse: collapse; font-size: 7.9px; }
+.roi th { text-align: left; font-size: 7.2px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 500; padding: 0 0 2px; border-bottom: 1px solid var(--hair); }
+.roi td { padding: 2px 0; border-bottom: 1px solid var(--hair); vertical-align: top; line-height: 1.3; }
+.roi td small { display: block; font-size: 7.2px; color: var(--muted); }
+.roi td.v { text-align: right; white-space: nowrap; font-weight: 500; padding-left: 8px; width: 1%; }
+.roi td.v small { color: var(--muted); font-weight: 400; }
+.note { font-size: 7.9px; color: var(--muted); margin-top: 4px; }
+.note b { color: var(--text); font-weight: 500; }
+
+/* quote */
+.quote { background: var(--card); border-radius: 9px; padding: 15px 18px; margin-top: 28px; }
+.quote p { font-size: 9.2px; font-weight: 600; line-height: 1.45; }
+.quote .who { display: flex; gap: 8px; margin-top: 7px; font-size: 7.9px; }
+.quote .who b { font-weight: 600; white-space: nowrap; }
+.quote .who span { color: var(--muted); }
+
+/* footer / CTA */
+.foot { margin-top: auto; padding-top: 8px; border-top: 1px solid var(--hair); display: grid; grid-template-columns: 0.9fr 1.3fr; gap: 0 28px; align-items: start; }
+.foot h2 { font-size: 18px; letter-spacing: -0.02em; margin-bottom: 4px; margin-top: 0; }
+.foot p { color: var(--muted); }
+.cta { display: flex; align-items: center; gap: 12px; margin-top: 9px; }
+.btn-primary { background: var(--text); color: var(--bg); font-weight: 500; font-size: 9px; border-radius: 999px; padding: 5px 12px; }
+.cta a { font-size: 8.8px; color: var(--text); }
+.links { display: flex; gap: 14px; font-size: 8.4px; padding: 3px 0 7px; border-bottom: 1px solid var(--hair); }
+.links span { text-decoration: underline; text-underline-offset: 2px; text-decoration-color: var(--muted); }
+.sources { font-size: 6.7px; color: var(--muted); line-height: 1.35; padding-top: 5px; }
+.sources b { color: var(--text); font-weight: 500; }
+</style>
+</head>
+<body>
+
+<!-- ===================================================== PAGE 1 -->
+<section class="page">
+  <header class="hdr">
+    <div class="brand">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.5 5.2A6 6 0 1 0 14 8" stroke="#FCFCFD" stroke-width="1.8" stroke-linecap="round"/><path d="M11.2 2.4h2.6v2.6" stroke="#FCFCFD" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Tracecat <span class="pg">01 / 03</span>
+    </div>
+    <div class="hdr-r">Solution brief · AI-accelerated zero-day response</div>
+  </header>
+
+  <p class="kicker">Solution brief</p>
+  <h1>Verified mitigation for post-Mythos /<br>GPT-6 Astra vulnerability discovery.</h1>
+  <p class="lede">The zero-day clock, the time from a vulnerability's disclosure to its first exploitation, has gone negative. Tracecat agents prove which scanner findings are really exploitable at your ingress, propose a narrow compensating control, and let one analyst approve, apply, and retest it in minutes, on your infrastructure, with your models.</p>
+
+  <div class="hero">
+    <div class="facts">
+      <div class="g2">
+        <div><div class="k">Threat</div><div class="v">Unauthenticated RCE or auth bypass on internet-facing services: Grafana admin, Kubernetes dashboards, workflow and web apps</div></div>
+        <div><div class="k">Trigger</div><div class="v">Scanner finding (Nuclei or your vulnerability scanner) with a version match but no proof of impact</div></div>
+      </div>
+      <div class="row"><div class="k">Outcome</div><div class="v">Route-scoped WAF control. Attack denied, required traffic preserved, evidence on the case</div></div>
+      <div class="row"><div class="k">Deploy</div><div class="v">Self-hosted, air-gapped capable. vLLM, Ollama, LiteLLM, or hosted models</div></div>
+      <div class="row"><div class="k">Integration</div>
+        <div class="pills">
+          <span class="pill"><svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.2" fill="none" stroke="#6B7CFF" stroke-width="1.2"/><circle cx="6" cy="6" r="1.3" fill="#6B7CFF"/><path d="M6 0.5v2M6 9.5v2M0.5 6h2M9.5 6h2" stroke="#6B7CFF" stroke-width="1.1"/></svg>ProjectDiscovery Nuclei</span>
+          <span class="pill"><svg viewBox="0 0 12 12"><path d="M3.3 9.5A2.3 2.3 0 0 1 3 4.9a3.1 3.1 0 0 1 6-.6 2.4 2.4 0 0 1 .4 4.8z" fill="#F6821F"/><path d="M2.3 9.5h7" stroke="#FBAD41" stroke-width="1.2"/></svg>Cloudflare</span>
+          <span class="pill"><svg viewBox="0 0 12 12"><path d="M6 .8 10.6 2.5v3.3c0 2.7-1.9 4.6-4.6 5.6C3.3 10.4 1.4 8.5 1.4 5.8V2.5z" fill="#00B37E"/><path d="M4 6l1.5 1.5L8.3 4.6" stroke="#131213" stroke-width="1.1" fill="none"/></svg>BunkerWeb / ModSecurity</span>
+          <span class="pill"><svg viewBox="0 0 12 12"><text x="6" y="7.2" text-anchor="middle" font-family="Geist, sans-serif" font-size="6.2" font-weight="700" fill="#FCFCFD">aws</text><path d="M1.6 8.6q4.4 2.6 8.8 0" stroke="#FF9900" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>AWS</span>
+          <span class="pill"><svg viewBox="0 0 12 12"><path d="M6 .6 10.9 3v4.6L6 11.4 1.1 7.6V3z" fill="#326CE5"/><circle cx="6" cy="6" r="2.2" fill="none" stroke="#FCFCFD" stroke-width=".9"/><path d="M6 2.8v6.4M2.9 4.4l6.2 3.2M2.9 7.6l6.2-3.2" stroke="#FCFCFD" stroke-width=".8"/></svg>Kubernetes</span>
+          <span class="pill"><svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="5.4" fill="#005EA2"/><path d="M6 1.6 1.6 6 6 10.4 10.4 6z" fill="#FCFCFD"/><circle cx="6" cy="6" r="1.7" fill="#005EA2"/></svg>CISA KEV</span>
+          <span class="pill"><svg viewBox="0 0 12 12"><rect x=".7" y=".7" width="10.6" height="10.6" rx="2.2" fill="#D7263D"/><text x="6" y="8.9" text-anchor="middle" font-family="Geist, sans-serif" font-size="7.6" font-weight="700" fill="#FCFCFD">F</text></svg>FIRST EPSS</span>
+          <span class="pill"><svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="5.2" fill="none" stroke="#C4302B" stroke-width="1"/><path d="M3.4 8.4a3.7 3.7 0 0 1 5.2-5.2M4.7 7.1a1.8 1.8 0 0 1 2.4-2.4" stroke="#C4302B" stroke-width="1" fill="none" stroke-linecap="round"/><circle cx="6" cy="6" r=".9" fill="#C4302B"/></svg>Shodan</span>
+          <span class="pill"><svg viewBox="0 0 12 12"><path d="M1 6.6c2.4-.3 4-1.1 5.3-2.5C7.5 2.8 8.9 2 11 1.6c-1.4 1-2.2 2.2-2.7 3.6-.6 1.9-1.5 3.9-3.9 5.5.9-1.5 1.1-2.8.9-4.1C4 6.7 2.6 6.9 1 6.6z" fill="#FC0000"/></svg>CrowdStrike Falcon</span>
+          <span class="pill"><svg viewBox="0 0 12 12"><rect x="4.2" y=".6" width="1.9" height="4.6" rx=".95" fill="#36C5F0"/><rect x="6.8" y="1.2" width="1.9" height="4.6" rx=".95" fill="#2EB67D" transform="rotate(90 7.75 3.5)"/><rect x="5.9" y="6.8" width="1.9" height="4.6" rx=".95" fill="#ECB22E"/><rect x="3.3" y="6.2" width="1.9" height="4.6" rx=".95" fill="#E01E5A" transform="rotate(90 4.25 8.5)"/></svg>Slack</span>
+          <span class="pill"><svg viewBox="0 0 12 12"><path d="M6 .8 11.2 6 6 11.2.8 6z" fill="#0052CC"/><path d="M6 3.4 8.6 6 6 8.6 3.4 6z" fill="#2684FF"/></svg>Jira</span>
+          <span class="pill"><svg viewBox="0 0 12 12"><rect x=".7" y=".7" width="10.6" height="10.6" rx="2.2" fill="#06AC38"/><path d="M4 9.6V2.6h2.6a2.1 2.1 0 0 1 0 4.2H5.5" stroke="#FCFCFD" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg>PagerDuty</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="shot">
+      <div class="fig">
+      <div class="ui inbox">
+        <aside class="sb">
+          <div class="ws"><svg viewBox="0 0 16 16" fill="none"><path d="M13.5 5.2A6 6 0 1 0 14 8" stroke="#FCFCFD" stroke-width="1.8" stroke-linecap="round"/><path d="M11.2 2.4h2.6v2.6" stroke="#FCFCFD" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Default Workspace</div>
+          <div class="h">Workspace</div>
+          <div class="i"><svg viewBox="0 0 10 10"><path d="M1.5 1.5h7v5H4.5L2.5 8V6.5h-1z"/></svg>Chat</div>
+          <div class="i"><svg viewBox="0 0 10 10"><path d="M1 1.5h3v3H1zM6 5.5h3v3H6zM4 3h1v4h1"/></svg>Workflows</div>
+          <div class="i"><svg viewBox="0 0 10 10"><path d="M5 1.5l4 2-4 2-4-2zM1 5.5l4 2 4-2M1 7.5l4 2 4-2"/></svg>Cases</div>
+          <div class="i"><svg viewBox="0 0 10 10"><path d="M5 1.5v7M1.5 5h7M2.5 2.5l5 5M7.5 2.5l-5 5"/></svg>Agents</div>
+          <div class="i"><svg viewBox="0 0 10 10"><path d="M1 1.5h8v7H1zM1 4h8M4 1.5v7"/></svg>Tables</div>
+          <div class="i"><svg viewBox="0 0 10 10"><path d="M3 1.5C1.3 3.2 1.3 6.8 3 8.5M7 1.5c1.7 1.7 1.7 5.3 0 7M4 4l2 2M6 4l-2 2"/></svg>Variables</div>
+          <div class="i"><svg viewBox="0 0 10 10"><path d="M3.5 4.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM5 5l3.5-3.5M7 3.5l1.2 1.2"/></svg>Credentials</div>
+          <div class="i"><svg viewBox="0 0 10 10"><path d="M1 1h3.5v3.5H1zM5.5 1H9v3.5H5.5zM1 5.5h3.5V9H1zM5.5 5.5H9V9H5.5z"/></svg>Integrations</div>
+          <div class="i"><svg viewBox="0 0 10 10"><path d="M1.5 8.5l4.5-4.5M3.5 6.5l3-3a1.4 1.4 0 0 1 2 2l-3 3M6.5 3.5l-3 3"/></svg>MCP servers</div>
+          <div class="i"><svg viewBox="0 0 10 10"><path d="M5 1.2L8.8 8.4H1.2z"/></svg>Skills</div>
+          <div class="i"><svg viewBox="0 0 10 10"><path d="M5 1l4 2v4l-4 2-4-2V3zM1 3l4 2 4-2M5 5v4"/></svg>Actions</div>
+          <div class="h">Monitor</div>
+          <div class="i"><svg viewBox="0 0 10 10"><path d="M1 2.5h8M1 5h8M1 7.5h5"/></svg>Runs</div>
+          <div class="i on"><svg viewBox="0 0 10 10"><path d="M1 2.5l1 1 1.5-1.5M1 6.5l1 1 1.5-1.5M5.5 3h3.5M5.5 7h3.5"/></svg>Inbox</div>
+        </aside>
+        <div class="mid">
+          <div class="topbar"><span class="sq"></span>Inbox</div>
+          <div class="search">Search sessions… <span class="fbtn">Filter <span class="muted">1</span></span></div>
+          <div class="filtrow"><span class="filt">Filtered by case <span class="cd">80d99999</span><span class="muted">×</span></span></div>
+          <div class="cols"><span>Title</span><span>Updated</span></div>
+          <div class="grp"><span class="ok"></span>Completed <span class="n">1</span></div>
+          <div class="item"><span>Analyst</span><span class="t">Sep 7, 10:31</span></div>
+        </div>
+        <aside class="pane">
+          <div class="ph"><div><b>Analyst</b><span>Completed</span></div><span>×</span></div>
+          <div class="tool"><svg class="cube" viewBox="0 0 10 10"><path d="M5 1l4 2v4l-4 2-4-2V3zM1 3l4 2 4-2M5 5v4"/></svg><span>security.supplier_intake.verify</span><span class="ok"></span></div>
+          <div class="tool"><svg class="cube" viewBox="0 0 10 10"><path d="M5 1l4 2v4l-4 2-4-2V3zM1 3l4 2 4-2M5 5v4"/></svg><span>security.supplier_intake.propose_policy</span><span class="ok"></span></div>
+          <p><b>Conclusion:</b> Fresh bounded verification returned <span class="cd">confirmed_rce</span> for CVE-2026-21858 at the exposed supplier-intake ingress.</p>
+          <table class="smac">
+            <tr><th>Status</th><td>Confirmed RCE</td></tr>
+            <tr><th>Malice</th><td>Pre-auth exploitation confirmed</td></tr>
+            <tr><th>Action</th><td>BLOCK proposal persisted; awaiting approval</td></tr>
+            <tr><th>Context</th><td>Tested ingress only; benign traffic passed</td></tr>
+          </table>
+          <p><b>What I found:</b> Unauthenticated command execution through the intake route. Cleanup completed and verification-created state removed.</p>
+          <p><b>What this means:</b> Exposure is real, not a version match. Required traffic (upload, webhook, login, health) still passes.</p>
+          <p><b>What I need from you:</b> Approve <b>Create BLOCK rule</b>, or rehearse with <b>Create LOG-only rule</b> first.</p>
+          <div class="box"><div class="ask">Type to ask follow-up questions…</div><span class="model"><i></i>gpt-5.6-terra <em>openai</em></span></div>
+        </aside>
+      </div>
+      </div>
+      <p class="figcap">Figure 1. The Analyst session in the Inbox after fixed-target verification: sanitised evidence, a route-scoped BLOCK proposal, one decision for one human.</p>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="kh">
+      <h2>Key highlights</h2>
+      <div class="m"><div class="n">&lt; 2 minutes</div><div class="d">Scanner signal to a verified, retested control; full loop measured at 78–102 s, 15 of 15 acceptance gates.</div></div>
+      <div class="m"><div class="n">0 credentials</div><div class="d">Firewall credentials or free-form rule syntax exposed to the agent, which can propose but never apply.</div></div>
+      <div class="m"><div class="n">100% preserved</div><div class="d">Required traffic preserved: upload, webhook, login, and health are retested on every apply.</div></div>
+      <div class="m"><div class="n">1 click</div><div class="d">Human approval applies the exact reviewed rule, verifies activation, and rolls back on failure.</div></div>
+      <div class="m"><div class="n">Same day</div><div class="d">Exposure window per finding, versus a 55–61 day industry patch MTTR (Edgescan; modeled).</div></div>
+    </div>
+    <div class="art">
+      <h2>The problem</h2>
+      <p><b>Discovery has gone machine-scale.</b> Anthropic's Project Glasswing (Claude Mythos, Apr–May 2026) reported 23,019 issues across 1,000+ open-source projects, 10,000+ of them high or critical, and more than 99% unpatched at disclosure. OpenAI's GPT-6 Astra (Sep 3, 2026) is the first model rated "Critical" for cyber under its Preparedness Framework, and found and exploited two zero-days unaided. Open-weight Z.ai GLM-5.3 claims 2,436 findings across 269 projects and 105 of 130 ExploitGym targets, and anyone, including attackers, can run it.</p>
+      <p><b>The zero-day clock is negative: exploitation now precedes disclosure.</b> Mandiant/GTIG time-to-exploit fell from 63 days (2018–19) to 5 days (2023), then to about −1 day (2024) and about −7 days (2025). VulnCheck's 1H-2026 data shows 23% of KEVs exploited on or before CVE publication. Defender patch MTTR is still 55–61 days, and about 60% of breaches involve a vulnerability with a patch already available.</p>
+      <p><b>Where teams get stuck.</b> Vulnerability management receives thousands of version-match findings and cannot tell exploitable from noise. Patching waits on owners and change windows. A hand-written WAF rule is risky (a global JSON or POST block breaks the business), so nobody writes one, and the finding sits open. Every hour is exposure.</p>
+    </div>
+  </div>
+
+  <div class="art" style="margin-top:4px">
+  <h2>The solution</h2>
+  <h3>An Analyst agent that verifies, proposes, and hands the decision to a human.</h3>
+  <p>Tracecat runs an Analyst agent against each finding. The preset is case-scoped, has no internet access, and holds no firewall credential: it proves or disproves exploitability, then writes a narrow, reviewable control for a person to approve. Its tools are bounded Python actions with pinned dependencies (<code class="cd">scan</code>, <code class="cd">verify</code>, <code class="cd">propose_policy</code>), never free-form rule syntax; <code class="cd">apply_reviewed_policy</code>, which holds the WAF and app secrets, exists only inside the workflow a human launches (Figure 2, next page).</p>
+  <ol>
+    <li><b>Finding.</b> A scanner hit or KEV/EPSS feed opens a case.</li>
+    <li><b>Verify.</b> <code class="cd">scan</code> and <code class="cd">verify</code> run against a fixed target and return sanitised evidence only, with one of five verdicts: confirmed_rce, blocked_by_waf, not_reproduced, inconclusive, or confirmed_file_read.</li>
+    <li><b>Propose.</b> An immutable, revision-bound, route-scoped policy (route, POST, allowed content-type; BLOCK or LOG_ONLY) with rationale and rollback is written to the case.</li>
+    <li><b>Approve.</b> One case task: Create BLOCK rule, or Create LOG-only rule to rehearse first (Figure 3, next page).</li>
+    <li><b>Apply.</b> A human-launched workflow applies the exact reviewed proposal, verifies activation, retests upload, webhook, login, and health, and rolls back on failure.</li>
+    <li><b>Close.</b> The agent posts the before/after verdict, correlated firewall events, and remaining patch risk.</li>
+  </ol>
+  <p>The preset, its two skills, and the hosted MCP servers it can be given are all first-class objects in the workspace (Figures 4–6, page 3).</p>
+  </div>
+</section>
+
+<!-- ===================================================== PAGE 2 -->
+<section class="page p2">
+  <header class="hdr">
+    <div class="brand">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.5 5.2A6 6 0 1 0 14 8" stroke="#FCFCFD" stroke-width="1.8" stroke-linecap="round"/><path d="M11.2 2.4h2.6v2.6" stroke="#FCFCFD" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Tracecat <span class="pg">02 / 03</span>
+    </div>
+    <div class="hdr-r">Solution brief · AI-accelerated zero-day response</div>
+  </header>
+
+  <div class="art">
+    <div class="figrow">
+      <div>
+        <div class="fig">
+        <svg viewBox="-6 6 354 298" xmlns="http://www.w3.org/2000/svg" font-family="Geist, system-ui, sans-serif" font-size="8.6" fill="#FCFCFD">
+          <defs>
+            <marker id="am" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0.5 8 4 0 7.5z" fill="#A9ABAF"/></marker>
+          </defs>
+          <g stroke="#A9ABAF" stroke-width=".9" fill="none" marker-end="url(#am)">
+            <path d="M103 56v10"/><path d="M103 102v8"/>
+            <path d="M30 146v12"/><path d="M79 146v12"/><path d="M152 146v12"/>
+            <path d="M196 40h20" marker-start="url(#am)"/>
+            <path d="M196 166c14 0 10-106 20-106"/>
+            <path d="M241 73v30"/>
+            <path d="M275 139v9"/>
+            <path d="M275 178v9"/>
+            <path d="M334 164h4v-100h-4" stroke-dasharray="2 2"/>
+            <path d="M103 249v11"/>
+            <path d="M79 175v44" stroke-dasharray="2.5 2"/>
+            <path d="M216 228c-8 0-12 2-20 2"/>
+          </g>
+
+          <!-- Analyst agent -->
+          <rect x="2" y="12" width="202" height="180" rx="6" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width=".8" stroke-dasharray="3 2.5"/>
+          <text x="10" y="22.5" font-size="7.1" fill="#A9ABAF" letter-spacing="1.1">ANALYST AGENT</text>
+
+          <rect x="10" y="29" width="186" height="27" rx="4" fill="#1E1C1D" stroke="rgba(252,252,253,0.62)"/>
+          <text x="17" y="40.5" font-weight="600">Analyst preset</text>
+          <text x="17" y="50.5" font-size="7.2" fill="#A9ABAF">case-scoped · thinking on · no internet access</text>
+
+          <rect x="10" y="66" width="186" height="36" rx="4" fill="#1E1C1D" stroke="rgba(252,252,253,0.62)"/>
+          <text x="17" y="77" font-size="7.2" fill="#A9ABAF">Skill</text>
+          <text x="38" y="77" font-family="JetBrains Mono, monospace" font-size="8">verify-exploitability</text>
+          <text x="17" y="88" font-size="7.2" fill="#A9ABAF">verdicts: confirmed_rce · blocked_by_waf</text>
+          <text x="17" y="97" font-size="7.2" fill="#A9ABAF">not_reproduced · inconclusive · confirmed_file_read</text>
+
+          <rect x="10" y="110" width="186" height="36" rx="4" fill="#1E1C1D" stroke="rgba(252,252,253,0.62)"/>
+          <text x="17" y="121" font-size="7.2" fill="#A9ABAF">Skill</text>
+          <text x="38" y="121" font-family="JetBrains Mono, monospace" font-size="8">propose-firewall-mitigation</text>
+          <text x="17" y="132" font-size="7.2" fill="#A9ABAF">fixed policy: route · POST · allowed content-type</text>
+          <text x="17" y="141" font-size="7.2" fill="#A9ABAF">mode BLOCK or LOG_ONLY · rationale · rollback</text>
+
+          <rect x="10" y="158" width="40" height="17" rx="4" fill="#1E1C1D" stroke="rgba(252,252,253,0.62)"/>
+          <text x="30" y="169.5" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8">scan</text>
+          <rect x="56" y="158" width="46" height="17" rx="4" fill="#1E1C1D" stroke="rgba(252,252,253,0.62)"/>
+          <text x="79" y="169.5" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8">verify</text>
+          <rect x="108" y="158" width="88" height="17" rx="4" fill="#1E1C1D" stroke="rgba(252,252,253,0.62)"/>
+          <text x="152" y="169.5" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8">propose_policy</text>
+          <text x="103" y="186" text-anchor="middle" font-size="7.2" fill="#A9ABAF">fixed target · no approval · no secrets</text>
+
+          <!-- Case -->
+          <rect x="216" y="29" width="118" height="44" rx="4" fill="#1E1C1D" stroke="rgba(252,252,253,0.62)"/>
+          <text x="275" y="43" text-anchor="middle" font-weight="600">Tracecat case</text>
+          <text x="275" y="54" text-anchor="middle" font-size="7.2" fill="#A9ABAF">evidence · proposal (revision 1)</text>
+          <text x="275" y="64" text-anchor="middle" font-size="7.2" fill="#A9ABAF">tasks · closure comment</text>
+
+          <!-- Human approval -->
+          <rect x="208" y="86" width="132" height="152" rx="6" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width=".8" stroke-dasharray="3 2.5"/>
+          <text x="332" y="96.5" text-anchor="end" font-size="7.1" fill="#A9ABAF" letter-spacing="1.1">HUMAN APPROVAL</text>
+
+          <rect x="216" y="103" width="118" height="36" rx="4" fill="#1E1C1D" stroke="rgba(252,252,253,0.62)"/>
+          <text x="223" y="114" font-weight="600">Case task</text>
+          <text x="223" y="124" font-size="7.2" fill="#A9ABAF">Create BLOCK rule</text>
+          <text x="223" y="133" font-size="7.2" fill="#A9ABAF">or Create LOG-only rule first</text>
+          <text x="246" y="81" font-size="7.2" fill="#A9ABAF">one click</text>
+
+          <rect x="216" y="148" width="118" height="30" rx="4" fill="#1E1C1D" stroke="rgba(252,252,253,0.62)"/>
+          <text x="223" y="159" font-weight="600">Workflow</text>
+          <text x="223" y="170" font-size="7.2" fill="#A9ABAF">Apply reviewed firewall rule</text>
+
+          <rect x="216" y="187" width="118" height="46" rx="4" fill="#1E1C1D" stroke="rgba(252,252,253,0.62)" stroke-dasharray="3 2"/>
+          <text x="223" y="199" font-family="JetBrains Mono, monospace" font-size="8">apply_reviewed_policy</text>
+          <text x="223" y="210" font-size="7.2" fill="#A9ABAF">requires human approval</text>
+          <text x="223" y="219.5" font-size="7.2" fill="#A9ABAF">holds WAF + app secrets</text>
+          <text x="223" y="229" font-size="7.1" font-weight="600" fill="#A9ABAF" letter-spacing=".3">NEVER GIVEN TO THE AGENT</text>
+
+          <!-- Your ingress -->
+          <rect x="2" y="202" width="202" height="96" rx="6" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width=".8" stroke-dasharray="3 2.5"/>
+          <text x="10" y="212.5" font-size="7.1" fill="#A9ABAF" letter-spacing="1.1">YOUR INGRESS</text>
+
+          <rect x="10" y="219" width="186" height="30" rx="4" fill="#1E1C1D" stroke="rgba(252,252,253,0.62)"/>
+          <text x="17" y="230" font-weight="600">BunkerWeb / ModSecurity</text>
+          <text x="17" y="241" font-size="7.2" fill="#A9ABAF">route-scoped rule · revision 1 · retested</text>
+
+          <rect x="10" y="260" width="186" height="30" rx="4" fill="#1E1C1D" stroke="rgba(252,252,253,0.62)"/>
+          <text x="17" y="271" font-weight="600">Internet-facing app</text>
+          <text x="17" y="282" font-size="7.2" fill="#A9ABAF">upload · webhook · login · health preserved</text>
+
+          <text x="84" y="200" font-size="7.2" fill="#A9ABAF">pinned scanner · fixed probe</text>
+          <text x="206" y="220" font-size="7.1" fill="#A9ABAF" text-anchor="middle">apply</text>
+        </svg>
+        </div>
+        <p class="figcap">Figure 2. What the Analyst preset can use, and the one action it cannot.</p>
+      </div>
+
+      <div class="res">
+        <h2>The results</h2>
+        <div class="pairs one">
+          <div><h3>&lt; 2 minutes from scanner signal to a verified, retested control</h3><p>The full loop measured at 78–102 s in Tracecat's reference environment, passing 15 of 15 acceptance gates on every apply.</p></div>
+          <div><h3>0 firewall credentials exposed to the agent</h3><p>The agent can propose but never apply. The credential and the rule syntax live only in the human-approved workflow.</p></div>
+          <div><h3>100% of required traffic preserved</h3><p>Upload, webhook, login, and health are retested after every apply; a failed retest rolls the rule back automatically.</p></div>
+          <div><h3>165 analyst-hours returned per month, ≈$20.6k/month, ≈$248k/year (modeled)</h3><p>A modeled month for one team. Every input is an assumption; swap in your own volumes, hours, and rates. The control is mitigation at the tested ingress, not a patch.</p></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="roi">
+      <table>
+        <tr><th colspan="2">Inputs</th></tr>
+        <tr><td>Internet-facing high/critical findings needing exploitability triage</td><td class="v">30 / month</td></tr>
+        <tr><td>Manual path per finding<small>validate 2h · author and test a compatible WAF rule 3h · retest and document 1h</small></td><td class="v">≈ 6 h</td></tr>
+        <tr><td>Tracecat path per finding<small>review evidence · approve · read the closure</small></td><td class="v">≈ 0.5 h</td></tr>
+        <tr><td>Loaded analyst cost</td><td class="v">$125 / h</td></tr>
+      </table>
+      <table>
+        <tr><th colspan="2">Outputs</th></tr>
+        <tr><td>Analyst hours returned each month</td><td class="v">165 h</td></tr>
+        <tr><td>Value of returned analyst time</td><td class="v">≈ $20.6k / month<small>≈ $248k / year</small></td></tr>
+        <tr><td>Exposure window per finding</td><td class="v">55–61 days <span class="arr">→</span> same shift</td></tr>
+        <tr><td>Acceptance checks on every apply</td><td class="v">15 automated</td></tr>
+      </table>
+    </div>
+    <p class="note"><b>Not counted:</b> breach-cost avoidance (IBM Cost of a Data Breach 2025, global average $4.44M per incident).</p>
+
+    <div class="figfull" style="margin-top:22px">
+      <div class="fig" style="height:auto">
+      <div class="ui casev">
+        <div class="top">
+          <svg class="ic" viewBox="0 0 10 10"><rect x="1" y="1.5" width="8" height="7" rx="1.2"/><path d="M3.8 1.5v7"/></svg>
+          Cases <span>/</span> <b>CASE-0001</b>
+          <span class="meta"><svg class="ic" viewBox="0 0 10 10"><circle cx="5" cy="5" r="3.8"/><path d="M5 2.8V5l1.5 1"/></svg>15 minutes ago</span>
+          <span>•</span>
+          <span class="meta" style="margin-left:0"><svg class="ic" viewBox="0 0 10 10"><path d="M2 8l.6-2.4L7 1.2l1.8 1.8L4.4 7.4z"/></svg>Less than a minute ago</span>
+          <span class="r">
+            <span class="bt"><svg class="ic" viewBox="0 0 10 10" style="stroke:#FCFCFD"><path d="M5 1.5v7M1.5 5h7M2.5 2.5l5 5M7.5 2.5l-5 5"/></svg>View agent runs</span>
+            <svg class="ic" viewBox="0 0 10 10"><path d="M1.5 5a3.5 3.5 0 1 1 1 2.5M1.5 4.2V6h1.8M5 3.2V5l1.3.8"/></svg>
+            <svg class="ic" viewBox="0 0 10 10"><rect x="1" y="1.5" width="8" height="7" rx="1.2"/><path d="M6.2 1.5v7"/></svg>
+          </span>
+        </div>
+        <div class="body">
+          <div class="mainc">
+            <div class="tabs">
+              <span class="tab"><svg class="ic" viewBox="0 0 10 10"><path d="M1.5 2.5h7M1.5 5h7M1.5 7.5h4.5"/></svg></span>
+              <span class="tab on"><svg viewBox="0 0 10 10" style="width:9px;height:9px"><circle cx="5" cy="5" r="3.4" fill="none" stroke="#6B7CFF" stroke-width="1.6" stroke-dasharray="15 7" stroke-linecap="round"/></svg>1/2</span>
+              <span class="tab"><svg class="ic" viewBox="0 0 10 10"><path d="M7.5 4.5 4.3 7.7a1.8 1.8 0 0 1-2.5-2.5l3.6-3.6a1.2 1.2 0 0 1 1.7 1.7L3.6 6.8"/></svg></span>
+              <span class="tab"><svg class="ic" viewBox="0 0 10 10"><rect x="1" y="1.5" width="8" height="7" rx="1"/><path d="M1 4h8M4 4v4.5"/></svg></span>
+              <span class="tab"><svg class="ic" viewBox="0 0 10 10"><path d="M3.5 1.5c-1.5 0-1 1.5-1 2.5s-1 1-1 1 1 0 1 1-.5 2.5 1 2.5M6.5 1.5c1.5 0 1 1.5 1 2.5s1 1 1 1-1 0-1 1 .5 2.5-1 2.5"/></svg></span>
+              <span class="tab"><svg class="ic" viewBox="0 0 10 10"><path d="M1 5h2l1.2-3 1.8 6 1.2-3H9"/></svg></span>
+            </div>
+            <h4>Suspected unauthenticated RCE on supplier intake</h4>
+            <div class="notags">No tags</div>
+
+            <div class="card">
+              <div class="task"><span class="ok"></span>Create BLOCK rule <span class="chev">›</span>
+                <span class="r"><svg viewBox="0 0 10 10"><path d="M5 1.2 9.3 8.6H.7z" fill="none" stroke="#EF4444" stroke-width="1.1" stroke-linejoin="round"/><path d="M5 4v2.1M5 7.3v.1" stroke="#EF4444" stroke-width="1.1" stroke-linecap="round"/></svg><svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" fill="none" stroke="#A9ABAF" stroke-width="1"/><circle cx="5" cy="4.2" r="1.3" fill="none" stroke="#A9ABAF" stroke-width="1"/><path d="M2.6 7.8c.6-1.2 1.4-1.7 2.4-1.7s1.8.5 2.4 1.7" fill="none" stroke="#A9ABAF" stroke-width="1"/></svg><span class="wf">Apply reviewed fi…</span></span>
+              </div>
+              <div class="task"><span class="o"></span>Create LOG-only rule <span class="chev">›</span>
+                <span class="r"><svg viewBox="0 0 10 10"><path d="M1.5 8.5v-1.5M4 8.5v-3M6.5 8.5v-4.5M9 8.5v-6.5" stroke="#EF4444" stroke-width="1.3" stroke-linecap="round"/></svg><svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" fill="none" stroke="#A9ABAF" stroke-width="1"/><circle cx="5" cy="4.2" r="1.3" fill="none" stroke="#A9ABAF" stroke-width="1"/><path d="M2.6 7.8c.6-1.2 1.4-1.7 2.4-1.7s1.8.5 2.4 1.7" fill="none" stroke="#A9ABAF" stroke-width="1"/></svg><span class="wf">Apply reviewed fi…</span></span>
+              </div>
+              <div class="add"><svg class="ic" viewBox="0 0 10 10"><path d="M5 1.5v7M1.5 5h7"/></svg>Add task</div>
+            </div>
+
+            <div class="card">
+              <div class="ch"><span class="av">T</span>Tracecat<span class="when"><svg class="ic" viewBox="0 0 10 10"><circle cx="5" cy="5" r="3.8"/><path d="M5 2.8V5l1.5 1"/></svg>13m ago</span></div>
+              <p>I'm validating whether this scanner finding has real impact at the exposed ingress.</p>
+              <div class="reply"><span>Leave a reply…</span><span class="up"><svg viewBox="0 0 10 10"><path d="M5 8V2M2.5 4.5 5 2l2.5 2.5"/></svg></span></div>
+            </div>
+
+            <div class="card">
+              <div class="ch"><span class="av">T</span>Tracecat<span class="when"><svg class="ic" viewBox="0 0 10 10"><circle cx="5" cy="5" r="3.8"/><path d="M5 2.8V5l1.5 1"/></svg>13m ago</span></div>
+              <p>I confirmed unauthenticated command execution through the supplier intake route.</p>
+              <table class="t4">
+                <tr><th style="width:18%">Status</th><th style="width:34%">Malice</th><th style="width:25%">Action</th><th>Context</th></tr>
+                <tr><td>Confirmed RCE</td><td>Active verification confirmed unauthenticated execution; cleanup completed</td><td>Review a route-scoped control recommendation</td><td>Supplier intake ingress; no firewall control applied</td></tr>
+              </table>
+              <h5>What I found</h5>
+              <ul>
+                <li>Fresh scanning retained the vulnerable-version signal.</li>
+                <li>Active verification confirmed command execution at the exposed supplier intake ingress.</li>
+                <li>Required benign application traffic passed, and verification cleanup completed.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="props">
+            <div class="ph">Properties</div>
+            <div class="pr"><span>Status</span><b class="amber"><svg viewBox="0 0 10 10"><path d="M2.5 9V1.5h5L6 3.6l1.5 2.1h-5"/></svg>New</b></div>
+            <div class="pr"><span>Priority</span><b class="red"><svg viewBox="0 0 10 10"><path d="M1.5 8.5v-1.5M4 8.5v-3M6.5 8.5v-4.5M9 8.5v-6.5" stroke-width="1.3"/></svg>High</b></div>
+            <div class="pr"><span>Severity</span><b class="red"><svg viewBox="0 0 10 10"><path d="M5 1.2 9.3 8.6H.7z"/><path d="M5 4v2.1M5 7.3v.1"/></svg>Critical</b></div>
+            <div class="pr"><span>Assignee</span><b><svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="3.8"/><path d="M2.3 7.7l5.4-5.4"/></svg>Unassigned</b></div>
+            <div class="ph fields">Fields</div>
+            <div class="pr" style="color:var(--text)"><span>No custom fields configured</span></div>
+          </div>
+        </div>
+      </div>
+      </div>
+      <p class="figcap">Figure 3. The case at the approval moment: two tasks for the human, and the agent's verification evidence beneath.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===================================================== PAGE 3 -->
+<section class="page p3">
+  <header class="hdr">
+    <div class="brand">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.5 5.2A6 6 0 1 0 14 8" stroke="#FCFCFD" stroke-width="1.8" stroke-linecap="round"/><path d="M11.2 2.4h2.6v2.6" stroke="#FCFCFD" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Tracecat <span class="pg">03 / 03</span>
+    </div>
+    <div class="hdr-r">Solution brief · AI-accelerated zero-day response</div>
+  </header>
+
+  <div class="art">
+    <div class="figgrid">
+      <div>
+        <div class="fig">
+        <div class="ui lst">
+          <aside class="sb narrow">
+            <div class="ws"><svg viewBox="0 0 16 16" fill="none"><path d="M13.5 5.2A6 6 0 1 0 14 8" stroke="#FCFCFD" stroke-width="1.8" stroke-linecap="round"/><path d="M11.2 2.4h2.6v2.6" stroke="#FCFCFD" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Default Workspace</div>
+            <div class="h">Workspace</div>
+            <div class="i"><svg viewBox="0 0 10 10"><path d="M1.5 1.5h7v5H4.5L2.5 8V6.5h-1z"/></svg>Chat</div>
+            <div class="i"><svg viewBox="0 0 10 10"><path d="M1 1.5h3v3H1zM6 5.5h3v3H6zM4 3h1v4h1"/></svg>Workflows</div>
+            <div class="i"><svg viewBox="0 0 10 10"><path d="M5 1.5l4 2-4 2-4-2zM1 5.5l4 2 4-2M1 7.5l4 2 4-2"/></svg>Cases</div>
+            <div class="i on"><svg viewBox="0 0 10 10"><path d="M5 1.5v7M1.5 5h7M2.5 2.5l5 5M7.5 2.5l-5 5"/></svg>Agents</div>
+            <div class="i"><svg viewBox="0 0 10 10"><path d="M1 1.5h8v7H1zM1 4h8M4 1.5v7"/></svg>Tables</div>
+            <div class="i"><svg viewBox="0 0 10 10"><path d="M3 1.5C1.3 3.2 1.3 6.8 3 8.5M7 1.5c1.7 1.7 1.7 5.3 0 7M4 4l2 2M6 4l-2 2"/></svg>Variables</div>
+            <div class="i"><svg viewBox="0 0 10 10"><path d="M3.5 4.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM5 5l3.5-3.5M7 3.5l1.2 1.2"/></svg>Credentials</div>
+            <div class="i"><svg viewBox="0 0 10 10"><path d="M1 1h3.5v3.5H1zM5.5 1H9v3.5H5.5zM1 5.5h3.5V9H1zM5.5 5.5H9V9H5.5z"/></svg>Integrations</div>
+            <div class="i"><svg viewBox="0 0 10 10"><path d="M1.5 8.5l4.5-4.5M3.5 6.5l3-3a1.4 1.4 0 0 1 2 2l-3 3M6.5 3.5l-3 3"/></svg>MCP servers</div>
+            <div class="i"><svg viewBox="0 0 10 10"><path d="M5 1.2L8.8 8.4H1.2z"/></svg>Skills</div>
+            <div class="i"><svg viewBox="0 0 10 10"><path d="M5 1l4 2v4l-4 2-4-2V3zM1 3l4 2 4-2M5 5v4"/></svg>Actions</div>
+            <div class="h">Monitor</div>
+            <div class="i"><svg viewBox="0 0 10 10"><path d="M1 2.5h8M1 5h8M1 7.5h5"/></svg>Runs</div>
+            <div class="i"><svg viewBox="0 0 10 10"><path d="M1 2.5l1 1 1.5-1.5M1 6.5l1 1 1.5-1.5M5.5 3h3.5M5.5 7h3.5"/></svg>Inbox</div>
+          </aside>
+          <div class="main">
+            <div class="topbar"><span class="sq"></span>Agents <span class="r"><span class="bt"><svg class="ic" viewBox="0 0 10 10"><path d="M3 1.5v7M3 4.5a2 2 0 0 0 2 2h1a1.5 1.5 0 0 0 1.5-1.5V3"/></svg>Push</span><span class="bt pri">+ Create new ⌄</span></span></div>
+            <div class="search"><svg class="ic" viewBox="0 0 10 10"><circle cx="4.3" cy="4.3" r="3"/><path d="M6.5 6.5 9 9"/></svg>Search agents… <span class="n">1 agents</span></div>
+            <div class="tools"><span class="bt"><svg class="ic" viewBox="0 0 10 10"><path d="M1 2.5h3l1 1h4v4.5H1z"/></svg>View <b style="font-weight:500">Folders</b> ⌃</span><span class="bt">Sort by <b style="font-weight:500">Updated</b> ⌃</span><span class="bt">↓</span></div>
+            <div class="row"><svg class="glyph stroke" viewBox="0 0 10 10"><path d="M5 1.5v7M1.5 5h7M2.5 2.5l5 5M7.5 2.5l-5 5"/></svg><span class="nm">Analyst</span>
+              <span class="chips" style="margin-left:14px"><span class="chip">openai</span><span class="chip">gpt-5.6-terra</span><span class="chip"><svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="3.8"/><path d="M5 2.8V5l1.5 1"/></svg>16m</span></span>
+            </div>
+          </div>
+        </div>
+        </div>
+        <p class="figcap">Figure 4. Agents: the Analyst preset, pinned to a model and provider, with its tool policy and skills attached.</p>
+      </div>
+
+      <div>
+        <div class="fig">
+        <div class="ui lst">
+          <aside class="sb narrow">
+            <div class="ws"><svg viewBox="0 0 16 16" fill="none"><path d="M13.5 5.2A6 6 0 1 0 14 8" stroke="#FCFCFD" stroke-width="1.8" stroke-linecap="round"/><path d="M11.2 2.4h2.6v2.6" stroke="#FCFCFD" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Default Workspace</div>
+            <div class="h">Workspace</div>
+            <div class="i"><svg viewBox="0 0 10 10"><path d="M1.5 1.5h7v5H4.5L2.5 8V6.5h-1z"/></svg>Chat</div>
+            <div class="i"><svg viewBox="0 0 10 10"><path d="M1 1.5h3v3H1zM6 5.5h3v3H6zM4 3h1v4h1"/></svg>Workflows</div>
+            <div class="i"><svg viewBox="0 0 10 10"><path d="M5 1.5l4 2-4 2-4-2zM1 5.5l4 2 4-2M1 7.5l4 2 4-2"/></svg>Cases</div>
+            <div class="i"><svg viewBox="0 0 10 10"><path d="M5 1.5v7M1.5 5h7M2.5 2.5l5 5M7.5 2.5l-5 5"/></svg>Agents</div>
+            <div class="i"><svg viewBox="0 0 10 10"><path d="M1 1.5h8v7H1zM1 4h8M4 1.5v7"/></svg>Tables</div>
+            <div class="i"><svg viewBox="0 0 10 10"><path d="M3 1.5C1.3 3.2 1.3 6.8 3 8.5M7 1.5c1.7 1.7 1.7 5.3 0 7M4 4l2 2M6 4l-2 2"/></svg>Variables</div>
+            <div class="i"><svg viewBox="0 0 10 10"><path d="M3.5 4.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM5 5l3.5-3.5M7 3.5l1.2 1.2"/></svg>Credentials</div>
+            <div class="i"><svg viewBox="0 0 10 10"><path d="M1 1h3.5v3.5H1zM5.5 1H9v3.5H5.5zM1 5.5h3.5V9H1zM5.5 5.5H9V9H5.5z"/></svg>Integrations</div>
+            <div class="i"><svg viewBox="0 0 10 10"><path d="M1.5 8.5l4.5-4.5M3.5 6.5l3-3a1.4 1.4 0 0 1 2 2l-3 3M6.5 3.5l-3 3"/></svg>MCP servers</div>
+            <div class="i on"><svg viewBox="0 0 10 10"><path d="M5 1.2L8.8 8.4H1.2z"/></svg>Skills</div>
+            <div class="i"><svg viewBox="0 0 10 10"><path d="M5 1l4 2v4l-4 2-4-2V3zM1 3l4 2 4-2M5 5v4"/></svg>Actions</div>
+            <div class="h">Monitor</div>
+            <div class="i"><svg viewBox="0 0 10 10"><path d="M1 2.5h8M1 5h8M1 7.5h5"/></svg>Runs</div>
+            <div class="i"><svg viewBox="0 0 10 10"><path d="M1 2.5l1 1 1.5-1.5M1 6.5l1 1 1.5-1.5M5.5 3h3.5M5.5 7h3.5"/></svg>Inbox</div>
+          </aside>
+          <div class="main">
+            <div class="topbar"><span class="sq"></span>Skills <span class="r"><span class="bt"><svg class="ic" viewBox="0 0 10 10"><path d="M3 1.5v7M3 4.5a2 2 0 0 0 2 2h1a1.5 1.5 0 0 0 1.5-1.5V3"/></svg>Push</span><span class="bt pri">+ Create new ⌄</span></span></div>
+            <div class="search"><svg class="ic" viewBox="0 0 10 10"><circle cx="4.3" cy="4.3" r="3"/><path d="M6.5 6.5 9 9"/></svg>Search skills… <span class="n">2 skills &nbsp;‹ Prev &nbsp;Next ›</span></div>
+            <div class="tools"><span class="bt">Sort by <b style="font-weight:500">Updated</b> ⌃</span><span class="bt">↓</span><span class="r bt">Limit <b style="font-weight:500">20</b> ⌃</span></div>
+            <div class="row"><svg class="glyph stroke" viewBox="0 0 10 10"><path d="M5 1.2L8.8 8.4H1.2z"/></svg><span class="nm">verify-exploitability</span>
+              <span class="chips end"><span class="chip"><svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="3.8"/><path d="M5 2.8V5l1.5 1"/></svg>16m</span><span class="chip"><svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="3.8"/><path d="M3.2 5.2 4.5 6.5 6.9 3.9"/></svg>Published</span></span>
+            </div>
+            <div class="row"><svg class="glyph stroke" viewBox="0 0 10 10"><path d="M5 1.2L8.8 8.4H1.2z"/></svg><span class="nm">propose-firewall-mitigation</span>
+              <span class="chips end"><span class="chip"><svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="3.8"/><path d="M5 2.8V5l1.5 1"/></svg>16m</span><span class="chip"><svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="3.8"/><path d="M3.2 5.2 4.5 6.5 6.9 3.9"/></svg>Published</span></span>
+            </div>
+          </div>
+        </div>
+        </div>
+        <p class="figcap">Figure 5. Skills: the two versioned, reviewed procedures the Analyst runs, published to the workspace and pushed to Git.</p>
+      </div>
+    </div>
+
+    <div class="figfull">
+      <div class="fig">
+      <div class="ui lst">
+        <aside class="sb">
+          <div class="ws"><svg viewBox="0 0 16 16" fill="none"><path d="M13.5 5.2A6 6 0 1 0 14 8" stroke="#FCFCFD" stroke-width="1.8" stroke-linecap="round"/><path d="M11.2 2.4h2.6v2.6" stroke="#FCFCFD" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Default Workspace</div>
+          <div class="h">Workspace</div>
+          <div class="i"><svg viewBox="0 0 10 10"><path d="M1.5 1.5h7v5H4.5L2.5 8V6.5h-1z"/></svg>Chat</div>
+          <div class="i"><svg viewBox="0 0 10 10"><path d="M1 1.5h3v3H1zM6 5.5h3v3H6zM4 3h1v4h1"/></svg>Workflows</div>
+          <div class="i"><svg viewBox="0 0 10 10"><path d="M5 1.5l4 2-4 2-4-2zM1 5.5l4 2 4-2M1 7.5l4 2 4-2"/></svg>Cases</div>
+          <div class="i"><svg viewBox="0 0 10 10"><path d="M5 1.5v7M1.5 5h7M2.5 2.5l5 5M7.5 2.5l-5 5"/></svg>Agents</div>
+          <div class="i"><svg viewBox="0 0 10 10"><path d="M1 1.5h8v7H1zM1 4h8M4 1.5v7"/></svg>Tables</div>
+          <div class="i"><svg viewBox="0 0 10 10"><path d="M3 1.5C1.3 3.2 1.3 6.8 3 8.5M7 1.5c1.7 1.7 1.7 5.3 0 7M4 4l2 2M6 4l-2 2"/></svg>Variables</div>
+          <div class="i"><svg viewBox="0 0 10 10"><path d="M3.5 4.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM5 5l3.5-3.5M7 3.5l1.2 1.2"/></svg>Credentials</div>
+          <div class="i"><svg viewBox="0 0 10 10"><path d="M1 1h3.5v3.5H1zM5.5 1H9v3.5H5.5zM1 5.5h3.5V9H1zM5.5 5.5H9V9H5.5z"/></svg>Integrations</div>
+          <div class="i on"><svg viewBox="0 0 10 10"><path d="M1.5 8.5l4.5-4.5M3.5 6.5l3-3a1.4 1.4 0 0 1 2 2l-3 3M6.5 3.5l-3 3"/></svg>MCP servers</div>
+          <div class="i"><svg viewBox="0 0 10 10"><path d="M5 1.2L8.8 8.4H1.2z"/></svg>Skills</div>
+          <div class="i"><svg viewBox="0 0 10 10"><path d="M5 1l4 2v4l-4 2-4-2V3zM1 3l4 2 4-2M5 5v4"/></svg>Actions</div>
+          <div class="h">Monitor</div>
+          <div class="i"><svg viewBox="0 0 10 10"><path d="M1 2.5h8M1 5h8M1 7.5h5"/></svg>Runs</div>
+          <div class="i"><svg viewBox="0 0 10 10"><path d="M1 2.5l1 1 1.5-1.5M1 6.5l1 1 1.5-1.5M5.5 3h3.5M5.5 7h3.5"/></svg>Inbox</div>
+        </aside>
+        <div class="main">
+          <div class="topbar"><span class="sq"></span>MCP servers <span class="r"><span class="bt"><svg class="ic" viewBox="0 0 10 10"><path d="M3 1.5v7M3 4.5a2 2 0 0 0 2 2h1a1.5 1.5 0 0 0 1.5-1.5V3"/></svg>Push</span><span class="bt pri">+ Add MCP server ⌄</span></span></div>
+          <div class="search"><svg class="ic" viewBox="0 0 10 10"><circle cx="4.3" cy="4.3" r="3"/><path d="M6.5 6.5 9 9"/></svg>Search MCP servers… <span class="n">8 connected · 65+ hosted MCP servers</span></div>
+          <div class="tools"><span class="bt">Sort by <b style="font-weight:500">Updated</b> ⌃</span><span class="bt">↓</span><span class="r bt">Limit <b style="font-weight:500">20</b> ⌃</span></div>
+          <div class="row"><span class="tile" style="background:#FC0000"><svg viewBox="0 0 12 12"><path d="M1 6.6c2.4-.3 4-1.1 5.3-2.5C7.5 2.8 8.9 2 11 1.6c-1.4 1-2.2 2.2-2.7 3.6-.6 1.9-1.5 3.9-3.9 5.5.9-1.5 1.1-2.8.9-4.1C4 6.7 2.6 6.9 1 6.6z" fill="#fff"/></svg></span><span class="nm">CrowdStrike Falcon</span><span class="chips end"><span class="chip">hosted</span><span class="chip live"><svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="3.8"/><path d="M3.2 5.2 4.5 6.5 6.9 3.9"/></svg>Connected</span></span></div>
+          <div class="row"><span class="tile" style="background:#6B0AEA"><span>S1</span></span><span class="nm">SentinelOne</span><span class="chips end"><span class="chip">hosted</span><span class="chip live"><svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="3.8"/><path d="M3.2 5.2 4.5 6.5 6.9 3.9"/></svg>Connected</span></span></div>
+          <div class="row"><span class="tile" style="background:#0078D4"><svg viewBox="0 0 12 12"><path d="M6 1.2 10 2.8v3c0 2.5-1.7 4.3-4 5.2C3.7 10.1 2 8.3 2 5.8v-3z" fill="#fff"/></svg></span><span class="nm">Microsoft Sentinel</span><span class="chips end"><span class="chip">hosted</span><span class="chip live"><svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="3.8"/><path d="M3.2 5.2 4.5 6.5 6.9 3.9"/></svg>Connected</span></span></div>
+          <div class="row"><span class="tile" style="background:#00BFB3"><span>e</span></span><span class="nm">Elastic</span><span class="chips end"><span class="chip">hosted</span><span class="chip live"><svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="3.8"/><path d="M3.2 5.2 4.5 6.5 6.9 3.9"/></svg>Connected</span></span></div>
+          <div class="row"><span class="tile" style="background:#65A637"><svg viewBox="0 0 12 12"><path d="M3.5 2.5 8.5 6l-5 3.5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nm">Splunk</span><span class="chips end"><span class="chip">hosted</span><span class="chip live"><svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="3.8"/><path d="M3.2 5.2 4.5 6.5 6.9 3.9"/></svg>Connected</span></span></div>
+          <div class="row"><span class="tile" style="background:#3355FF"><span>w</span></span><span class="nm">Wiz</span><span class="chips end"><span class="chip">hosted</span><span class="chip live"><svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="3.8"/><path d="M3.2 5.2 4.5 6.5 6.9 3.9"/></svg>Connected</span></span></div>
+          <div class="row"><span class="tile" style="background:#3FBF7F"><span>G</span></span><span class="nm">GreyNoise</span><span class="chips end"><span class="chip">hosted</span><span class="chip live"><svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="3.8"/><path d="M3.2 5.2 4.5 6.5 6.9 3.9"/></svg>Connected</span></span></div>
+          <div class="row"><span class="tile" style="background:#06AC38"><svg viewBox="0 0 12 12"><path d="M4 9.6V2.6h2.6a2.1 2.1 0 0 1 0 4.2H5.5" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg></span><span class="nm">PagerDuty</span><span class="chips end"><span class="chip">hosted</span><span class="chip live"><svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="3.8"/><path d="M3.2 5.2 4.5 6.5 6.9 3.9"/></svg>Connected</span></span></div>
+        </div>
+      </div>
+      </div>
+      <p class="figcap">Figure 6. MCP servers: 65+ hosted servers (EDR, SIEM, cloud, threat intel, paging) that can be attached to an agent without writing integration code. Eight shown.</p>
+    </div>
+
+    <div class="quote">
+      <p>“A genuine thank you to the team. I built an end-to-end IoC enrichment pipeline with Claude and Tracecat MCP and created more value for our SOC in a day than I probably would have in weeks on my own. You're making my one-man SOC assignment possible.”</p>
+      <div class="who"><b>Senior Security Engineer,</b><span>Neo Financial</span></div>
+    </div>
+
+    <h2>Why Tracecat</h2>
+    <div class="pairs">
+      <div><h3>Your network, your models.</h3><p>Self-host in your VPC, on-prem, or fully air-gapped on Kubernetes. Point agents at vLLM or Ollama, directly or via LiteLLM. Evidence never leaves your boundary.</p></div>
+      <div><h3>Bounded tools, not a shell.</h3><p>Fixed-target Python actions with pinned dependencies, default-deny tool policy, sandboxing, full audit log. The agent never holds the firewall credential or rule syntax.</p></div>
+      <div><h3>Integrations in an afternoon.</h3><p>Any WAF, scanner, or ticketing system becomes an agent tool via a Python file or YAML template (500+ integrations, 65+ hosted MCP servers). Tracecat MCP turns a Claude Code, Codex, or Cursor prompt into workflows, tasks, and skills.</p></div>
+      <div><h3>Analysts stay in command.</h3><p>Immutable, revision-bound proposals, one-click approval, automatic rollback, LOG-only rehearsal. Skills and memory are versioned and reviewed. Open source under AGPL v3.0, so the operating model is inspectable.</p></div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <div>
+      <h2>Talk to a Tracecat expert</h2>
+      <p>Discuss your exposed services, scanner feeds, WAF estate, and approval requirements with the Tracecat team.</p>
+      <div class="cta"><span class="btn-primary">Book a demo</span><a href="https://tracecat.com/contact">tracecat.com/contact <span class="arr">→</span></a></div>
+    </div>
+    <div>
+    <div class="links"><span>tracecat.com</span><span>docs.tracecat.com</span><span>github.com/TracecatHQ/tracecat</span></div>
+    <div class="sources"><b>Sources.</b> Anthropic, Project Glasswing update (May 26, 2026) · OpenAI, GPT-6 Astra announcement (Sep 3, 2026) · Z.ai, GLM-5.3 release · Mandiant / Google Threat Intelligence Group, time-to-exploit analyses · VulnCheck, 1H-2026 exploitation report · Edgescan, vulnerability statistics (patch MTTR) · IBM, Cost of a Data Breach Report 2025. Loop timings and gate counts are from Tracecat's reference environment for this scenario. Every Tracecat feature works offline; see docs.tracecat.com/self-hosting/air-gapped.</div>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>

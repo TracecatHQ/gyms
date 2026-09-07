@@ -29,6 +29,9 @@ def parser() -> argparse.ArgumentParser:
         "seed",
         "internal-seed-dataset",
         "mcp-proxy",
+        "internal-test-api",
+        "internal-collector",
+        "internal-scenario-reset",
     ):
         sub.add_parser(name)
     build = sub.add_parser("build")
@@ -46,6 +49,8 @@ def parser() -> argparse.ArgumentParser:
     for name in ("clean-restart", "reset-evals", "reset"):
         destructive = sub.add_parser(name)
         destructive.add_argument("--confirm")
+    scenario_reset = sub.add_parser("scenario-reset")
+    scenario_reset.add_argument("--confirm")
     rotate = sub.add_parser("rotate-license")
     rotate.add_argument("--file", required=True, type=Path)
     update_dataset = sub.add_parser("update-dataset")

@@ -90,10 +90,18 @@ class WAFClient:
     def _body(data: str) -> dict[str, Any]:
         return {"service": SERVICE, "type": "modsec", "name": CONFIG_NAME, "data": data, "is_draft": False}
 
-    def _write(self, data: str) -> None:
+    def _write(self, data: str, *, replace_invalid: bool = False) -> None:
         current = self._get()
         method, path, expected = ("PATCH", CONFIG_PATH, 200) if current else ("POST", "/configs", 201)
         status, payload = self._api(method, path, self._body(data))
+        if replace_invalid and method == "PATCH" and status == 400:
+            delete_status, delete_payload = self._api("DELETE", CONFIG_PATH)
+            if delete_status != 200 or delete_payload.get("status") != "success":
+                raise WAFError(
+                    f"BunkerWeb invalid config replacement failed with HTTP {delete_status}"
+                )
+            status, payload = self._api("POST", "/configs", self._body(data))
+            expected = 201
         if status != expected or payload.get("status") != "success":
             raise WAFError(f"BunkerWeb config write failed with HTTP {status}")
 
@@ -161,7 +169,7 @@ class WAFClient:
                 config = configs[0]
                 if not isinstance(config, dict) or not isinstance(config.get("data"), str):
                     raise WAFError("invalid WAF snapshot data")
-                self._write(config["data"])
+                self._write(config["data"], replace_invalid=True)
                 expected = {"schema_version": 1, "configs": [config]}
             activation = self.wait_active(expected)
             if not activation.get("active"):
@@ -365,7 +373,7 @@ class WAFClient:
                 time.sleep(0.1)
             else:
                 malformed_not_active = False
-            self._write(first["data"])
+            self._write(first["data"], replace_invalid=True)
             prior_restored = self.wait_active(first).get("active") is True
             current = self._get()
             guards["failed_reload_rolled_back"] = (

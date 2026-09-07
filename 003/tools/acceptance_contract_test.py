@@ -4,13 +4,16 @@
 from __future__ import annotations
 
 import sys
+import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 GYM_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(GYM_ROOT / "src"))
 
+from gym_plugin import acceptance  # noqa: E402
 from gym_plugin.acceptance import RULE_IDS, _safe_terminal, assess_acceptance  # noqa: E402
 
 
@@ -79,6 +82,64 @@ class AcceptanceContractTests(unittest.TestCase):
         report = self.complete_report()
         report["block"]["waf_events"] = []
         self.assertFalse(assess_acceptance(report)["passed"])
+
+    def test_active_evaluation_uses_an_empty_baseline_then_restores_original_state(self) -> None:
+        original = {"schema_version": 1, "configs": [{"data": "existing rule"}]}
+        empty = {"schema_version": 1, "configs": []}
+
+        class FakeWAF:
+            def __init__(self) -> None:
+                self.restores = []
+
+            def snapshot(self):
+                return original
+
+            def restore(self, snapshot):
+                self.restores.append(snapshot)
+                return snapshot | {"active": True}
+
+        waf = FakeWAF()
+        phases = [
+            {
+                "verify": {"verdict": "confirmed_rce"},
+                "benign": benign(),
+                "waf_events": [{"rule_id": RULE_IDS["LOG_ONLY"]}],
+            },
+            {
+                "verify": {"verdict": "blocked_by_waf"},
+                "benign": benign(),
+                "waf_events": [{"rule_id": RULE_IDS["BLOCK"]}],
+            },
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            context = {
+                "evidence_dir": Path(directory),
+                "waf_client": waf,
+                "failure_guards_runner": lambda _context: self.complete_report()[
+                    "failure_guards"
+                ],
+            }
+            with (
+                patch.object(
+                    acceptance,
+                    "run_scan",
+                    return_value={"verdict": "suspected_vulnerable_version"},
+                ),
+                patch.object(
+                    acceptance,
+                    "verify",
+                    side_effect=[
+                        {"verdict": "confirmed_rce"},
+                        {"verdict": "confirmed_rce"},
+                    ],
+                ),
+                patch.object(acceptance, "run_benign_suite", return_value=benign()),
+                patch.object(acceptance, "_phase", side_effect=phases),
+            ):
+                result = acceptance._evaluate_locked(context)
+
+        self.assertTrue(result["passed"])
+        self.assertEqual(waf.restores, [empty, empty, original])
 
 
 if __name__ == "__main__":

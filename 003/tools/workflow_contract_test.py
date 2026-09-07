@@ -98,6 +98,23 @@ class WorkflowContractTests(unittest.TestCase):
             self.assertEqual(len(workflows.verify_workflows(None, "workspace", api.request)), 3)
         self.assertEqual(api.deletions, [workflows.RETIRED_INVESTIGATION_ID])
 
+    def test_verification_comment_records_top_level_benign_transactions(self):
+        spec = next(
+            item for item in workflows.WORKFLOW_SPECS if item.filename == "verification.json"
+        )
+        definition = workflows.load_definition(spec)["definition"]
+        comment = next(
+            action for action in definition["actions"] if action["ref"] == "record_verification"
+        )["args"]["content"]
+        self.assertIn(
+            "wait_for_benign_verification.result.data.transactions",
+            comment,
+        )
+        self.assertNotIn(
+            "wait_for_benign_verification.result.data.benign",
+            comment,
+        )
+
     def test_stable_id_handles_renamed_wrapper(self):
         api = WorkflowAPI([retired(alias=None, title="Old wrapper")])
         workflows.reconcile_workflows(None, "workspace", api.request)

@@ -145,15 +145,18 @@ def _evaluate_locked(context: dict[str, Any]) -> dict[str, Any]:
         result = {"passed": False, "checks": {"waf_client_available": False}}
     else:
         snapshot = waf.snapshot()
+        empty_snapshot = {"schema_version": 1, "configs": []}
         try:
+            baseline_state = waf.restore(empty_snapshot)
             report["baseline"] = {
+                "waf": baseline_state,
                 "scan": run_scan(context),
                 "verify": verify(context),
                 "benign": run_benign_suite(context),
             }
             report["log_only"] = _phase(context, waf, "LOG_ONLY")
             report["block"] = _phase(context, waf, "BLOCK")
-            restored = waf.restore(snapshot)
+            restored = waf.restore(empty_snapshot)
             report["removal"] = {
                 "restore": restored,
                 "active": restored,

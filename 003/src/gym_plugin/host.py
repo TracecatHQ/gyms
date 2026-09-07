@@ -8,7 +8,7 @@ import os
 import secrets
 import shutil
 import socket
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 from gymctl import lifecycle
@@ -84,7 +84,13 @@ def _verify_cooldown_lock() -> None:
     for name, item in records.items():
         if not item.get("official_source", "").startswith("https://"):
             raise GymError(f"{name} lacks an official HTTPS source")
-        if date.fromisoformat(item["published_at"][:10]) > cutoff:
+        cooldown_complete = datetime.fromisoformat(
+            item["cooldown_complete_at"].replace("Z", "+00:00")
+        )
+        if (
+            date.fromisoformat(item["published_at"][:10]) > cutoff
+            and datetime.now(UTC) < cooldown_complete
+        ):
             reference = f"{item['source_ref']}@{item['digest']}"
             present = run(["docker", "image", "inspect", reference], check=False, capture=True)
             if present.returncode != 0:

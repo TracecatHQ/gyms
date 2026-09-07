@@ -465,6 +465,9 @@ def _verify_locked(context: dict[str, Any]) -> dict[str, Any]:
                     cleanup = {"status": "failed", "http_status": delete_status}
             except (OSError, TimeoutError, http.client.HTTPException):
                 cleanup = {"status": "failed", "detail": "target unavailable during cleanup"}
+        if workflow_id and cleanup.get("status") != "completed":
+            verdict = "inconclusive"
+            evidence.setdefault("error", "temporary workflow cleanup was not confirmed")
         evidence["verdict"] = verdict
         evidence["cleanup"] = cleanup
 

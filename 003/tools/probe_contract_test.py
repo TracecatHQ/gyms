@@ -10,6 +10,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 GYM_ROOT = Path(__file__).resolve().parents[1]
@@ -123,6 +124,48 @@ class ProbeContractTests(unittest.TestCase):
         self.assertIn("@rx (?i)^(?:/|%2f)(?:f|%66)", rule)
         self.assertIn("(?:s|%73)", rule)
         self.assertIn("(?:\\-|%2d)", rule)
+
+    def test_failed_workflow_cleanup_makes_confirmed_execution_inconclusive(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+
+            def read_file(_session, path, **_kwargs):
+                if path == probe.FIXED_CONFIG_PATH:
+                    return 200, b"config"
+                return 200, b"capsule"
+
+            with (
+                patch.object(probe, "_read_file", side_effect=read_file),
+                patch.object(probe, "_jwt_secret", return_value="secret"),
+                patch.object(
+                    probe,
+                    "_extract_auth_capsule",
+                    return_value=("owner-id", "auth-hash"),
+                ),
+                patch.object(probe, "_forge_owner_cookie", return_value="cookie"),
+                patch.object(
+                    probe,
+                    "_json_request",
+                    side_effect=[
+                        (201, {"id": "temporary-workflow"}),
+                        (200, {"proof": probe.RCE_MARKER}),
+                        (500, {}),
+                    ],
+                ),
+            ):
+                result = probe._verify_locked(
+                    {
+                        "evidence_dir": root / "evidence",
+                        "state_dir": root / "state",
+                    }
+                )
+                self.assertTrue(
+                    (root / "state" / probe.SCENARIO / probe.DIRTY_FILE).exists()
+                )
+
+        self.assertEqual(result["verdict"], "inconclusive")
+        self.assertEqual(result["cleanup"]["status"], "failed")
+        self.assertEqual(result["error"], "temporary workflow cleanup was not confirmed")
 
 
 if __name__ == "__main__":

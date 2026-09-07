@@ -129,7 +129,21 @@ def apply_rule(ctx: dict[str, Any], request: dict[str, Any]) -> dict[str, Any]:
             events = client.events(before.get("started_at", ctx.get("started_at")), [applied["rule_id"]])
             benign_ok = benign.get("passed") is True
             if mode == "BLOCK":
-                success = after.get("verdict") == "blocked_by_waf" and bool(events) and benign_ok
+                before_verdict = before.get("verdict")
+                pre_change_impact = before_verdict in {
+                    "confirmed_file_read",
+                    "confirmed_rce",
+                }
+                existing_block = (
+                    before_verdict == "blocked_by_waf"
+                    and applied.get("idempotent") is True
+                )
+                success = (
+                    (pre_change_impact or existing_block)
+                    and after.get("verdict") == "blocked_by_waf"
+                    and bool(events)
+                    and benign_ok
+                )
             else:
                 success = after.get("verdict") in {
                     "confirmed_file_read",
@@ -246,6 +260,26 @@ def submit(request: dict[str, Any]) -> dict[str, Any]:
         return record
 
 
+def reconcile_interrupted_jobs() -> None:
+    """Fail closed for work that cannot survive a test API restart."""
+
+    if not STATE.exists():
+        return
+    for path in STATE.glob("run-*.json"):
+        record = json.loads(path.read_text())
+        if record.get("status") not in {"queued", "running"}:
+            continue
+        record.update(
+            {
+                "status": "inconclusive",
+                "verdict": "inconclusive",
+                "error": "job interrupted by test API restart",
+                "finished_at": now(),
+            }
+        )
+        write_record(record)
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "gym003-test-api/1"
 
@@ -301,5 +335,6 @@ def main() -> None:
     if not TOKEN:
         raise RuntimeError("GYM_TEST_API_TOKEN is required")
     STATE.mkdir(parents=True, exist_ok=True)
+    reconcile_interrupted_jobs()
     server = ThreadingHTTPServer(("0.0.0.0", 8080), Handler)
     server.serve_forever()

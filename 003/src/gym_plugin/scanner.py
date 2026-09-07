@@ -25,6 +25,7 @@ TEMPLATE_REVISION = "b78b60c84a754c0ce2a8b9f0710edc8987adeb85"
 TEMPLATE_ID = "CVE-2026-21858"
 TEMPLATE_PATH = Path(__file__).resolve().parents[2] / "assets" / "nuclei" / "CVE-2026-21858.yaml"
 NUCLEI_BINARY = "nuclei"
+NUCLEI_CACHE = Path("/home/apiuser/.cache/tmp")
 
 
 def _parse_jsonl(output: str) -> list[dict[str, Any]]:
@@ -77,6 +78,15 @@ def run_scan(context: dict[str, Any]) -> dict[str, Any]:
             "finding": None,
             "evidence": [],
             "error": "pinned scanner executable is unavailable",
+        }
+    try:
+        NUCLEI_CACHE.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return {
+            "verdict": "inconclusive",
+            "finding": None,
+            "evidence": [],
+            "error": "pinned scanner cache is unavailable",
         }
 
     try:

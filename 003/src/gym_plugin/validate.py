@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import socket
 import subprocess
@@ -130,6 +131,36 @@ def _check_compose() -> dict:
         and "touch /var/log/bunkerweb/error.log /var/log/bunkerweb/modsec_audit.log" in audit_init_command
         and "rm -f" not in audit_init_command,
         "WAF audit initializer must replace image symlinks without unlinking live log files",
+    )
+    require(
+        "mkdir -p /var/lib/gym/jobs /var/lib/gym/state/supplier-intake"
+        in audit_init_command
+        and "chown -R 1001:1001 /var/lib/gym/jobs /var/lib/gym/state"
+        in audit_init_command
+        and "chmod 2770 /var/lib/gym/state /var/lib/gym/state/supplier-intake"
+        in audit_init_command
+        and "chmod 0660 /var/lib/gym/state/.operation.lock" in audit_init_command,
+        "job and operation-lock directories must be writable by the control user",
+    )
+    require(
+        services["eval-runner"].get("user") == f"{os.getuid()}:{os.getgid()}",
+        "evaluation runner must use the invoking host user",
+    )
+    require(
+        "1001" in services["eval-runner"].get("group_add", []),
+        "evaluation runner must share the operation-lock group",
+    )
+    require(
+        services["eval-runner"].get("environment", {}).get("HOME")
+        == "/home/apiuser",
+        "evaluation runner must give host UID tools a writable home",
+    )
+    require(
+        any(
+            str(item).startswith("/home/apiuser:")
+            for item in services["eval-runner"].get("tmpfs", [])
+        ),
+        "evaluation runner must mount a writable scanner home",
     )
     return services
 

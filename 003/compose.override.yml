@@ -68,9 +68,12 @@ services:
         touch /var/log/bunkerweb/error.log /var/log/bunkerweb/modsec_audit.log;
         chown 101:101 /var/log/bunkerweb/error.log /var/log/bunkerweb/modsec_audit.log;
         chmod 0644 /var/log/bunkerweb/error.log /var/log/bunkerweb/modsec_audit.log;
-        mkdir -p /var/lib/gym/jobs;
-        chown 1001:1001 /var/lib/gym/jobs;
-        chmod 0750 /var/lib/gym/jobs
+        mkdir -p /var/lib/gym/jobs /var/lib/gym/state/supplier-intake;
+        touch /var/lib/gym/state/.operation.lock;
+        chown -R 1001:1001 /var/lib/gym/jobs /var/lib/gym/state;
+        chmod 0750 /var/lib/gym/jobs;
+        chmod 2770 /var/lib/gym/state /var/lib/gym/state/supplier-intake;
+        chmod 0660 /var/lib/gym/state/.operation.lock
     restart: "no"
     network_mode: none
     volumes:
@@ -275,17 +278,22 @@ services:
 
   eval-runner:
     image: ${GYM_CONTROL_IMAGE:?missing Gym 003 control image}
+    user: "${GYM_HOST_UID:?missing host UID}:${GYM_HOST_GID:?missing host GID}"
+    group_add: ["1001"]
     profiles: [evaluation]
     restart: "no"
     networks: [core, test-traffic, management]
     environment:
       <<: *waf-control-env
+      HOME: /home/apiuser
       GYM_EVAL_RESULTS: /opt/gym/eval-results
       GYM_N8N_STAFF_EMAIL: ${GYM_N8N_STAFF_EMAIL}
       GYM_N8N_STAFF_PASSWORD: ${GYM_N8N_STAFF_PASSWORD}
     volumes:
       - gym-jobs:/var/lib/gym
       - ${GYM_ROOT:?missing GYM_ROOT}/eval-results:/opt/gym/eval-results
+    tmpfs:
+      - /home/apiuser:uid=${GYM_HOST_UID:?missing host UID},gid=${GYM_HOST_GID:?missing host GID},mode=0700
     command: [internal-eval]
     depends_on:
       test-api: {condition: service_healthy}

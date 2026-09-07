@@ -1,4 +1,4 @@
-"""Reconcile Gym 003's case, tasks, workflows, secret, and agent presets."""
+"""Reconcile the supplier intake vulnerability case and its managed resources."""
 
 from __future__ import annotations
 
@@ -17,31 +17,65 @@ from . import workflows
 
 ROOT = Path(os.environ.get("GYM_ROOT", Path(__file__).resolve().parents[2]))
 AGENT_DIR = ROOT / "benchmark/agent"
+SKILLS_DIR = AGENT_DIR / "skills"
 SCENARIO = "supplier-intake"
 ASSET = "supplier.intake.test"
 CVE = "CVE-2026-21858"
 DEDUP_KEY = f"{SCENARIO}|{ASSET}|{CVE}"
-ATTACK_SURFACE_SLUG = "gym-003-attack-surface"
-MITIGATION_ANALYST_SLUG = "gym-003-mitigation-analyst"
+ANALYST_SLUG = "analyst"
+RETIRED_PRESET_SLUGS = {
+    "gym-003-attack-surface",
+    "gym-003-mitigation-analyst",
+}
+MANAGED_PRESET_SLUGS = {ANALYST_SLUG, *RETIRED_PRESET_SLUGS}
+LEGACY_COMMENT_HEADINGS = (
+    "## Gym 003 verification",
+    "## Sanitized Gym 003 mitigation proposal",
+    "## Gym 003 firewall task result",
+)
+LEGACY_SESSION_TITLES = {
+    "Verify supplier-intake case verdict",
+    "Review supplier intake mitigation proposal",
+}
 SECRET_NAME = "gym_003_test_api"
 SECRET_KEY = "TOKEN"
-CASE_DESCRIPTION = """**Scanner finding:** Nuclei matched the vulnerable n8n version for `CVE-2026-21858`. Treat this as suspicion until the fixed-target verifier confirms impact.
+DISPLAY_NAMES = {
+    "gym-003-verification": "exploitability verification",
+    "gym-003-scan": "supplier intake scan",
+    "gym-003-rule-application": "reviewed firewall change",
+    "gym-003-investigation": "previous investigation wrapper",
+    "gym-003-attack-surface": "previous verification specialist",
+    "gym-003-mitigation-analyst": "previous mitigation specialist",
+}
+CASE_DESCRIPTION = """## Executive summary
+
+Nuclei identified an n8n version associated with `CVE-2026-21858` on the supplier intake service. This is a high-confidence lead that requires active validation before impact or containment is claimed.
+
+## Initial evidence
 
 | Signal | Observed | Decision |
 | --- | --- | --- |
-| Asset | `supplier.intake.test` | Test only through the WAF ingress |
-| Scanner | Vulnerable-version match | Independent verification required |
-| Compatibility | Upload, webhook, login, health | All paths must pass after mitigation |
+| Asset | Supplier intake service | Validate only through the exposed ingress |
+| Finding | Vulnerable-version match | Confirm impact independently |
+| Required traffic | Upload, webhook, login, health | Preserve every path after mitigation |
+
+## Affected service
+
+The exposed route accepts supplier submissions and supports production business traffic. Validation must remain bounded to that ingress and retain only sanitized evidence.
+
+## Investigation plan
 
 ```mermaid
 flowchart LR
-    A["Nuclei<br/>suspected"] --> B["Verifier<br/>confirm impact"]
-    B --> C["Analyst<br/>propose policy"]
-    C --> D["Human task<br/>apply rule"]
-    D --> E["Retest<br/>attack denied<br/>benign passes"]
+    A["Scanner signal"] --> B["Analyst<br/>confirm impact"]
+    B --> C["Analyst<br/>propose control"]
+    C --> D["Human review<br/>apply rule"]
+    D --> E["Retest<br/>attack denied<br/>required traffic passes"]
 ```
 
-**Decision boundary:** a successful result means mitigation at this tested ingress; the application version remains vulnerable.
+## Decision boundary
+
+A successful result demonstrates mitigation at the tested ingress. It does not patch the vulnerable application, which still requires remediation.
 """
 
 
@@ -50,7 +84,9 @@ class ReconcileError(RuntimeError):
 
 
 def log(message: str) -> None:
-    print(f"[gym-003] {message}", flush=True)
+    for internal_name, display_name in DISPLAY_NAMES.items():
+        message = message.replace(internal_name, display_name)
+    print(f"[supplier-intake] {message}", flush=True)
 
 
 def request(
@@ -69,7 +105,7 @@ def request(
 
 def desired_case() -> dict[str, Any]:
     return {
-        "summary": f"Suspected unauthenticated n8n RCE at {ASSET}",
+        "summary": "Suspected unauthenticated n8n RCE on supplier intake",
         "description": CASE_DESCRIPTION,
         "status": "new",
         "priority": "high",
@@ -94,7 +130,7 @@ def list_managed_cases(client: ClientLike, workspace_id: str) -> list[dict[str, 
         f"/workspaces/{workspace_id}/cases",
         params={"limit": 100, "include_payload": "true"},
     )
-    rows = tracecat.paginated_items(payload, "Gym 003 case list")
+    rows = tracecat.paginated_items(payload, "managed case list")
     return [
         row
         for row in rows
@@ -118,7 +154,7 @@ def reconcile_case(
         if row.get("payload", {}).get("dedup_key") != DEDUP_KEY
     ]
     if unknown:
-        raise ReconcileError(f"unexpected Gym 003 cases require review: {unknown}")
+        raise ReconcileError(f"unexpected managed cases require review: {unknown}")
     if not matches:
         if not create_missing:
             raise ReconcileError(f"managed case {DEDUP_KEY} is missing")
@@ -207,6 +243,86 @@ def append_case_evidence(
         expected=(204,),
     )
     return True
+
+
+def _legacy_case_artifact_ids(
+    comments: Any, sessions: Any, case_id: str
+) -> tuple[list[str], list[str]]:
+    """Select only artifacts emitted by the retired two-agent implementation."""
+
+    if not isinstance(comments, list) or not isinstance(sessions, list):
+        raise ReconcileError("Tracecat returned malformed case artifacts")
+    comment_ids = [
+        str(row["id"])
+        for row in comments
+        if isinstance(row, dict)
+        and row.get("id")
+        and isinstance(row.get("content"), str)
+        and row["content"].startswith(LEGACY_COMMENT_HEADINGS)
+    ]
+    session_ids = [
+        str(row["id"])
+        for row in sessions
+        if isinstance(row, dict)
+        and row.get("id")
+        and row.get("title") in LEGACY_SESSION_TITLES
+        and row.get("entity_type") == "case"
+        and str(row.get("entity_id")) == case_id
+    ]
+    return comment_ids, session_ids
+
+
+def retire_legacy_case_artifacts(
+    client: ClientLike, workspace_id: str, case_id: str
+) -> None:
+    """Remove the known case output left by the retired specialist presets."""
+
+    comments_base = f"/workspaces/{workspace_id}/cases/{case_id}/comments"
+    sessions_base = f"/workspaces/{workspace_id}/agent/sessions"
+    comments = request(client, "GET", comments_base)
+    sessions = request(
+        client,
+        "GET",
+        sessions_base,
+        params={"entity_type": "case", "entity_id": case_id, "limit": 100},
+    )
+    comment_ids, session_ids = _legacy_case_artifact_ids(comments, sessions, case_id)
+    for comment_id in comment_ids:
+        request(
+            client,
+            "DELETE",
+            f"{comments_base}/{comment_id}",
+            expected=(204,),
+        )
+    for session_id in session_ids:
+        request(
+            client,
+            "DELETE",
+            f"{sessions_base}/{session_id}",
+            expected=(204,),
+        )
+    if comment_ids or session_ids:
+        log(
+            f"retired {len(comment_ids)} legacy comments and "
+            f"{len(session_ids)} legacy agent sessions"
+        )
+
+
+def verify_no_legacy_case_artifacts(
+    client: ClientLike, workspace_id: str, case_id: str
+) -> None:
+    comments = request(
+        client, "GET", f"/workspaces/{workspace_id}/cases/{case_id}/comments"
+    )
+    sessions = request(
+        client,
+        "GET",
+        f"/workspaces/{workspace_id}/agent/sessions",
+        params={"entity_type": "case", "entity_id": case_id, "limit": 100},
+    )
+    comment_ids, session_ids = _legacy_case_artifact_ids(comments, sessions, case_id)
+    if comment_ids or session_ids:
+        raise ReconcileError("retired case artifacts remain; run reconcile")
 
 
 def _task_definitions(
@@ -311,7 +427,7 @@ def reconcile_test_api_secret(client: ClientLike, workspace_id: str) -> None:
     body = {
         "type": "custom",
         "name": SECRET_NAME,
-        "description": "Managed Gym 003 fixed-target test API credential.",
+        "description": "Credential used by controlled supplier intake verification jobs.",
         "keys": [{"key": SECRET_KEY, "value": token}],
         "environment": "default",
     }
@@ -322,7 +438,7 @@ def reconcile_test_api_secret(client: ClientLike, workspace_id: str) -> None:
     else:
         request(client, "POST", base, body=body, expected=(201,))
     verify_test_api_secret(client, workspace_id)
-    log(f"secret READY: {SECRET_NAME}")
+    log("verification credential READY")
 
 
 def verify_test_api_secret(client: ClientLike, workspace_id: str) -> None:
@@ -341,32 +457,138 @@ def verify_test_api_secret(client: ClientLike, workspace_id: str) -> None:
         raise ReconcileError(f"managed secret {SECRET_NAME} is missing or drifted")
 
 
-def desired_presets(client: ClientLike) -> tuple[dict[str, Any], dict[str, Any]]:
-    model = tracecat.default_agent_model(client)
-    desired: list[dict[str, Any]] = []
-    for filename in ("attack-surface-preset.json", "mitigation-analyst-preset.json"):
+def reconcile_skills(client: ClientLike, workspace_id: str) -> list[str]:
+    try:
+        skill_ids = presets.reconcile_skills(
+            client,
+            workspace_id,
+            SKILLS_DIR,
+            managed_preset_slugs=MANAGED_PRESET_SLUGS,
+            expected_count=2,
+            logger=log,
+        )
+    except presets.PresetError as exc:
+        raise ReconcileError(str(exc)) from exc
+    log("skills READY: two published and verified")
+    return skill_ids
+
+
+def verify_skills(client: ClientLike, workspace_id: str) -> list[str]:
+    directories = sorted(path for path in SKILLS_DIR.iterdir() if path.is_dir())
+    if len(directories) != 2:
+        raise ReconcileError(
+            f"expected two local skills, found {len(directories)}"
+        )
+    rows = tracecat.paginated_items(
+        request(
+            client,
+            "GET",
+            f"/workspaces/{workspace_id}/agent/skills",
+            params={"limit": 100},
+        ),
+        "skill list",
+    )
+    skill_ids: list[str] = []
+    for directory in directories:
+        matches = [
+            row
+            for row in rows
+            if row.get("name") == directory.name
+            or row.get("slug") == directory.name
+        ]
+        try:
+            matches_source = len(matches) == 1 and presets.skill_matches(
+                client, workspace_id, matches[0], directory
+            )
+        except presets.PresetError as exc:
+            raise ReconcileError(str(exc)) from exc
+        if not matches_source:
+            raise ReconcileError(
+                f"published skill {directory.name} is missing or drifted"
+            )
+        skill_ids.append(str(matches[0]["id"]))
+    return skill_ids
+
+
+def desired_preset(client: ClientLike, skill_ids: list[str]) -> dict[str, Any]:
+    filename = "analyst-preset.json"
+    try:
         manifest, prompt = presets.load_manifest(AGENT_DIR, filename)
-        if manifest.get("model_selection") != "organization_default":
-            raise ReconcileError(f"{filename} must use organization_default")
-        payload = presets.preset_payload(manifest, prompt, model, [])
-        if "output_type" in manifest:
-            payload["output_type"] = manifest["output_type"]
-        desired.append(payload)
-    return desired[0], desired[1]
+        model = tracecat.default_agent_model(client)
+    except (presets.PresetError, tracecat.TracecatError) as exc:
+        raise ReconcileError(str(exc)) from exc
+    if manifest.get("model_selection") != "organization_default":
+        raise ReconcileError(f"{filename} must use organization_default")
+    payload = presets.preset_payload(manifest, prompt, model, skill_ids)
+    if "output_type" in manifest:
+        payload["output_type"] = manifest["output_type"]
+    return payload
+
+
+def _preset_rows(client: ClientLike, workspace_id: str) -> list[dict[str, Any]]:
+    rows = request(client, "GET", f"/workspaces/{workspace_id}/agent/presets")
+    if not isinstance(rows, list):
+        raise ReconcileError("Tracecat preset list response is malformed")
+    return [row for row in rows if isinstance(row, dict)]
+
+
+def _validate_managed_preset_inventory(rows: list[dict[str, Any]]) -> None:
+    unexpected = [
+        {"id": row.get("id"), "name": row.get("name"), "slug": row.get("slug")}
+        for row in rows
+        if row.get("slug") not in MANAGED_PRESET_SLUGS
+    ]
+    if unexpected:
+        raise ReconcileError(
+            f"unexpected agent presets require review: {unexpected}"
+        )
+    missing_ids = [row.get("slug") for row in rows if not row.get("id")]
+    if missing_ids:
+        raise ReconcileError(f"agent presets are missing IDs: {missing_ids}")
+
+
+def _verify_exact_preset_inventory(
+    rows: list[dict[str, Any]], desired: dict[str, Any]
+) -> None:
+    if len(rows) != 1:
+        raise ReconcileError(
+            f"expected exactly one visible Analyst preset, found {len(rows)}"
+        )
+    actual = rows[0]
+    if actual.get("slug") != desired["slug"] or actual.get("name") != desired["name"]:
+        raise ReconcileError("the sole visible preset is not Analyst")
 
 
 def reconcile_presets(
-    client: ClientLike, workspace_id: str
-) -> tuple[dict[str, Any], dict[str, Any]]:
-    result: list[dict[str, Any]] = []
-    for desired in desired_presets(client):
-        try:
-            actual = presets.reconcile_preset(client, workspace_id, desired)
-        except presets.PresetError as exc:
-            raise ReconcileError(str(exc)) from exc
-        result.append(actual)
-        log(f"preset READY: {desired['slug']}")
-    return result[0], result[1]
+    client: ClientLike, workspace_id: str, skill_ids: list[str]
+) -> dict[str, Any]:
+    desired = desired_preset(client, skill_ids)
+    rows = _preset_rows(client, workspace_id)
+    _validate_managed_preset_inventory(rows)
+    try:
+        actual = presets.reconcile_preset(client, workspace_id, desired)
+    except presets.PresetError as exc:
+        raise ReconcileError(str(exc)) from exc
+
+    rows = _preset_rows(client, workspace_id)
+    retired = [row for row in rows if row.get("slug") in RETIRED_PRESET_SLUGS]
+    for row in retired:
+        request(
+            client,
+            "DELETE",
+            f"/workspaces/{workspace_id}/agent/presets/{row['id']}",
+            expected=(204,),
+        )
+        log(f"preset RETIRED: {row['slug']}")
+
+    rows = _preset_rows(client, workspace_id)
+    _verify_exact_preset_inventory(rows, desired)
+    try:
+        actual = presets.verify_preset(client, workspace_id, desired)
+    except presets.PresetError as exc:
+        raise ReconcileError(str(exc)) from exc
+    log(f"preset READY: {desired['slug']}")
+    return actual
 
 
 def reconcile() -> None:
@@ -385,9 +607,14 @@ def reconcile() -> None:
         except workflows.WorkflowError as exc:
             raise ReconcileError(str(exc)) from exc
         case = reconcile_case(client, workspace_id)
+        retire_legacy_case_artifacts(client, workspace_id, str(case["id"]))
         reconcile_tasks(client, workspace_id, str(case["id"]), managed_workflows)
-        reconcile_presets(client, workspace_id)
-    log("READY: case, three workflow-backed tasks, three workflows, and two presets")
+        skill_ids = reconcile_skills(client, workspace_id)
+        reconcile_presets(client, workspace_id, skill_ids)
+    log(
+        "READY: case, three workflow-backed tasks, three workflows, "
+        "two skills, and one Analyst preset"
+    )
 
 
 def status(
@@ -408,6 +635,7 @@ def status(
         except (tracecat.TracecatError, workflows.WorkflowError) as exc:
             raise ReconcileError(str(exc)) from exc
         case = reconcile_case(active, workspace_id, create_missing=False)
+        verify_no_legacy_case_artifacts(active, workspace_id, str(case["id"]))
         expected = _task_definitions(str(case["id"]), managed_workflows)
         rows = request(
             active,
@@ -428,9 +656,13 @@ def status(
                 raise ReconcileError(
                     f"managed case task {item['title']!r} is missing or drifted"
                 )
-        for desired in desired_presets(active):
-            try:
-                presets.verify_preset(active, workspace_id, desired)
-            except presets.PresetError as exc:
-                raise ReconcileError(str(exc)) from exc
-    log("READY: Gym 003 managed Tracecat state is exact")
+        skill_ids = verify_skills(active, workspace_id)
+        desired = desired_preset(active, skill_ids)
+        rows = _preset_rows(active, workspace_id)
+        _validate_managed_preset_inventory(rows)
+        _verify_exact_preset_inventory(rows, desired)
+        try:
+            presets.verify_preset(active, workspace_id, desired)
+        except presets.PresetError as exc:
+            raise ReconcileError(str(exc)) from exc
+    log("READY: managed Tracecat state is exact")

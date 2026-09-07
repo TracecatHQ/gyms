@@ -1,4 +1,4 @@
-"""Safe, idempotent Gym 003 case execution comments."""
+"""Safe, idempotent case execution comments."""
 
 from __future__ import annotations
 
@@ -6,29 +6,21 @@ import json
 import re
 from collections.abc import Mapping, Sequence
 from typing import Any, Callable
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from gymctl.http import ClientLike
 
 
 _SENSITIVE_KEYS = re.compile(
     r"(^|_)(authorization|cookie|password|passwd|secret|token|api_?key|credential|"
-    r"session|extracted_(?:value|secret|credential))($|_)",
+    r"session|target|host(?:name|_header)?|command|payload|"
+    r"extracted_(?:value|secret|credential))($|_)",
     re.IGNORECASE,
 )
 _BEARER = re.compile(r"(?i)\bbearer\s+[A-Za-z0-9._~+/=-]+")
+_URL = re.compile(r"(?i)\b(?:https?|s3)://[^\s,;]+")
 _ASSIGNMENT = re.compile(
     r"(?i)\b(password|passwd|secret|token|api[_-]?key)\s*[:=]\s*([^\s,;]+)"
 )
-_SENSITIVE_QUERY = {
-    "access_token",
-    "api_key",
-    "apikey",
-    "key",
-    "password",
-    "secret",
-    "token",
-}
 
 
 class CommentError(RuntimeError):
@@ -36,22 +28,7 @@ class CommentError(RuntimeError):
 
 
 def _sanitize_url(value: str) -> str:
-    try:
-        parsed = urlsplit(value)
-    except ValueError:
-        return value
-    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-        return value
-    query = [
-        (key, "[REDACTED]" if key.lower() in _SENSITIVE_QUERY else item)
-        for key, item in parse_qsl(parsed.query, keep_blank_values=True)
-    ]
-    hostname = parsed.hostname or ""
-    port = f":{parsed.port}" if parsed.port else ""
-    netloc = f"{hostname}{port}"
-    return urlunsplit(
-        (parsed.scheme, netloc, parsed.path, urlencode(query), parsed.fragment)
-    )
+    return _URL.sub("[REDACTED_URL]", value)
 
 
 def sanitize(value: Any, *, key: str | None = None) -> Any:
@@ -79,47 +56,147 @@ def _json(value: Any) -> str:
     return json.dumps(sanitize(value), sort_keys=True, ensure_ascii=True)
 
 
+def _items(value: Any) -> list[Any]:
+    return list(value) if isinstance(value, list) else []
+
+
+def _benign_summary(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return {"passed": None, "transactions": []}
+    transactions = []
+    for item in _items(value.get("transactions")):
+        if not isinstance(item, dict):
+            continue
+        transactions.append(
+            {
+                key: item.get(key)
+                for key in (
+                    "name",
+                    "status",
+                    "passed",
+                    "required",
+                    "receipt_confirmed",
+                )
+                if key in item
+            }
+        )
+    return {"passed": value.get("passed"), "transactions": transactions}
+
+
+def _waf_event_summary(value: Any) -> list[dict[str, Any]]:
+    events = []
+    for item in _items(value):
+        if not isinstance(item, dict):
+            continue
+        events.append(
+            {
+                key: item.get(key)
+                for key in (
+                    "rule_id",
+                    "mode",
+                    "blocked",
+                    "audit_correlated",
+                    "timestamp",
+                    "unique_id",
+                )
+                if key in item
+            }
+        )
+    return events
+
+
+def _rule_summary(rule: Any, result: Mapping[str, Any]) -> dict[str, Any]:
+    value = rule if isinstance(rule, dict) else {}
+    return {
+        "rule_id": value.get("rule_id", result.get("rule_id", "not-applicable")),
+        "revision": value.get(
+            "revision", result.get("proposal_revision", "unknown")
+        ),
+        "mode": value.get("mode", result.get("mode", "not-applicable")),
+        "idempotent": value.get("idempotent"),
+    }
+
+
 def render_execution_comment(
     result: Mapping[str, Any],
     *,
     task_id: str,
     execution_id: str,
 ) -> str:
-    """Render the required mitigation audit record without extracted secrets."""
+    """Render a concise automated evidence record without sensitive details."""
 
     clean = sanitize(dict(result))
-    rule = clean.get("rule") if isinstance(clean.get("rule"), dict) else {}
+    rule = _rule_summary(clean.get("rule"), clean)
     rollback = clean.get("rollback")
     if rollback is None:
         rollback = clean.get("cleanup")
+    benign = _benign_summary(clean.get("benign"))
+    waf_events = _waf_event_summary(clean.get("waf_events"))
+    evidence_count = len(_items(clean.get("evidence")))
+    record = {
+        "task_id": sanitize(task_id),
+        "execution_id": sanitize(execution_id),
+        "run_id": clean.get("run_id", "unknown"),
+        "verdict": clean.get("verdict", "unknown"),
+        "before_verdict": clean.get("before_verdict", "unknown"),
+        "after_verdict": clean.get(
+            "after_verdict", clean.get("verdict", "unknown")
+        ),
+        "rule": rule,
+        "benign": benign,
+        "correlated_waf_events": waf_events,
+        "evidence_record_count": evidence_count,
+        "rollback": rollback,
+    }
+    if clean.get("error"):
+        record["error"] = clean["error"]
     marker = f"<!-- gym-003-execution:{execution_id} -->"
     lines = [
-        "## Gym 003 workflow result",
+        "## Automated evidence · Firewall change verification",
         "",
-        f"- Task: `{task_id}`",
-        f"- Execution: `{execution_id}`",
-        f"- Test run: `{clean.get('run_id', 'unknown')}`",
-        f"- Rule: `{rule.get('id', clean.get('rule_id', 'not-applicable'))}`",
-        f"- Rule revision: `{rule.get('revision', clean.get('proposal_revision', 'unknown'))}`",
-        f"- Mode: `{rule.get('mode', clean.get('mode', 'not-applicable'))}`",
-        f"- Before verdict: `{clean.get('before_verdict', 'unknown')}`",
-        f"- After verdict: `{clean.get('after_verdict', clean.get('verdict', 'unknown'))}`",
-        f"- Rollback: `{_json(rollback)}`",
+        f"**The control run completed with `{clean.get('verdict', 'unknown')}`.**",
         "",
-        "### Benign tests",
+        "> System generated. This record supplies evidence for Analyst review; "
+        "it is not an Analyst judgment.",
         "",
-        f"```json\n{_json(clean.get('benign', []))}\n```",
+        "| Review field | Value |",
+        "| --- | --- |",
+        f"| Status | `{clean.get('verdict', 'unknown')}` |",
+        "| Malice | Pending Analyst judgment |",
+        "| Action | Review the control outcome and remaining application risk |",
+        "| Context | Route-scoped firewall control |",
         "",
-        "### Correlated WAF events",
+        "### What the workflow found",
         "",
-        f"```json\n{_json(clean.get('waf_events', []))}\n```",
+        f"- Attack verdict changed from `{clean.get('before_verdict', 'unknown')}` "
+        f"to `{clean.get('after_verdict', clean.get('verdict', 'unknown'))}`.",
+        f"- Required application traffic passed: `{benign.get('passed')}`.",
+        f"- Correlated firewall events recorded: `{len(waf_events)}`.",
+        f"- Rollback state: `{_json(rollback)}`.",
         "",
-        "### Evidence",
+        "```mermaid",
+        "flowchart LR",
+        f'    A["Before<br/>{clean.get("before_verdict", "unknown")}"] --> '
+        f'B["{rule.get("mode", "not-applicable")} control<br/>revision '
+        f'{rule.get("revision", "unknown")}"]',
+        f'    B --> C["After<br/>{clean.get("after_verdict", clean.get("verdict", "unknown"))}"]',
+        f'    B --> D["Required traffic<br/>{benign.get("passed")}"]',
+        "```",
         "",
-        f"```json\n{_json(clean.get('evidence', []))}\n```",
+        "### What this means",
+        "",
+        "These observations describe one controlled execution. The Analyst must "
+        "decide whether they support mitigation and document the residual application risk.",
+        "",
+        "### What needs review",
+        "",
+        "Confirm the tested attack is denied, required traffic remains compatible, "
+        "firewall evidence is correlated, and any failed run restored the prior state.",
+        "",
+        "### Sanitized evidence",
+        "",
+        f"```json\n{_json(record)}\n```",
     ]
-    if clean.get("error"):
-        lines.extend(("", "### Error", "", f"```json\n{_json(clean['error'])}\n```"))
     lines.extend(("", marker))
     return "\n".join(lines)
 

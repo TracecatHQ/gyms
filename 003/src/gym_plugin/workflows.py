@@ -12,15 +12,38 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
+from uuid import UUID
 
 from gymctl.http import ClientLike
 
 
 WORKFLOW_DIR = Path(__file__).resolve().parents[2] / "benchmark/workflows"
+LEGACY_WORKFLOW_DIR = WORKFLOW_DIR / "legacy"
 
 
 class WorkflowError(RuntimeError):
     pass
+
+
+_BASE62_CHARS = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+
+def _canonical_workflow_id(value: Any) -> str | None:
+    """Normalize Tracecat UUID, short, and legacy workflow identifiers."""
+
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        if value.startswith("wf_"):
+            number = 0
+            for character in value[3:]:
+                number = number * 62 + _BASE62_CHARS.index(character)
+            return str(UUID(int=number))
+        if value.startswith("wf-") and len(value) == 35:
+            return str(UUID(hex=value[3:]))
+        return str(UUID(value))
+    except (ValueError, IndexError):
+        return None
 
 
 @dataclass(frozen=True)
@@ -84,7 +107,16 @@ def _retire_investigation(
 
 
 def load_definition(spec: WorkflowSpec) -> dict[str, Any]:
-    path = WORKFLOW_DIR / spec.filename
+    return _load_definition(WORKFLOW_DIR / spec.filename)
+
+
+def load_legacy_definition(spec: WorkflowSpec) -> dict[str, Any]:
+    """Load the one previously shipped definition eligible for migration."""
+
+    return _load_definition(LEGACY_WORKFLOW_DIR / spec.filename)
+
+
+def _load_definition(path: Path) -> dict[str, Any]:
     try:
         value = json.loads(path.read_text())
     except (OSError, json.JSONDecodeError) as exc:
@@ -99,6 +131,56 @@ def load_definition(spec: WorkflowSpec) -> dict[str, Any]:
         if field not in definition:
             raise WorkflowError(f"managed workflow {path} is missing {field}")
     return value
+
+
+def _matches_definition(document: dict[str, Any], remote: Any) -> bool:
+    """Match every authored field while allowing Tracecat-owned defaults."""
+
+    return isinstance(remote, dict) and _is_subset(
+        _persisted_definition(document["definition"]), remote.get("content")
+    )
+
+
+def _replace_known_legacy_workflow(
+    client: ClientLike,
+    workspace_id: str,
+    base: str,
+    spec: WorkflowSpec,
+    workflow: dict[str, Any],
+    remote: Any,
+    request: Callable[..., Any],
+    logger: Callable[[str], None] | None,
+) -> dict[str, Any]:
+    """Replace an exact prior managed definition and reject every other drift.
+
+    Tracecat does not expose a public endpoint that atomically replaces a
+    committed workflow definition. Deleting and re-importing the stable UUID is
+    therefore limited to the complete authored definition shipped immediately
+    before this release. Case-task foreign keys are repaired later in the same
+    reconciliation pass.
+    """
+
+    legacy = load_legacy_definition(spec)
+    if not _matches_definition(legacy, remote):
+        raise WorkflowError(
+            f"managed workflow {spec.alias} has drifted; refusing to overwrite it"
+        )
+    expected_id = str(legacy["workflow_id"])
+    workflow_id = str(workflow.get("id", ""))
+    if _canonical_workflow_id(workflow_id) != expected_id:
+        raise WorkflowError(
+            f"managed workflow {spec.alias} has an unexpected identity; "
+            "refusing to replace it"
+        )
+    request(client, "DELETE", f"{base}/{workflow_id}", expected=(204,))
+    replacement = _upload(client, workspace_id, spec, load_definition(spec))
+    if _canonical_workflow_id(replacement.get("id")) != expected_id:
+        raise WorkflowError(
+            f"managed workflow {spec.alias} replacement did not retain its stable ID"
+        )
+    if logger:
+        logger(f"workflow MIGRATED: {spec.alias}")
+    return replacement
 
 
 def _persisted_definition(definition: dict[str, Any]) -> dict[str, Any]:
@@ -180,22 +262,32 @@ def reconcile_workflows(
     for spec in WORKFLOW_SPECS:
         document = load_definition(spec)
         title = str(document["definition"]["title"])
+        stable_id = str(document["workflow_id"])
         matches = [
             row
             for row in existing
-            if row.get("alias") == spec.alias or row.get("title") == title
+            if _canonical_workflow_id(row.get("id")) == stable_id
+            or row.get("alias") == spec.alias
+            or row.get("title") == title
         ]
         if len(matches) > 1:
             raise WorkflowError(f"multiple workflows match managed alias {spec.alias}")
         if matches:
             workflow = matches[0]
             remote = request(client, "GET", f"{base}/{workflow['id']}/definition")
-            if not isinstance(remote, dict) or not _is_subset(
-                _persisted_definition(document["definition"]), remote.get("content")
-            ):
-                raise WorkflowError(
-                    f"managed workflow {spec.alias} has drifted; refusing to overwrite it"
+            if not _matches_definition(document, remote):
+                workflow = _replace_known_legacy_workflow(
+                    client,
+                    workspace_id,
+                    base,
+                    spec,
+                    workflow,
+                    remote,
+                    request,
+                    logger,
                 )
+                existing = [row for row in existing if row.get("id") != stable_id]
+                existing.append(workflow)
         else:
             workflow = _upload(client, workspace_id, spec, document)
             existing.append(workflow)
@@ -254,9 +346,7 @@ def verify_workflows(
                 f"managed workflow {spec.alias} is not published online"
             )
         remote = request(client, "GET", f"{base}/{workflow['id']}/definition")
-        if not isinstance(remote, dict) or not _is_subset(
-            _persisted_definition(document["definition"]), remote.get("content")
-        ):
+        if not _matches_definition(document, remote):
             raise WorkflowError(f"managed workflow {spec.alias} has drifted")
         result[spec.alias] = workflow
     return result

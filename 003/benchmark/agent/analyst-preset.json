@@ -1,0 +1,27 @@
+{
+  "name": "Analyst",
+  "slug": "analyst",
+  "description": "Investigates vulnerability findings, validates impact, and prepares reviewable mitigations.",
+  "prompt_file": "analyst-prompt.md",
+  "model_selection": "organization_default",
+  "actions": [
+    "core.cases.create_comment",
+    "core.cases.get_case",
+    "core.cases.list_comments",
+    "core.cases.list_tasks",
+    "core.workflow.execute"
+  ],
+  "namespaces": [],
+  "tool_approvals": {
+    "core.cases.create_comment": false,
+    "core.cases.get_case": false,
+    "core.cases.list_comments": false,
+    "core.cases.list_tasks": false,
+    "core.workflow.execute": false
+  },
+  "mcp_integrations": [],
+  "agents": {"enabled": false, "subagents": []},
+  "retries": 2,
+  "enable_thinking": true,
+  "enable_internet_access": false
+}

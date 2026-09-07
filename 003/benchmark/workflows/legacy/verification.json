@@ -2,13 +2,13 @@
   "workflow_id": "00000000-0000-4000-8000-000000000301",
   "version": 1,
   "definition": {
-    "title": "Verify exploitability",
-    "description": "Tests the supplier intake finding in a fresh unauthenticated session and checks required application traffic without changing firewall policy.",
+    "title": "Gym 003 - Reusable attack and benign verification",
+    "description": "Runs fresh fixed-target exploit verification and the complete benign transaction suite. Managed by Gym 003.",
     "entrypoint": {
       "ref": "start_attack_verification",
       "expects": {
         "case_id": {"type": "str", "description": "Tracecat case UUID"},
-        "scenario": {"type": "enum['supplier-intake']", "description": "Supplier intake service profile"},
+        "scenario": {"type": "enum['supplier-intake']", "description": "Fixed server-side scenario"},
         "proposal_revision": {"type": "int", "description": "Proposal revision for correlation"},
         "mode": {"type": "enum['VERIFY_ONLY']", "description": "No configuration changes"},
         "task_id": {"type": "str", "description": "Injected case task UUID when task-launched", "default": "not-a-task"}
@@ -88,7 +88,7 @@
         "depends_on": ["wait_for_attack_verification", "wait_for_benign_verification"],
         "args": {
           "case_id": "${{ TRIGGER.case_id }}",
-          "content": "## Automated evidence · Exploitability verification\n\n**Verification completed with `${{ ACTIONS.wait_for_attack_verification.result.data.verdict }}` and made no firewall change.**\n\n> System generated. This record supplies evidence for Analyst review; it is not an Analyst judgment.\n\n| Review field | Value |\n| --- | --- |\n| Status | `${{ ACTIONS.wait_for_attack_verification.result.data.verdict }}` |\n| Malice | Pending Analyst judgment |\n| Action | Assess confirmed impact and recommend the next control step |\n| Context | Fresh unauthenticated verification with required traffic checks |\n\n### What the workflow found\n\n- Attack verification: `${{ ACTIONS.wait_for_attack_verification.result.data.verdict }}`\n- Required application traffic passed: `${{ ACTIONS.wait_for_benign_verification.result.data.passed }}`\n- Temporary verification cleanup: `${{ ACTIONS.wait_for_attack_verification.result.data.cleanup.status }}`\n\n### What this means\n\nThe run records technical observations only. The Analyst determines impact, intent, and the appropriate response from this evidence.\n\n### What needs review\n\nConfirm the result proves impact, required traffic remains compatible, and temporary verification state was removed.\n\n### Sanitized evidence\n\n- Task: `${{ TRIGGER.task_id }}`\n- Execution: `${{ ENV.workflow.execution_id }}`\n- Attack run: `${{ ACTIONS.wait_for_attack_verification.result.data.run_id }}`\n- Benign run: `${{ ACTIONS.wait_for_benign_verification.result.data.run_id }}`\n\n```json\n${{ FN.prettify_json({'attack_verdict': ACTIONS.wait_for_attack_verification.result.data.verdict, 'benign_passed': ACTIONS.wait_for_benign_verification.result.data.passed, 'cleanup_status': ACTIONS.wait_for_attack_verification.result.data.cleanup.status, 'attack_error': ACTIONS.wait_for_attack_verification.result.data.error, 'benign_error': ACTIONS.wait_for_benign_verification.result.data.error}) }}\n```"
+          "content": "## Gym 003 verification\n\n- Task: `${{ TRIGGER.task_id }}`\n- Execution: `${{ ENV.workflow.execution_id }}`\n- Before/after verdict: `${{ ACTIONS.wait_for_attack_verification.result.data.verdict }}` (verification made no rule change)\n\n### Benign tests\n```json\n${{ FN.prettify_json(ACTIONS.wait_for_benign_verification.result.data.benign) }}\n```\n\n### WAF events\n```json\n${{ FN.prettify_json(ACTIONS.wait_for_attack_verification.result.data.waf_events) }}\n```\n\n### Evidence and cleanup\n```json\n${{ FN.prettify_json({'attack_evidence': ACTIONS.wait_for_attack_verification.result.data.evidence, 'benign_evidence': ACTIONS.wait_for_benign_verification.result.data.evidence, 'cleanup': ACTIONS.wait_for_attack_verification.result.data.cleanup}) }}\n```"
         }
       }
     ],

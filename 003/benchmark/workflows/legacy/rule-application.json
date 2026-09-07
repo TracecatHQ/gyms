@@ -1,0 +1,65 @@
+{
+  "workflow_id": "00000000-0000-4000-8000-000000000304",
+  "version": 1,
+  "definition": {
+    "title": "Gym 003 - Apply reviewed firewall rule",
+    "description": "Runs deterministic serialized rule application, activation checks, attack/benign retests, evidence collection, and rollback. Managed by Gym 003.",
+    "entrypoint": {
+      "ref": "apply_reviewed_rule",
+      "expects": {
+        "case_id": {"type": "str", "description": "Managed Tracecat case UUID"},
+        "task_id": {"type": "str", "description": "Injected case task UUID", "default": "not-a-task"},
+        "scenario": {"type": "enum['supplier-intake']", "description": "Fixed server-side scenario"},
+        "proposal_revision": {"type": "int", "description": "Reviewed proposal revision"},
+        "mode": {"type": "enum['BLOCK', 'LOG_ONLY']", "description": "Requested deterministic rule mode"}
+      }
+    },
+    "config": {"timeout": 210},
+    "actions": [
+      {
+        "ref": "apply_reviewed_rule",
+        "action": "core.http_request",
+        "args": {
+          "url": "http://test-api:8080/v1/jobs",
+          "method": "POST",
+          "headers": {
+            "Authorization": "Bearer ${{ SECRETS.gym_003_test_api.TOKEN }}",
+            "Content-Type": "application/json"
+          },
+          "payload": {
+            "kind": "apply_rule",
+            "scenario": "supplier-intake",
+            "case_id": "${{ TRIGGER.case_id }}",
+            "proposal_revision": "${{ TRIGGER.proposal_revision }}",
+            "mode": "${{ TRIGGER.mode }}"
+          },
+          "timeout": 10
+        }
+      },
+      {
+        "ref": "wait_for_rule_application",
+        "action": "core.http_poll",
+        "depends_on": ["apply_reviewed_rule"],
+        "args": {
+          "url": "http://test-api:8080/v1/jobs/${{ ACTIONS.apply_reviewed_rule.result.data.run_id }}",
+          "method": "GET",
+          "headers": {"Authorization": "Bearer ${{ SECRETS.gym_003_test_api.TOKEN }}"},
+          "timeout": 10,
+          "poll_interval": 2,
+          "poll_max_attempts": 90,
+          "poll_condition": "lambda response: response['data'].get('status') in ['completed', 'inconclusive', 'failed', 'cancelled', 'timed_out']"
+        }
+      },
+      {
+        "ref": "record_rule_result",
+        "action": "core.cases.create_comment",
+        "depends_on": ["wait_for_rule_application"],
+        "args": {
+          "case_id": "${{ TRIGGER.case_id }}",
+          "content": "## Gym 003 firewall task result\n\n| Check | Result |\n| --- | --- |\n| Before rule | `${{ ACTIONS.wait_for_rule_application.result.data.before_verdict }}` |\n| After rule | `${{ ACTIONS.wait_for_rule_application.result.data.after_verdict }}` |\n| Required benign traffic | `${{ ACTIONS.wait_for_rule_application.result.data.benign.passed }}` |\n| Rollback attempted | `${{ ACTIONS.wait_for_rule_application.result.data.rollback.attempted }}` |\n| Final verdict | `${{ ACTIONS.wait_for_rule_application.result.data.verdict }}` |\n\n```mermaid\nflowchart LR\n    A[\"Before<br/>${{ ACTIONS.wait_for_rule_application.result.data.before_verdict }}\"] --> B[\"${{ TRIGGER.mode }} rule<br/>revision ${{ TRIGGER.proposal_revision }}\"]\n    B --> C[\"After<br/>${{ ACTIONS.wait_for_rule_application.result.data.after_verdict }}\"]\n    B --> D[\"Benign traffic<br/>${{ ACTIONS.wait_for_rule_application.result.data.benign.passed }}\"]\n```\n\n- Task: `${{ TRIGGER.task_id }}`\n- Execution: `${{ ENV.workflow.execution_id }}`\n- Run: `${{ ACTIONS.wait_for_rule_application.result.data.run_id }}`\n- Proposal revision: `${{ TRIGGER.proposal_revision }}`\n- Requested mode: `${{ TRIGGER.mode }}`\n\nThe sanitized detail below retains the rule, benign-test, correlated WAF-event, evidence, and rollback records. Missing fields are not treated as success.\n\n```json\n${{ FN.prettify_json(ACTIONS.wait_for_rule_application.result.data) }}\n```"
+        }
+      }
+    ],
+    "returns": "${{ ACTIONS.wait_for_rule_application.result.data }}"
+  }
+}

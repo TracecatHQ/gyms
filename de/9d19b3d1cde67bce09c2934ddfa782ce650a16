@@ -1,0 +1,97 @@
+003/local_registry/local_registry/supplier_intake.py
+  s_35bf4dfa751518::t_e0cfe208cfc7be 27,167-190,241,244-258,329
+  s_35bf4dfa751518::t_f94b31f1b1ec54 29
+003/src/gym_plugin/workflows.py
+  s_35bf4dfa751518::t_205cf338f18760 349-360,372-373,376-380,507-510
+  s_35bf4dfa751518::t_6e50df4faf3136 64-70,361-371,374-375,562-577
+  s_35bf4dfa751518::t_4714ed818ec2a8 4-6,58-60,441
+  s_35bf4dfa751518::t_c4657105ad4772 381-382
+003/benchmark/agent/analyst-preset.json
+  s_35bf4dfa751518::t_ab4a2f63538ffc 4
+003/benchmark/README.md
+  s_35bf4dfa751518::t_0bb6fe4e21a16a 1
+003/benchmark/workflows/legacy/rule-application-analyst-review.json
+  s_35bf4dfa751518::t_ffdb16f0f04559 1-97
+003/README.md
+  s_35bf4dfa751518::t_abd6adebb25c44 1,10,29,40-41,50-51,65,92,96,107-111,151,164,175-176
+  s_35bf4dfa751518::t_6bb27e2562d728 160-163,181,183,191-192,194-195,201,217-220,229-233,237-239,286,295,304-307,309,315,319-321,335,337-338,357,361-363
+  s_35bf4dfa751518::t_5dd26f1719e540 12,26-27,90,93-94,105-106,184-185,187,202,204,293
+  s_35bf4dfa751518::t_b527c7a9074ced 3-6,167,188-189,197,288-289,296-300,311-312,348-350,380-382,402-414
+  s_35bf4dfa751518::t_6b5b9e1856ff05 91,291,294
+  s_35bf4dfa751518::t_6011215a2313b9 97-100
+  s_35bf4dfa751518::t_82b89bdcbae2e9 249-251,257-260
+  s_35bf4dfa751518::t_28d56ac35eb998 28,95,186,203,292,325
+  s_35bf4dfa751518::t_65f302f7cc4946 196
+003/tools/registry_contract_test.py
+  s_35bf4dfa751518::t_f94b31f1b1ec54 105
+  s_35bf4dfa751518::t_6718772b3b490d 33-52,220-309,312
+003/gym.lock.json
+  s_35bf4dfa751518::t_4053843e3171c0 13
+003/benchmark/workflows/scanner-intake.json
+  s_35bf4dfa751518::t_4e667701197658 38
+  s_35bf4dfa751518::t_b113eea69c1fff 28
+  s_35bf4dfa751518::t_4714ed818ec2a8 1-27,29-37,39-54
+003/benchmark/workflows/rule-application.json
+  s_35bf4dfa751518::t_e0cfe208cfc7be 78
+  s_35bf4dfa751518::t_8a646f334e0f67 57
+  s_35bf4dfa751518::t_521dc4301412b3 19-23,79-91
+003/src/gym_plugin/reconcile.py
+  s_35bf4dfa751518::t_ecc59846fb3e6d 26,317-338,340-385,403-428,432-446
+  s_35bf4dfa751518::t_481e22e19738fb 27-46,289-314,339,429-431
+  s_35bf4dfa751518::t_42a573d41285a6 108-112
+  s_35bf4dfa751518::t_79b964ba45939f 890-895
+  s_35bf4dfa751518::t_43df2055f696b2 386-402
+  s_35bf4dfa751518::t_4714ed818ec2a8 879-882,897
+  s_35bf4dfa751518::t_f94b31f1b1ec54 68
+  s_35bf4dfa751518::t_dfa630497131be 315-316
+  s_35bf4dfa751518::t_f319764a153ca5 447-449
+003/benchmark/agent/analyst-prompt.md
+  s_35bf4dfa751518::t_650e653e54e14d 9-15
+  s_35bf4dfa751518::t_b527c7a9074ced 19
+  s_35bf4dfa751518::t_28d56ac35eb998 3,5
+  s_35bf4dfa751518::t_307943ee253055 20
+003/benchmark/agent/skills/propose-firewall-mitigation/SKILL.md
+  s_35bf4dfa751518::t_28d56ac35eb998 10
+  s_35bf4dfa751518::t_ab4a2f63538ffc 20,22
+003/IMPLEMENTATION.md
+  s_35bf4dfa751518::t_0bb6fe4e21a16a 1,8,11,20-24,31-36,41,47,57,62-65,70-73,77-80
+  s_35bf4dfa751518::t_b527c7a9074ced 3-6
+  s_35bf4dfa751518::t_5dd26f1719e540 16-18,74
+  s_35bf4dfa751518::t_6011215a2313b9 25-30
+  s_35bf4dfa751518::t_28d56ac35eb998 19,75-76
+003/tools/workflow_contract_test.py
+  s_35bf4dfa751518::t_c3ab6709995e79 317,346
+  s_35bf4dfa751518::t_ccbe17cd75f492 11,172-247
+  s_35bf4dfa751518::t_8024d30a5dab86 134-143,145-161,359-396,398-460,462
+  s_35bf4dfa751518::t_205cf338f18760 42,58-65,109-115,271-277,279-282
+  s_35bf4dfa751518::t_1366e52115729f 71-76,79-85,248-256,265-269,283-285,310-315,333-345,347-358,461,488-492,500-501
+  s_35bf4dfa751518::t_34714ecb43eab1 7,34
+  s_35bf4dfa751518::t_47ac7b4d7140bd 327-328
+  s_35bf4dfa751518::t_b113eea69c1fff 493-498,532-540
+  s_35bf4dfa751518::t_40f3b2b7acd288 464-485
+  s_35bf4dfa751518::t_27b8c3493b110b 278
+  s_35bf4dfa751518::t_8fcae0bdd272b6 163-171
+  s_35bf4dfa751518::t_481e22e19738fb 21-33,35-37,144,397
+  s_35bf4dfa751518::t_6e50df4faf3136 546-559
+  s_35bf4dfa751518::t_fdab7fab9a4c01 463
+003/benchmark/agent/skills/verify-exploitability/SKILL.md
+  s_35bf4dfa751518::t_28d56ac35eb998 10
+  s_35bf4dfa751518::t_ab4a2f63538ffc 16
+  s_35bf4dfa751518::t_6bf5b728d3e607 8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "de9d19b3d1cde67bce09c2934ddfa782ce650a16",
+  "prompts": {},
+  "sessions": {
+    "s_35bf4dfa751518": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a07701-2e9b-7ab3-ac7f-cd3ffd9f5422",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Chris Lo <46541035+topher-lo@users.noreply.github.com>"
+    }
+  }
+}

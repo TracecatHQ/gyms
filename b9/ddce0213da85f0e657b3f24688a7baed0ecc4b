@@ -1,0 +1,25 @@
+003/src/gym_plugin/comments.py
+  s_35bf4dfa751518::t_b4b6526bd44ffc 123
+003/README.md
+  s_35bf4dfa751518::t_a234a27e7ac134 205-206,212-217
+003/benchmark/workflows/rule-application.json
+  s_35bf4dfa751518::t_18687d505dfb8c 59
+003/gym.lock.json
+  s_35bf4dfa751518::t_3ec80d3fbd6a7c 13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "b9ddce0213da85f0e657b3f24688a7baed0ecc4b",
+  "prompts": {},
+  "sessions": {
+    "s_35bf4dfa751518": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a07701-2e9b-7ab3-ac7f-cd3ffd9f5422",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Chris Lo <46541035+topher-lo@users.noreply.github.com>"
+    }
+  }
+}

@@ -7,16 +7,21 @@ import importlib.util
 import inspect
 import json
 import sys
+import tempfile
+import time
 import tomllib
 import types
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import get_args, get_type_hints
+from unittest.mock import patch
 
 
 GYM_ROOT = Path(__file__).resolve().parents[1]
 REGISTRY_ROOT = GYM_ROOT / "local_registry"
 ACTION_FILE = REGISTRY_ROOT / "local_registry/supplier_intake.py"
+sys.path.insert(0, str(GYM_ROOT / "src"))
 ACTION_NAMES = {
     "security.supplier_intake.scan",
     "security.supplier_intake.verify",
@@ -171,18 +176,83 @@ class RegistryContractTests(unittest.TestCase):
             propose = self.actions[
                 "security.supplier_intake.propose_policy"
             ]["function"]
-            with self.assertRaisesRegex(
-                ValueError, "not the managed supplier intake incident"
-            ):
-                propose(
-                    case_id="unrelated-case",
-                    recommended_mode="BLOCK",
-                    rationale="This rationale is long enough to pass validation.",
-                )
+            with tempfile.TemporaryDirectory() as directory:
+                with (
+                    patch.object(
+                        self.module,
+                        "_execution_context",
+                        return_value={"state_dir": Path(directory)},
+                    ),
+                    self.assertRaisesRegex(
+                        ValueError, "not the managed supplier intake incident"
+                    ),
+                ):
+                    propose(
+                        case_id="unrelated-case",
+                        recommended_mode="BLOCK",
+                        rationale="This rationale is long enough to pass validation.",
+                    )
         finally:
             self.module.ctx.cases = previous_cases
 
         self.assertEqual(updates, [])
+
+    def test_concurrent_proposals_cannot_overwrite_each_other(self):
+        case_id = "managed-case"
+        stored_payload = {
+            "gym_id": "003",
+            "dedup_key": "supplier-intake|supplier.intake.test|CVE-2026-21858",
+            "scenario": "supplier-intake",
+            "asset": "supplier.intake.test",
+            "cve": "CVE-2026-21858",
+        }
+        updates = []
+
+        def get_case(requested_case_id):
+            snapshot = dict(stored_payload)
+            time.sleep(0.02)
+            return {"id": requested_case_id, "payload": snapshot}
+
+        def update_case_simple(_case_id, *, payload):
+            stored_payload.clear()
+            stored_payload.update(payload)
+            updates.append(payload["firewall_proposal"]["proposal_id"])
+
+        previous_cases = self.module.ctx.cases
+        self.module.ctx.cases = types.SimpleNamespace(
+            get_case=get_case,
+            update_case_simple=update_case_simple,
+        )
+        propose = self.actions["security.supplier_intake.propose_policy"]["function"]
+        try:
+            with tempfile.TemporaryDirectory() as directory:
+                with patch.object(
+                    self.module,
+                    "_execution_context",
+                    return_value={"state_dir": Path(directory)},
+                ):
+                    with ThreadPoolExecutor(max_workers=2) as pool:
+                        futures = [
+                            pool.submit(
+                                propose,
+                                case_id=case_id,
+                                recommended_mode=mode,
+                                rationale=f"Use the reviewed {mode} policy for this incident.",
+                            )
+                            for mode in ("BLOCK", "LOG_ONLY")
+                        ]
+                    outcomes = []
+                    for future in futures:
+                        try:
+                            outcomes.append(future.result())
+                        except ValueError as exc:
+                            outcomes.append(exc)
+        finally:
+            self.module.ctx.cases = previous_cases
+
+        self.assertEqual(len(updates), 1)
+        self.assertEqual(sum(isinstance(value, dict) for value in outcomes), 1)
+        self.assertEqual(sum(isinstance(value, ValueError) for value in outcomes), 1)
 
     def test_tracecat_executor_hosts_the_registry_without_a_job_api_sidecar(self):
         compose = (GYM_ROOT / "compose.override.yml").read_text()

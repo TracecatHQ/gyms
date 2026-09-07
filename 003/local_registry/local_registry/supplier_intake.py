@@ -255,8 +255,7 @@ def propose_policy(
 ) -> dict[str, Any]:
     """Persist and return the exact policy later consumed by the human workflow."""
 
-    payload = _case_payload(case_id)
-
+    from gym_plugin.operation_lock import exclusive_operation
     from gym_plugin.policy import validate_proposal
 
     if not 20 <= len(rationale.strip()) <= 2_000:
@@ -279,14 +278,17 @@ def propose_policy(
     proposal["proposal_id"] = _proposal_digest(proposal)
     proposal["created_at"] = datetime.now(UTC).isoformat()
 
-    existing = payload.get("firewall_proposal")
-    if isinstance(existing, dict):
-        checked = _validated_stored_proposal(existing)
-        if checked["proposal_id"] != proposal["proposal_id"]:
-            raise ValueError("an immutable firewall proposal already exists for this case")
-        return checked
-    payload["firewall_proposal"] = proposal
-    ctx.cases.update_case_simple(case_id, payload=payload)
+    execution = _execution_context()
+    with exclusive_operation(execution["state_dir"]):
+        payload = _case_payload(case_id)
+        existing = payload.get("firewall_proposal")
+        if isinstance(existing, dict):
+            checked = _validated_stored_proposal(existing)
+            if checked["proposal_id"] != proposal["proposal_id"]:
+                raise ValueError("an immutable firewall proposal already exists for this case")
+            return checked
+        payload["firewall_proposal"] = proposal
+        ctx.cases.update_case_simple(case_id, payload=payload)
     return proposal
 
 

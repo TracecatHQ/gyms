@@ -35,17 +35,52 @@ class WorkflowAPI:
             self.definitions[row["id"]] = workflows._persisted_definition(
                 document["definition"]
             )
+            self._set_graph(row["id"], positioned=False)
         self.rows.extend(copy.deepcopy(extra))
+
+    def _set_graph(self, workflow_id, *, positioned):
+        self.graph = getattr(self, "graph", {})
+        self.graph[workflow_id] = {
+            "actions": {
+                "action-apply": {
+                    "id": "action-apply",
+                    "ref": "apply_reviewed_rule",
+                    "position_x": 0.0,
+                    "position_y": 300.0 if positioned else 0.0,
+                },
+                "action-record": {
+                    "id": "action-record",
+                    "ref": "record_rule_result",
+                    "position_x": 0.0,
+                    "position_y": 600.0 if positioned else 0.0,
+                },
+            },
+            "trigger_position_x": 0.0,
+            "trigger_position_y": 0.0,
+        }
 
     def request(self, _client, method, url, **kwargs):
         base = "/workspaces/workspace/workflows"
+        if method == "POST" and url == "/workspaces/workspace/actions/batch-positions":
+            workflow_id = kwargs["params"]["workflow_id"]
+            graph = self.graph[workflow_id]
+            by_id = {action["id"]: action for action in graph["actions"].values()}
+            for item in kwargs["body"]["actions"]:
+                action = by_id[item["action_id"]]
+                action["position_x"] = item["position"]["x"]
+                action["position_y"] = item["position"]["y"]
+            graph["trigger_position_x"] = kwargs["body"]["trigger_position"]["x"]
+            graph["trigger_position_y"] = kwargs["body"]["trigger_position"]["y"]
+            return None
         if method == "GET" and url == base:
             return {"items": copy.deepcopy(self.rows)}
         tail = url.removeprefix(base + "/")
         if method == "GET" and tail.endswith("/definition"):
             return {"content": copy.deepcopy(self.definitions[tail.removesuffix("/definition")])}
         if method == "GET":
-            return copy.deepcopy(next(row for row in self.rows if row["id"] == tail))
+            row = copy.deepcopy(next(row for row in self.rows if row["id"] == tail))
+            row.update(copy.deepcopy(self.graph[tail]))
+            return row
         if method == "DELETE":
             self.deletions.append(tail)
             if not self.ignore_delete:
@@ -130,6 +165,7 @@ class WorkflowContractTests(unittest.TestCase):
             }
             api.rows.append(copy.deepcopy(replacement))
             api.definitions[workflow_id] = workflows._persisted_definition(document["definition"])
+            api._set_graph(workflow_id, positioned=True)
             return replacement
 
         with patch.object(workflows, "_upload", side_effect=upload) as mocked:
@@ -143,6 +179,21 @@ class WorkflowContractTests(unittest.TestCase):
         api.definitions[workflow_id]["description"] = "user edit"
         with self.assertRaisesRegex(workflows.WorkflowError, "has drifted"):
             workflows.reconcile_workflows(None, "workspace", api.request)
+
+    def test_layout_is_reconciled_and_status_is_read_only(self):
+        api = WorkflowAPI()
+        workflow_id = api.rows[0]["id"]
+        document = workflows.load_definition(workflows.WORKFLOW_SPECS[0])
+        workflows.reconcile_workflows(None, "workspace", api.request)
+        self.assertTrue(
+            workflows._layout_matches(
+                document,
+                {**api.rows[0], **api.graph[workflow_id]},
+            )
+        )
+        snapshot = copy.deepcopy(api.graph)
+        workflows.verify_workflows(None, "workspace", api.request)
+        self.assertEqual(api.graph, snapshot)
 
     def test_analyst_uses_direct_actions_and_cannot_mutate_firewall(self):
         agent_dir = GYM_ROOT / "benchmark/agent"

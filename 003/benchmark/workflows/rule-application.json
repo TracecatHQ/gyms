@@ -1,6 +1,24 @@
 {
   "workflow_id": "00000000-0000-4000-8000-000000000304",
   "version": 1,
+  "layout": {
+    "trigger": {
+      "x": 0,
+      "y": 0
+    },
+    "actions": [
+      {
+        "ref": "apply_reviewed_rule",
+        "x": 0,
+        "y": 300
+      },
+      {
+        "ref": "record_rule_result",
+        "x": 0,
+        "y": 600
+      }
+    ]
+  },
   "definition": {
     "title": "Apply reviewed firewall rule",
     "description": "Applies the exact proposal persisted by the Analyst, verifies activation and required traffic, and restores the previous firewall state on failure.",

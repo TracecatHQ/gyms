@@ -217,6 +217,109 @@ def _persisted_definition(definition: dict[str, Any]) -> dict[str, Any]:
     return value
 
 
+def _desired_layout(
+    document: dict[str, Any],
+) -> tuple[dict[str, float], dict[str, tuple[float, float]]]:
+    """Return the checked-in trigger and action positions by action ref."""
+
+    layout = document.get("layout")
+    if not isinstance(layout, dict) or not isinstance(layout.get("trigger"), dict):
+        raise WorkflowError("managed workflow has no trigger layout")
+    trigger = layout["trigger"]
+    if not isinstance(trigger.get("x"), (int, float)) or not isinstance(
+        trigger.get("y"), (int, float)
+    ):
+        raise WorkflowError("managed workflow trigger layout is malformed")
+    action_layout = layout.get("actions")
+    if not isinstance(action_layout, list):
+        raise WorkflowError("managed workflow action layout is malformed")
+    positions: dict[str, tuple[float, float]] = {}
+    for item in action_layout:
+        if (
+            not isinstance(item, dict)
+            or not isinstance(item.get("ref"), str)
+            or not isinstance(item.get("x"), (int, float))
+            or not isinstance(item.get("y"), (int, float))
+        ):
+            raise WorkflowError("managed workflow action layout is malformed")
+        positions[item["ref"]] = (float(item["x"]), float(item["y"]))
+    expected_refs = {
+        action["ref"]
+        for action in document["definition"]["actions"]
+        if isinstance(action, dict) and isinstance(action.get("ref"), str)
+    }
+    if set(positions) != expected_refs:
+        raise WorkflowError("managed workflow layout does not cover every action")
+    return {"x": float(trigger["x"]), "y": float(trigger["y"])}, positions
+
+
+def _layout_matches(document: dict[str, Any], workflow: Any) -> bool:
+    if not isinstance(workflow, dict) or not isinstance(workflow.get("actions"), dict):
+        return False
+    trigger, desired = _desired_layout(document)
+    if (
+        float(workflow.get("trigger_position_x", 0.0)) != trigger["x"]
+        or float(workflow.get("trigger_position_y", 0.0)) != trigger["y"]
+    ):
+        return False
+    actual = {
+        action.get("ref"): (
+            float(action.get("position_x", 0.0)),
+            float(action.get("position_y", 0.0)),
+        )
+        for action in workflow["actions"].values()
+        if isinstance(action, dict) and isinstance(action.get("ref"), str)
+    }
+    return actual == desired
+
+
+def _reconcile_layout(
+    client: ClientLike,
+    workspace_id: str,
+    workflow_id: str,
+    document: dict[str, Any],
+    workflow: Any,
+    request: Callable[..., Any],
+) -> dict[str, Any]:
+    """Apply the authored graph layout through Tracecat's public layout API."""
+
+    if not isinstance(workflow, dict) or not isinstance(workflow.get("actions"), dict):
+        raise WorkflowError("managed workflow response has no action graph")
+    if _layout_matches(document, workflow):
+        return workflow
+    trigger, desired = _desired_layout(document)
+    actions_by_ref = {
+        action.get("ref"): action
+        for action in workflow["actions"].values()
+        if isinstance(action, dict) and isinstance(action.get("ref"), str)
+    }
+    if set(actions_by_ref) != set(desired):
+        raise WorkflowError("managed workflow action graph does not match its layout")
+    request(
+        client,
+        "POST",
+        f"/workspaces/{workspace_id}/actions/batch-positions",
+        params={"workflow_id": workflow_id},
+        body={
+            "actions": [
+                {
+                    "action_id": actions_by_ref[ref]["id"],
+                    "position": {"x": position[0], "y": position[1]},
+                }
+                for ref, position in desired.items()
+            ],
+            "trigger_position": trigger,
+        },
+        expected=(204,),
+    )
+    updated = request(
+        client, "GET", f"/workspaces/{workspace_id}/workflows/{workflow_id}"
+    )
+    if not _layout_matches(document, updated):
+        raise WorkflowError("managed workflow layout did not converge")
+    return updated
+
+
 def _is_subset(desired: Any, actual: Any) -> bool:
     """Compare authored fields while allowing server-populated DSL defaults."""
 
@@ -338,6 +441,9 @@ def reconcile_workflows(
             or current.get("status") != "online"
         ):
             raise WorkflowError(f"managed workflow {spec.key} was not activated")
+        current = _reconcile_layout(
+            client, workspace_id, workflow_id, document, current, request
+        )
         managed[spec.key] = current
         if logger:
             logger(f"workflow READY: {spec.key}")
@@ -386,5 +492,8 @@ def verify_workflows(
         remote = request(client, "GET", f"{base}/{workflow['id']}/definition")
         if not _matches_definition(document, remote):
             raise WorkflowError(f"managed workflow {spec.key} has drifted")
-        result[spec.key] = workflow
+        current = request(client, "GET", f"{base}/{workflow['id']}")
+        if not _layout_matches(document, current):
+            raise WorkflowError(f"managed workflow {spec.key} layout has drifted")
+        result[spec.key] = current
     return result

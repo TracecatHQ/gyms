@@ -1,10 +1,9 @@
 # Gym 003: vulnerability-driven firewall mitigation
 
-> Live status: the direct-action architecture at commit `01dd8cc` passed
-> reconciliation, health checks, a case-scoped Analyst run, the human firewall
-> workflow, and all 15 acceptance gates. The screenshots explicitly marked for
-> recapture below still predate that cutover and are not customer-ready evidence
-> of the current execution path.
+> Live status: the direct-action architecture passed reconciliation, health
+> checks, a case-scoped Analyst run, the human firewall workflow, and all 15
+> acceptance gates. The dark-mode screenshots below were recaptured from that
+> live environment and reviewed at full resolution.
 
 Gym 003 is a reproducible, isolated exercise for this lifecycle:
 
@@ -138,15 +137,9 @@ evaluation outcomes are kept separately under `benchmark/evals/`.
 
 ## Case walkthrough
 
-Screenshot readiness after this cutover: `01-case-overview.png`,
-`02-agents.png`, and `08-skills-list.png` remain valid structure and case views.
-Screenshots 03–07, 09, 10, and 12 depend on changed prompts, tools, actions,
-tasks, case data, or workflow structure and remain explicitly marked for
-recapture. Do not use the incomplete set as customer-facing evidence of the new
-execution path.
-
-Enable dark mode and use a 1600 × 1000 browser window for the same framing as
-the reference images.
+The reference set covers the case, Analyst, direct action execution, approval
+tasks, final evidence, preset prompt and tools, published skills, and the sole
+firewall workflow. All images use dark mode at a consistent 1707 × 960 viewport.
 Before presenting, start and reconcile the gym:
 
 ```sh
@@ -208,9 +201,6 @@ exercise label or specialist-agent handoff.
 
 ![Analyst prompt and investigation boundary](docs/screenshots/06-analyst-prompt.png)
 
-> Screenshot status: recapture required. The live prompt is reconciled, but this
-> image predates the direct-action cutover.
-
 **Presenter notes:** “The preset carries the durable operating contract. One
 Analyst follows the case from assignment through closure, but the prompt keeps
 claims evidence-based and keeps firewall execution behind a human task.”
@@ -227,10 +217,7 @@ the fixed-target `security.supplier_intake.scan`,
 `core.workflow.execute`, the firewall application action, a credential, shell,
 generic HTTP, or arbitrary code tool.
 
-> Screenshot status: recapture required. The final image must show the three
-> registry actions above and must not show `core.workflow.execute`.
-
-![Previous Analyst tools view; recapture required](docs/screenshots/07-analyst-tools.png)
+![Analyst tools and execution boundary](docs/screenshots/07-analyst-tools.png)
 
 **Presenter notes:** “The Analyst can gather case context, run the pinned scanner
 and verification directly, persist a constrained proposal, and write accountable
@@ -255,9 +242,6 @@ checks, rollback conditions, and human decision boundary.
 
 ![Propose firewall mitigation skill detail](docs/screenshots/10-propose-firewall-mitigation-skill.png)
 
-> Screenshot status: recapture both skill detail views. Their direct-action
-> instructions are live, but these images predate the cutover.
-
 **Presenter notes:** “Skills separate reusable procedures from the Analyst’s
 identity. Verification is bounded and evidence-producing; mitigation design is
 narrow and reviewable. Neither skill gives the model a credential or a free-form
@@ -265,19 +249,17 @@ rule interface.”
 
 #### 2d. Inspect the customized workflow
 
-**Action:** Select **Workflows**, open **Apply reviewed firewall rule**, and frame
-the complete builder graph. Keep action-detail drawers closed so only the workflow
-structure and safe action names are visible.
+**Action:** Select **Workflows**, open **Apply reviewed firewall rule**, select
+**Apply reviewed rule**, and frame the builder with its input bindings visible.
 
 **Expected state:** Exactly one managed workflow is visible. **Apply reviewed
 firewall rule** reads the case's persisted proposal, invokes the constrained
-application action, and records the sanitized result. It exposes no credential,
-internal endpoint, raw request body, or exploit material.
+application action, and records the sanitized result. The selected action shows
+that case, mode, proposal revision, and task identity come from reviewed trigger
+inputs. It exposes no credential, internal endpoint, raw request body, or exploit
+material.
 
 ![Reviewed firewall workflow builder](docs/screenshots/12-rule-application-workflow.png)
-
-> Screenshot status: recapture required. The final image must show
-> `apply_reviewed_policy` and no HTTP job or polling actions.
 
 **Presenter notes:** “The Analyst performs investigation through native Tracecat
 actions. This one workflow is intentionally reserved for the human-controlled,
@@ -303,10 +285,12 @@ intake route.” Its durable finding includes separate `Status`, `Malice`,
 `Action`, and `Context` values, what was found, what it means, and the next
 decision without copying raw exploit material.
 
-![Analyst assignment and exploitability finding](docs/screenshots/03-verifier-run.png)
+![Case-filtered Analyst session with sanitized scan verdict](docs/screenshots/03-verifier-run.png)
 
-> Screenshot status: recapture required. The final image must show the direct
-> scan and verification actions in the Analyst tool history.
+The reference image shows the completed case-scoped session and sanitized scanner
+verdict. Expand `security.supplier_intake.scan` during a live demo to show its
+direct Tracecat action call; the following case view shows the independently
+confirmed active-verification finding and persisted proposal.
 
 **Presenter notes:** “The same Analyst stays accountable from assignment through
 closure. Tracecat runs the pinned tools directly, a harmless marker proves impact,
@@ -332,9 +316,6 @@ the decision required. The two human-controlled tasks are **Create BLOCK rule**
 and **Create LOG-only rule**.
 
 ![Analyst recommendation and controlled case tasks](docs/screenshots/04-proposal-and-tasks.png)
-
-> Screenshot status: recapture required. This image shows the retired three-task
-> layout and does not demonstrate the persisted proposal record.
 
 **Presenter notes:** “The analyst narrows the policy to the demonstrated route,
 method, and normalized media type, then persists the exact proposal that the
@@ -365,9 +346,6 @@ also states that the underlying application still requires remediation.
 `eval-results/supplier-intake/acceptance/` and restores the managed WAF state.
 
 ![Firewall evidence and Analyst closure](docs/screenshots/05-final-result.png)
-
-> Screenshot status: recapture required. Live acceptance passes, but this image's
-> run reference predates the custom registry action path.
 
 **Presenter notes:** “The workflow supplies the technical evidence and the Analyst
 turns it into a decision-grade closure. The control is active, the tested attack

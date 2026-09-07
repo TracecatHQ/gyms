@@ -3,63 +3,59 @@
   "version": 1,
   "definition": {
     "title": "Apply reviewed firewall rule",
-    "description": "Applies the reviewed route-scoped firewall rule, verifies activation, retests the finding and required traffic, and restores the prior state on failure.",
+    "description": "Applies the exact proposal persisted by the Analyst, verifies activation and required traffic, and restores the previous firewall state on failure.",
     "entrypoint": {
       "ref": "apply_reviewed_rule",
       "expects": {
-        "case_id": {"type": "str", "description": "Tracecat case UUID"},
-        "task_id": {"type": "str", "description": "Injected case task UUID", "default": "not-a-task"},
-        "scenario": {"type": "enum['supplier-intake']", "description": "Supplier intake service profile"},
-        "proposal_revision": {"type": "int", "description": "Reviewed proposal revision"},
-        "mode": {"type": "enum['BLOCK', 'LOG_ONLY']", "description": "Requested deterministic rule mode"}
+        "case_id": {
+          "type": "str",
+          "description": "Tracecat case UUID"
+        },
+        "task_id": {
+          "type": "str",
+          "description": "Injected case task UUID",
+          "default": "not-a-task"
+        },
+        "scenario": {
+          "type": "enum['supplier-intake']",
+          "description": "Supplier intake service profile"
+        },
+        "proposal_revision": {
+          "type": "int",
+          "description": "Reviewed proposal revision"
+        },
+        "mode": {
+          "type": "enum['BLOCK', 'LOG_ONLY']",
+          "description": "Requested deterministic rule mode"
+        }
       }
     },
-    "config": {"timeout": 210},
+    "config": {
+      "timeout": 210
+    },
     "actions": [
       {
         "ref": "apply_reviewed_rule",
-        "action": "core.http_request",
+        "action": "security.supplier_intake.apply_reviewed_policy",
         "args": {
-          "url": "http://test-api:8080/v1/jobs",
-          "method": "POST",
-          "headers": {
-            "Authorization": "Bearer ${{ SECRETS.gym_003_test_api.TOKEN }}",
-            "Content-Type": "application/json"
-          },
-          "payload": {
-            "kind": "apply_rule",
-            "scenario": "supplier-intake",
-            "case_id": "${{ TRIGGER.case_id }}",
-            "proposal_revision": "${{ TRIGGER.proposal_revision }}",
-            "mode": "${{ TRIGGER.mode }}"
-          },
-          "timeout": 10
-        }
-      },
-      {
-        "ref": "wait_for_rule_application",
-        "action": "core.http_poll",
-        "depends_on": ["apply_reviewed_rule"],
-        "args": {
-          "url": "http://test-api:8080/v1/jobs/${{ ACTIONS.apply_reviewed_rule.result.data.run_id }}",
-          "method": "GET",
-          "headers": {"Authorization": "Bearer ${{ SECRETS.gym_003_test_api.TOKEN }}"},
-          "timeout": 10,
-          "poll_interval": 2,
-          "poll_max_attempts": 90,
-          "poll_condition": "lambda response: response['data'].get('status') in ['completed', 'inconclusive', 'failed', 'cancelled', 'timed_out']"
+          "case_id": "${{ TRIGGER.case_id }}",
+          "task_id": "${{ TRIGGER.task_id }}",
+          "proposal_revision": "${{ TRIGGER.proposal_revision }}",
+          "mode": "${{ TRIGGER.mode }}"
         }
       },
       {
         "ref": "record_rule_result",
         "action": "core.cases.create_comment",
-        "depends_on": ["wait_for_rule_application"],
+        "depends_on": [
+          "apply_reviewed_rule"
+        ],
         "args": {
           "case_id": "${{ TRIGGER.case_id }}",
-          "content": "## Automated evidence · Firewall change verification\n\n**The reviewed control completed with `${{ ACTIONS.wait_for_rule_application.result.data.verdict }}`.**\n\n> System generated. This record supplies evidence for Analyst review; it is not an Analyst judgment.\n\n| Review field | Value |\n| --- | --- |\n| Status | `${{ ACTIONS.wait_for_rule_application.result.data.verdict }}` |\n| Malice | Pending Analyst judgment |\n| Action | Review the control outcome and remaining application risk |\n| Context | Route-scoped firewall control |\n\n### What the workflow found\n\n- Attack verdict changed from `${{ ACTIONS.wait_for_rule_application.result.data.before_verdict }}` to `${{ ACTIONS.wait_for_rule_application.result.data.after_verdict }}`.\n- Required application traffic passed: `${{ ACTIONS.wait_for_rule_application.result.data.benign.passed }}`.\n- Correlated firewall events recorded: `${{ FN.length(ACTIONS.wait_for_rule_application.result.data.waf_events) }}`.\n- Rollback attempted: `${{ ACTIONS.wait_for_rule_application.result.data.rollback.attempted }}`.\n\n```mermaid\nflowchart LR\n    A[\"Before<br/>${{ ACTIONS.wait_for_rule_application.result.data.before_verdict }}\"] --> B[\"${{ TRIGGER.mode }} control<br/>revision ${{ TRIGGER.proposal_revision }}\"]\n    B --> C[\"After<br/>${{ ACTIONS.wait_for_rule_application.result.data.after_verdict }}\"]\n    B --> D[\"Required traffic<br/>${{ ACTIONS.wait_for_rule_application.result.data.benign.passed }}\"]\n```\n\n### What this means\n\nThese observations describe one controlled execution. The Analyst must decide whether they support mitigation and document the residual application risk.\n\n### What needs review\n\nConfirm the tested attack is denied, required traffic remains compatible, firewall evidence is correlated, and any failed run restored the prior state.\n\n### Sanitized evidence\n\n- Task: `${{ TRIGGER.task_id }}`\n- Execution: `${{ ENV.workflow.execution_id }}`\n- Run: `${{ ACTIONS.wait_for_rule_application.result.data.run_id }}`\n\n```json\n${{ FN.prettify_json({'verdict': ACTIONS.wait_for_rule_application.result.data.verdict, 'rule_id': ACTIONS.wait_for_rule_application.result.data.rule_id, 'proposal_revision': TRIGGER.proposal_revision, 'mode': TRIGGER.mode, 'before_verdict': ACTIONS.wait_for_rule_application.result.data.before_verdict, 'after_verdict': ACTIONS.wait_for_rule_application.result.data.after_verdict, 'benign_passed': ACTIONS.wait_for_rule_application.result.data.benign.passed, 'correlated_waf_event_count': FN.length(ACTIONS.wait_for_rule_application.result.data.waf_events), 'rollback': ACTIONS.wait_for_rule_application.result.data.rollback, 'error': ACTIONS.wait_for_rule_application.result.data.error}) }}\n```"
+          "content": "## Firewall change verification\n\n**The reviewed control completed with `${{ ACTIONS.apply_reviewed_rule.result.verdict }}`.**\n\n| Review field | Value |\n| --- | --- |\n| Status | `${{ ACTIONS.apply_reviewed_rule.result.verdict }}` |\n| Malice | Confirmed against the tested ingress |\n| Action | Review the control outcome and residual application risk |\n| Context | Route-scoped firewall control |\n\n### What I found\n\n- Attack verdict changed from `${{ ACTIONS.apply_reviewed_rule.result.before_verdict }}` to `${{ ACTIONS.apply_reviewed_rule.result.after_verdict }}`.\n- Required application traffic passed: `${{ ACTIONS.apply_reviewed_rule.result.benign.passed }}`.\n- Correlated firewall events recorded: `${{ FN.length(ACTIONS.apply_reviewed_rule.result.waf_events) }}`.\n- Rollback attempted: `${{ ACTIONS.apply_reviewed_rule.result.rollback.attempted }}`.\n\n```mermaid\nflowchart LR\n    A[\"Before<br/>${{ ACTIONS.apply_reviewed_rule.result.before_verdict }}\"] --> B[\"${{ TRIGGER.mode }} control<br/>revision ${{ TRIGGER.proposal_revision }}\"]\n    B --> C[\"After<br/>${{ ACTIONS.apply_reviewed_rule.result.after_verdict }}\"]\n    B --> D[\"Required traffic<br/>${{ ACTIONS.apply_reviewed_rule.result.benign.passed }}\"]\n```\n\n### What this means\n\nThis records one controlled execution at the exposed ingress. The underlying application remains vulnerable until it is patched.\n\n### What I need from you\n\nConfirm the tested attack is denied, required traffic remains compatible, firewall evidence is correlated, and any failed run restored the prior state.\n\n### Sanitized evidence\n\n- Task: `${{ TRIGGER.task_id }}`\n- Execution: `${{ ENV.workflow.execution_id }}`\n- Run: `${{ ACTIONS.apply_reviewed_rule.result.run_id }}`\n- Proposal: `${{ ACTIONS.apply_reviewed_rule.result.proposal_id }}`"
         }
       }
     ],
-    "returns": "${{ ACTIONS.wait_for_rule_application.result.data }}"
+    "returns": "${{ ACTIONS.apply_reviewed_rule.result }}"
   }
 }

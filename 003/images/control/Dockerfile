@@ -24,6 +24,9 @@ USER root
 COPY --from=nuclei /usr/local/bin/nuclei /usr/local/bin/nuclei
 COPY --from=gymctl --chown=apiuser:apiuser *.py /opt/gym/src/gymctl/
 COPY --chown=apiuser:apiuser src/gym_plugin/*.py /opt/gym/src/gym_plugin/
+COPY --chown=apiuser:apiuser local_registry/ /app/local_registry/
+COPY --chown=apiuser:apiuser src/gym_plugin/*.py /app/local_registry/gym_plugin/
+COPY --chown=apiuser:apiuser assets/nuclei/CVE-2026-21858.yaml /app/local_registry/gym_plugin/assets/nuclei/CVE-2026-21858.yaml
 COPY --chown=apiuser:apiuser benchmark/ /opt/gym/benchmark/
 COPY --chown=apiuser:apiuser assets/ /opt/gym/assets/
 COPY --chown=apiuser:apiuser gym.lock.json PROVENANCE.md /opt/gym/
@@ -32,5 +35,5 @@ USER apiuser
 
 ENV GYM_ROOT="/opt/gym" \
     PYTHONDONTWRITEBYTECODE="1" \
-    PYTHONPATH="/opt/gym/src:/app/packages/tracecat-admin:/app"
+    PYTHONPATH="/opt/gym/src:/app/packages/tracecat-admin:/app:/app/local_registry"
 ENTRYPOINT ["/app/.venv/bin/python", "-m", "gymctl"]

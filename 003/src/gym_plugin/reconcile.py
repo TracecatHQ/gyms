@@ -36,9 +36,26 @@ LEGACY_COMMENT_HEADINGS = (
 LEGACY_SESSION_TITLES = {
     "Verify supplier-intake case verdict",
     "Review supplier intake mitigation proposal",
+    "Validate Scanner Finding Exploitability",
 }
-SECRET_NAME = "gym_003_test_api"
-SECRET_KEY = "TOKEN"
+REGISTRY_ACTIONS = {
+    "security.supplier_intake.scan",
+    "security.supplier_intake.verify",
+    "security.supplier_intake.propose_policy",
+    "security.supplier_intake.apply_reviewed_policy",
+}
+REGISTRY_IMPLEMENTATION_MARKER = "supplier-intake-actions-v4"
+MANAGED_SECRETS = {
+    "supplier_intake_n8n": {
+        "description": "Credentials for bounded supplier intake compatibility checks.",
+        "keys": ("GYM_N8N_STAFF_EMAIL", "GYM_N8N_STAFF_PASSWORD"),
+    },
+    "supplier_intake_waf": {
+        "description": "Credentials for the reviewed supplier intake firewall change.",
+        "keys": ("BUNKERWEB_API_USERNAME", "BUNKERWEB_API_TOKEN"),
+    },
+}
+RETIRED_SECRET_NAME = "gym_003_test_api"
 DISPLAY_NAMES = {
     "gym-003-verification": "exploitability verification",
     "gym-003-scan": "supplier intake scan",
@@ -198,6 +215,8 @@ def reconcile_case(
         if actual.get(field) != desired[field]
     }
     if content_patch:
+        if not create_missing:
+            raise ReconcileError("managed case presentation has drifted; run reconcile")
         request(
             client,
             "PATCH",
@@ -252,11 +271,19 @@ def _legacy_case_artifact_ids(
 
     if not isinstance(comments, list) or not isinstance(sessions, list):
         raise ReconcileError("Tracecat returned malformed case artifacts")
+    # Tracecat only allows a caller to delete its own comments. Agent and workflow
+    # comments are immutable to the reconciling tenant actor, so never select them
+    # even when prose overlaps a retired format. In particular, current Analyst
+    # conclusions intentionally reuse some of the old incident language.
     comment_ids = [
         str(row["id"])
         for row in comments
         if isinstance(row, dict)
         and row.get("id")
+        and row.get("is_deleted") is not True
+        and isinstance(row.get("user"), dict)
+        and row.get("agent") is None
+        and row.get("workflow") is None
         and isinstance(row.get("content"), str)
         and row["content"].startswith(LEGACY_COMMENT_HEADINGS)
     ]
@@ -330,7 +357,6 @@ def _task_definitions(
 ) -> tuple[dict[str, Any], ...]:
     common = {"case_id": case_id, "scenario": SCENARIO, "proposal_revision": 1}
     rule_workflow = str(managed_workflows["gym-003-rule-application"]["id"])
-    verify_workflow = str(managed_workflows["gym-003-verification"]["id"])
     return (
         {
             "title": "Create BLOCK rule",
@@ -345,13 +371,6 @@ def _task_definitions(
             "priority": "high",
             "workflow_id": rule_workflow,
             "default_trigger_values": common | {"mode": "LOG_ONLY"},
-        },
-        {
-            "title": "Test exploitability",
-            "description": "Run a fresh attack and benign verification against current protection without changing WAF configuration.",
-            "priority": "high",
-            "workflow_id": verify_workflow,
-            "default_trigger_values": common | {"mode": "VERIFY_ONLY"},
         },
     )
 
@@ -406,55 +425,128 @@ def reconcile_tasks(
     ]
     if duplicates:
         raise ReconcileError(f"managed task duplicates remain: {duplicates}")
+    retired_titles = {"Test exploitability"}
+    for row in rows:
+        if (
+            isinstance(row, dict)
+            and row.get("title") in retired_titles
+            and row.get("id")
+        ):
+            request(client, "DELETE", f"{base}/{row['id']}", expected=(204,))
+            log(f"retired case task {row['title']}")
     return final
 
 
-def reconcile_test_api_secret(client: ClientLike, workspace_id: str) -> None:
-    token = os.environ.get("GYM_TEST_API_TOKEN")
-    if not token:
-        raise ReconcileError(
-            "required environment variable is missing: GYM_TEST_API_TOKEN"
+def _registry_inventory(client: ClientLike) -> tuple[str, dict[str, str]]:
+    rows = request(client, "GET", "/registry/repos")
+    if not isinstance(rows, list):
+        raise ReconcileError("Tracecat registry repository response is malformed")
+    matches = [row for row in rows if isinstance(row, dict) and row.get("origin") == "local"]
+    if len(matches) != 1 or not matches[0].get("id"):
+        raise ReconcileError("the organization local registry is missing or ambiguous")
+    repository_id = str(matches[0]["id"])
+    repository = request(client, "GET", f"/registry/repos/{repository_id}")
+    if not isinstance(repository, dict):
+        raise ReconcileError("Tracecat local registry response is malformed")
+    actual = {
+        str(row.get("action")): str(row.get("description") or "")
+        for row in repository.get("actions", [])
+        if isinstance(row, dict)
+    }
+    return repository_id, actual
+
+
+def reconcile_registry(client: ClientLike) -> None:
+    repository_id, actual = _registry_inventory(client)
+    needs_sync = (
+        not REGISTRY_ACTIONS <= set(actual)
+        or REGISTRY_IMPLEMENTATION_MARKER
+        not in actual.get("security.supplier_intake.scan", "")
+    )
+    if needs_sync:
+        request(
+            client,
+            "POST",
+            f"/registry/repos/{repository_id}/sync",
+            body={},
+            expected=(200,),
         )
+        _, actual = _registry_inventory(client)
+    if not REGISTRY_ACTIONS <= set(actual):
+        missing = sorted(REGISTRY_ACTIONS - set(actual))
+        raise ReconcileError(f"local registry actions are missing after sync: {missing}")
+    if REGISTRY_IMPLEMENTATION_MARKER not in actual["security.supplier_intake.scan"]:
+        raise ReconcileError("local registry implementation marker is stale after sync")
+    log("registry READY: four bounded actions")
+
+
+def verify_registry(client: ClientLike) -> None:
+    _, actual = _registry_inventory(client)
+    if not REGISTRY_ACTIONS <= set(actual):
+        missing = sorted(REGISTRY_ACTIONS - set(actual))
+        raise ReconcileError(f"local registry actions are missing: {missing}; run reconcile")
+    if REGISTRY_IMPLEMENTATION_MARKER not in actual["security.supplier_intake.scan"]:
+        raise ReconcileError("local registry implementation is stale; run reconcile")
+
+
+def _secret_value(name: str, key: str) -> str:
+    if name == "supplier_intake_waf" and key == "BUNKERWEB_API_USERNAME":
+        return "gym-admin"
+    value = os.environ.get(key)
+    if not value:
+        raise ReconcileError(f"required environment variable is missing: {key}")
+    return value
+
+
+def reconcile_action_secrets(client: ClientLike, workspace_id: str) -> None:
     base = f"/workspaces/{workspace_id}/secrets"
     rows = request(client, "GET", base)
     if not isinstance(rows, list):
         raise ReconcileError("Tracecat secret inventory response is malformed")
-    matches = [
-        row for row in rows if isinstance(row, dict) and row.get("name") == SECRET_NAME
+    for name, spec in MANAGED_SECRETS.items():
+        matches = [row for row in rows if isinstance(row, dict) and row.get("name") == name]
+        if len(matches) > 1:
+            raise ReconcileError(f"multiple workspace secrets match {name}")
+        body = {
+            "type": "custom",
+            "name": name,
+            "description": spec["description"],
+            "keys": [
+                {"key": key, "value": _secret_value(name, key)}
+                for key in spec["keys"]
+            ],
+            "environment": "default",
+        }
+        if matches:
+            request(client, "POST", f"{base}/{matches[0]['id']}", body=body, expected=(204,))
+        else:
+            request(client, "POST", base, body=body, expected=(201,))
+    retired = [
+        row for row in rows
+        if isinstance(row, dict) and row.get("name") == RETIRED_SECRET_NAME and row.get("id")
     ]
-    if len(matches) > 1:
-        raise ReconcileError(f"multiple workspace secrets match {SECRET_NAME}")
-    body = {
-        "type": "custom",
-        "name": SECRET_NAME,
-        "description": "Credential used by controlled supplier intake verification jobs.",
-        "keys": [{"key": SECRET_KEY, "value": token}],
-        "environment": "default",
-    }
-    if matches:
-        request(
-            client, "POST", f"{base}/{matches[0]['id']}", body=body, expected=(204,)
-        )
-    else:
-        request(client, "POST", base, body=body, expected=(201,))
-    verify_test_api_secret(client, workspace_id)
-    log("verification credential READY")
+    for row in retired:
+        request(client, "DELETE", f"{base}/{row['id']}", expected=(204,))
+    verify_action_secrets(client, workspace_id)
+    log("action credentials READY")
 
 
-def verify_test_api_secret(client: ClientLike, workspace_id: str) -> None:
+def verify_action_secrets(client: ClientLike, workspace_id: str) -> None:
     rows = request(client, "GET", f"/workspaces/{workspace_id}/secrets")
     if not isinstance(rows, list):
         raise ReconcileError("Tracecat secret inventory response is malformed")
-    matches = [
-        row
-        for row in rows
-        if isinstance(row, dict)
-        and row.get("name") == SECRET_NAME
-        and set(row.get("keys") or []) == {SECRET_KEY}
-        and row.get("environment") == "default"
-    ]
-    if len(matches) != 1:
-        raise ReconcileError(f"managed secret {SECRET_NAME} is missing or drifted")
+    for name, spec in MANAGED_SECRETS.items():
+        matches = [
+            row for row in rows
+            if isinstance(row, dict)
+            and row.get("name") == name
+            and set(row.get("keys") or []) == set(spec["keys"])
+            and row.get("environment") == "default"
+        ]
+        if len(matches) != 1:
+            raise ReconcileError(f"managed secret {name} is missing or drifted")
+    if any(isinstance(row, dict) and row.get("name") == RETIRED_SECRET_NAME for row in rows):
+        raise ReconcileError("retired test API secret remains; run reconcile")
 
 
 def reconcile_skills(client: ClientLike, workspace_id: str) -> list[str]:
@@ -599,7 +691,8 @@ def reconcile() -> None:
             tracecat.verify_entitlements(client)
         except tracecat.TracecatError as exc:
             raise ReconcileError(str(exc)) from exc
-        reconcile_test_api_secret(client, workspace_id)
+        reconcile_registry(client)
+        reconcile_action_secrets(client, workspace_id)
         try:
             managed_workflows = workflows.reconcile_workflows(
                 client, workspace_id, request, logger=log
@@ -612,7 +705,7 @@ def reconcile() -> None:
         skill_ids = reconcile_skills(client, workspace_id)
         reconcile_presets(client, workspace_id, skill_ids)
     log(
-        "READY: case, three workflow-backed tasks, three workflows, "
+        "READY: case, two workflow-backed tasks, one workflow, four actions, "
         "two skills, and one Analyst preset"
     )
 
@@ -628,7 +721,8 @@ def status(
         workspace_id = tracecat.login(active, email, password)
         try:
             tracecat.verify_entitlements(active)
-            verify_test_api_secret(active, workspace_id)
+            verify_registry(active)
+            verify_action_secrets(active, workspace_id)
             managed_workflows = workflows.verify_workflows(
                 active, workspace_id, request
             )

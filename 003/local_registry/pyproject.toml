@@ -1,0 +1,13 @@
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "gym-003-local-registry"
+version = "1.0.0"
+description = "Bounded Tracecat actions for the supplier intake incident"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.hatch.build.targets.wheel]
+packages = ["local_registry", "gym_plugin"]

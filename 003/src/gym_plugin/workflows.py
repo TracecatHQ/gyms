@@ -1,9 +1,8 @@
 """Reconcile Gym 003's managed Tracecat workflows.
 
 The checked-in JSON files use Tracecat's external workflow definition format. The
-reconciler imports them with stable UUIDs, exposes only the verification workflow
-through an agent-callable alias, publishes them, and refuses to silently overwrite
-a workflow whose graph has drifted.
+reconciler imports the human-launched firewall workflow with a stable UUID,
+publishes it, and refuses to silently overwrite a workflow whose graph has drifted.
 """
 
 from __future__ import annotations
@@ -55,25 +54,42 @@ class WorkflowSpec:
 
 
 WORKFLOW_SPECS = (
-    WorkflowSpec("verification.json", "gym-003-verification", "gym-003-verification"),
-    WorkflowSpec("scan.json", "gym-003-scan", None),
     WorkflowSpec("rule-application.json", "gym-003-rule-application", None),
 )
 
-# Keep the retired identity here after removing its import fixture. A title alone
-# is not proof of ownership: users can create workflows with the same title.
-RETIRED_INVESTIGATION_ID = "00000000-0000-4000-8000-000000000303"
-RETIRED_INVESTIGATION_ALIAS = "gym-003-investigation"
-RETIRED_INVESTIGATION_TITLE = "Gym 003 - Investigate exploitability"
+# Keep retired identities after removing their import fixtures. A title alone is
+# not proof of ownership: stable IDs, or alias and title together, establish it.
+RETIRED_WORKFLOWS = (
+    (
+        "00000000-0000-4000-8000-000000000301",
+        "gym-003-verification",
+        "Verify exploitability",
+    ),
+    (
+        "00000000-0000-4000-8000-000000000302",
+        None,
+        "Scan supplier intake",
+    ),
+    (
+        "00000000-0000-4000-8000-000000000303",
+        "gym-003-investigation",
+        "Gym 003 - Investigate exploitability",
+    ),
+)
 
 
 def _retired_candidates(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return [
-        row for row in rows
-        if row.get("id") == RETIRED_INVESTIGATION_ID
-        or row.get("alias") == RETIRED_INVESTIGATION_ALIAS
-        or row.get("title") == RETIRED_INVESTIGATION_TITLE
-    ]
+    candidates: list[dict[str, Any]] = []
+    for row in rows:
+        for stable_id, alias, title in RETIRED_WORKFLOWS:
+            if _canonical_workflow_id(row.get("id")) == stable_id or (
+                alias is not None
+                and row.get("alias") == alias
+                and row.get("title") == title
+            ):
+                candidates.append(row)
+                break
+    return candidates
 
 
 def _retire_investigation(
@@ -87,12 +103,16 @@ def _retire_investigation(
     # Validate all candidates before deleting any: a partial migration should not
     # silently dispose of an unrelated workflow that only shares the title.
     for row in candidates:
-        stable_id = row.get("id") == RETIRED_INVESTIGATION_ID
-        named_identity = (
-            row.get("alias") == RETIRED_INVESTIGATION_ALIAS
-            and row.get("title") == RETIRED_INVESTIGATION_TITLE
-        )
-        if not row.get("id") or not (stable_id or named_identity):
+        identities = [
+            (_canonical_workflow_id(row.get("id")) == stable_id)
+            or (
+                alias is not None
+                and row.get("alias") == alias
+                and row.get("title") == title
+            )
+            for stable_id, alias, title in RETIRED_WORKFLOWS
+        ]
+        if not row.get("id") or not any(identities):
             raise WorkflowError(
                 "retired investigation workflow identity is ambiguous; "
                 "refusing to delete it"
@@ -100,7 +120,7 @@ def _retire_investigation(
     for row in candidates:
         request(client, "DELETE", f"{base}/{row['id']}", expected=(204,))
         if logger:
-            logger(f"workflow RETIRED: {RETIRED_INVESTIGATION_ALIAS}")
+            logger(f"workflow RETIRED: {row.get('alias') or row.get('title')}")
     if candidates:
         rows = _rows(request(client, "GET", base, params={"limit": 0}))
         if _retired_candidates(rows):
@@ -255,7 +275,7 @@ def reconcile_workflows(
     *,
     logger: Callable[[str], None] | None = None,
 ) -> dict[str, dict[str, Any]]:
-    """Retire the wrapper, then reconcile the three managed workflows."""
+    """Retire obsolete wrappers, then reconcile the human firewall workflow."""
 
     base = f"/workspaces/{workspace_id}/workflows"
     existing = _rows(request(client, "GET", base, params={"limit": 0}))

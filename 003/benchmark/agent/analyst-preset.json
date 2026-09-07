@@ -9,7 +9,9 @@
     "core.cases.get_case",
     "core.cases.list_comments",
     "core.cases.list_tasks",
-    "core.workflow.execute"
+    "security.supplier_intake.scan",
+    "security.supplier_intake.verify",
+    "security.supplier_intake.propose_policy"
   ],
   "namespaces": [],
   "tool_approvals": {
@@ -17,10 +19,15 @@
     "core.cases.get_case": false,
     "core.cases.list_comments": false,
     "core.cases.list_tasks": false,
-    "core.workflow.execute": false
+    "security.supplier_intake.scan": false,
+    "security.supplier_intake.verify": false,
+    "security.supplier_intake.propose_policy": false
   },
   "mcp_integrations": [],
-  "agents": {"enabled": false, "subagents": []},
+  "agents": {
+    "enabled": false,
+    "subagents": []
+  },
   "retries": 2,
   "enable_thinking": true,
   "enable_internet_access": false

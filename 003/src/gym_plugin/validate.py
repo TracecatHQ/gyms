@@ -8,6 +8,7 @@ import os
 import re
 import socket
 import subprocess
+import tomllib
 
 from . import config
 from .policy import CURRENT_PROPOSAL_REVISION, render_modsecurity, validate_proposal
@@ -27,6 +28,16 @@ def _check_exact_dependencies() -> None:
             require(
                 "==" in line and not re.search(r"(?:~=|>=|<=|!=|===|\*=)", line),
                 f"dependency must use one exact == pin: {path.relative_to(config.ROOT)}:{number}",
+            )
+    for path in config.ROOT.rglob("pyproject.toml"):
+        document = tomllib.loads(path.read_text())
+        dependencies = list(document.get("project", {}).get("dependencies", []))
+        dependencies.extend(document.get("build-system", {}).get("requires", []))
+        for dependency in dependencies:
+            require(
+                "==" in dependency
+                and not re.search(r"(?:~=|>=|<=|!=|===|\*=)", dependency),
+                f"dependency must use one exact == pin: {path.relative_to(config.ROOT)}",
             )
 
 
@@ -109,9 +120,27 @@ def _check_compose() -> dict:
         all("docker.sock" not in json.dumps(service.get("volumes", [])) for service in services.values()),
         "Docker socket exposure is forbidden",
     )
+    require("test-api" not in services, "obsolete test API service is still present")
+    executor = services["executor"]
     require(
-        services["test-api"].get("environment", {}).get("MINIO_ENDPOINT") == "http://minio:9000",
-        "test API MinIO endpoint must include its HTTP scheme",
+        executor.get("image", "").startswith("tracecat-gyms/gym-003-control:"),
+        "Tracecat executor must use the pinned Gym control image",
+    )
+    require(
+        {"test-traffic", "management"} <= set(executor.get("networks", {})),
+        "Tracecat executor lacks fixed target or firewall management access",
+    )
+    require(
+        executor.get("environment", {}).get("TRACECAT__LOCAL_REPOSITORY_ENABLED")
+        == "true",
+        "Tracecat local registry must be enabled",
+    )
+    require(
+        any(
+            mount.get("target") == "/var/lib/gym"
+            for mount in executor.get("volumes", [])
+        ),
+        "Tracecat executor lacks the shared operation state volume",
     )
     for name, service in services.items():
         image = service.get("image")
@@ -181,7 +210,7 @@ def _check_live(services: dict) -> None:
         return
     for name in (
         "api", "n8n-target", "bunkerweb", "bw-api", "bw-scheduler",
-        "waf-log-collector", "test-api", "receipt-service", "minio",
+        "waf-log-collector", "receipt-service", "minio",
     ):
         rows = config.run_compose("ps", "--quiet", name, capture=True).stdout.strip().splitlines()
         require(len(rows) == 1, f"running stack is missing {name}")
@@ -192,6 +221,17 @@ def _check_live(services: dict) -> None:
             capture_output=True,
         ).stdout.strip()
         require(state == "running healthy", f"{name} is not healthy: {state}")
+    executor_rows = config.run_compose(
+        "ps", "--quiet", "executor", capture=True
+    ).stdout.strip().splitlines()
+    require(len(executor_rows) == 1, "running stack is missing executor")
+    executor_state = subprocess.run(
+        ["docker", "inspect", "--format", "{{.State.Status}}", executor_rows[0]],
+        check=True,
+        text=True,
+        capture_output=True,
+    ).stdout.strip()
+    require(executor_state == "running", f"executor is not running: {executor_state}")
     for port in (38080, 38081):
         try:
             with socket.create_connection(("127.0.0.1", port), timeout=3):

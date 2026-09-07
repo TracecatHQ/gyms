@@ -45,7 +45,13 @@ def upstream_image(name: str) -> str:
 
 def _files() -> list[Path]:
     selected: list[Path] = []
-    for base in (ROOT / "src", ROOT / "benchmark", ROOT / "images", ROOT / "assets"):
+    for base in (
+        ROOT / "src",
+        ROOT / "benchmark",
+        ROOT / "images",
+        ROOT / "assets",
+        ROOT / "local_registry",
+    ):
         if base.exists():
             selected.extend(path for path in base.rglob("*") if path.is_file())
     selected.extend(path for path in (REPO_ROOT / "src/gymctl").rglob("*.py"))

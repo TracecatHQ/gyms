@@ -23,7 +23,20 @@ from .probe import (
 
 TEMPLATE_REVISION = "b78b60c84a754c0ce2a8b9f0710edc8987adeb85"
 TEMPLATE_ID = "CVE-2026-21858"
-TEMPLATE_PATH = Path(__file__).resolve().parents[2] / "assets" / "nuclei" / "CVE-2026-21858.yaml"
+_PACKAGED_TEMPLATE_PATH = (
+    Path(__file__).resolve().parent / "assets" / "nuclei" / "CVE-2026-21858.yaml"
+)
+_GYM_TEMPLATE_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "assets"
+    / "nuclei"
+    / "CVE-2026-21858.yaml"
+)
+TEMPLATE_PATH = (
+    _PACKAGED_TEMPLATE_PATH
+    if _PACKAGED_TEMPLATE_PATH.is_file()
+    else _GYM_TEMPLATE_PATH
+)
 NUCLEI_BINARY = "nuclei"
 NUCLEI_CACHE = Path("/home/apiuser/.cache/tmp")
 

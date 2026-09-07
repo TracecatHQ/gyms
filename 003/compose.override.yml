@@ -198,33 +198,15 @@ services:
       timeout: 3s
       retries: 20
 
-  test-api:
+  executor:
     image: ${GYM_CONTROL_IMAGE:?missing Gym 003 control image}
-    command: [internal-test-api]
+    entrypoint: ["/app/.venv/bin/python"]
+    command: ["-m", "tracecat.executor.worker"]
     restart: unless-stopped
-    networks: [core, test-traffic, management]
-    environment:
-      <<: *waf-control-env
-      GYM_TEST_API_TOKEN: ${GYM_TEST_API_TOKEN:?missing test API token}
-      GYM_JOB_DIR: /var/lib/gym/jobs
-      GYM_N8N_STAFF_EMAIL: ${GYM_N8N_STAFF_EMAIL:?missing n8n staff email}
-      GYM_N8N_STAFF_PASSWORD: ${GYM_N8N_STAFF_PASSWORD:?missing n8n staff password}
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-      MINIO_GYM_BUCKET: ${MINIO_GYM_BUCKET:-gym-003-evidence}
-      MINIO_ENDPOINT: http://minio:9000
-    volumes: [gym-jobs:/var/lib/gym]
-    depends_on:
-      bunkerweb: {condition: service_healthy}
-      bw-api: {condition: service_healthy}
-      bw-scheduler: {condition: service_healthy}
-      waf-log-collector: {condition: service_healthy}
-      minio: {condition: service_healthy}
-    healthcheck:
-      test: ["CMD", "/app/.venv/bin/python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=2).read()"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
+    networks: [core, core-db, temporal, test-traffic, management]
+    volumes: !override
+      - sandbox-cache:/var/lib/tracecat/sandbox-cache
+      - gym-jobs:/var/lib/gym
 
   target-seed:
     image: ${GYM_CONTROL_IMAGE:?missing Gym 003 control image}
@@ -270,11 +252,13 @@ services:
       TRACEcat_INTERNAL_API_URL: http://api:8000
       TRACEcat_TENANT_EMAIL: ${TRACEcat_TENANT_EMAIL}
       TRACEcat_TENANT_PASSWORD: ${TRACEcat_TENANT_PASSWORD}
-      GYM_TEST_API_TOKEN: ${GYM_TEST_API_TOKEN}
+      BUNKERWEB_API_TOKEN: ${BUNKERWEB_API_TOKEN}
+      GYM_N8N_STAFF_EMAIL: ${GYM_N8N_STAFF_EMAIL}
+      GYM_N8N_STAFF_PASSWORD: ${GYM_N8N_STAFF_PASSWORD}
     command: [internal-reconcile, reconcile]
     depends_on:
       api: {condition: service_healthy}
-      test-api: {condition: service_healthy}
+      executor: {condition: service_started}
 
   eval-runner:
     image: ${GYM_CONTROL_IMAGE:?missing Gym 003 control image}
@@ -296,7 +280,7 @@ services:
       - /home/apiuser:uid=${GYM_HOST_UID:?missing host UID},gid=${GYM_HOST_GID:?missing host GID},mode=0700
     command: [internal-eval]
     depends_on:
-      test-api: {condition: service_healthy}
+      executor: {condition: service_started}
 
 volumes:
   n8n-data:

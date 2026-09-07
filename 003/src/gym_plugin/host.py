@@ -44,7 +44,6 @@ def init() -> None:
         "MINIO_ROOT_PASSWORD": secrets.token_hex(24),
         "TRACEcat_TENANT_PASSWORD": secrets.token_urlsafe(24),
         "TRACEcat_SUPERADMIN_PASSWORD": secrets.token_urlsafe(24),
-        "GYM_TEST_API_TOKEN": secrets.token_urlsafe(32),
         "BUNKERWEB_API_TOKEN": secrets.token_urlsafe(32),
         "BUNKERWEB_DB_PASSWORD": secrets.token_urlsafe(24),
         "GYM_N8N_STAFF_PASSWORD": "Gym003-" + secrets.token_urlsafe(18),
@@ -151,7 +150,7 @@ def _wait_health(timeout: int = 900) -> None:
     required = (
         "api", "litellm", "postgres_db", "temporal", "minio", "redis",
         "n8n-target", "bunkerweb", "bw-api", "bw-scheduler", "waf-log-collector",
-        "test-api", "receipt-service",
+        "receipt-service",
     )
     lifecycle.wait_runtime_health(
         config.DEFINITION,
@@ -266,7 +265,15 @@ def internal_scenario_reset() -> None:
 def scenario_reset(confirm: str | None) -> None:
     if confirm != "artifacts-captured":
         raise GymError("scenario-reset changes target and firewall state; rerun as `just scenario-reset CONFIRM=artifacts-captured`")
-    config.run_compose("run", "--rm", "--no-deps", "test-api", "internal-scenario-reset")
+    config.run_compose(
+        "--profile",
+        "evaluation",
+        "run",
+        "--rm",
+        "--no-deps",
+        "eval-runner",
+        "internal-scenario-reset",
+    )
     log("Removed managed rules and probe artifacts; retained evidence.")
 
 

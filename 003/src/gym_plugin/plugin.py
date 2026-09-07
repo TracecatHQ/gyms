@@ -7,10 +7,6 @@ def dispatch(args):
     if args.command == "seed":
         from gymctl.seed import main
         return main()
-    if args.command == "internal-test-api":
-        from .job_api import main
-        main()
-        return 0
     if args.command == "internal-collector":
         from .collector import main
         main()

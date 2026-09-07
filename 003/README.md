@@ -10,6 +10,42 @@ reachable only through BunkerWeb. A fixed-target test service runs the reviewed
 checks and holds the firewall credential; the Analyst never receives that credential
 or an arbitrary target, command, or rule-writing interface.
 
+## Solution architecture
+
+```mermaid
+flowchart LR
+    SW["Tracecat workflow<br/>Scan supplier intake"] --> J
+    SW --> C["Tracecat case<br/>Supplier intake RCE"]
+
+    C <--> A["Tracecat Analyst"]
+    A --> VS["Skill<br/>Verify exploitability"]
+    A --> MS["Skill<br/>Propose firewall mitigation"]
+    MS --> C
+
+    VS --> VW["Tracecat workflow<br/>Verify exploitability"]
+    O["Security operator"] --> T["Human-controlled<br/>case tasks"]
+    T --> RW["Tracecat workflow<br/>Apply reviewed firewall rule"]
+
+    VW --> J["Fixed-target<br/>test service"]
+    RW --> J
+    J --> N["Nuclei"]
+    N --> BW
+    J --> BW["BunkerWeb<br/>ModSecurity ingress"]
+    BW --> N8N["n8n<br/>Supplier intake"]
+    N8N --> R["Receipt service"]
+
+    J --> E["MinIO<br/>sanitized evidence"]
+    E --> C
+    VW --> C
+    RW --> C
+```
+
+Nuclei supplies the initial version signal. Tracecat owns the case, Analyst,
+skills, review tasks, and workflow evidence. The fixed-target test service keeps
+the target and firewall credential outside the agent boundary. BunkerWeb applies
+the reviewed ingress control, while n8n and the receipt service provide the
+application and compatibility paths exercised by each verification.
+
 ## Supply-chain policy
 
 All Compose images use immutable manifest digests. Image metadata comes from the
@@ -148,6 +184,88 @@ specialist, or investigation-wrapper agent.
 **Presenter notes:** “One Analyst owns the investigation narrative. Its skills
 constrain verification and proposal work to reviewed actions, and it has no
 firewall-write permission. Applying a control remains a human decision.”
+
+#### 2a. Inspect the Analyst prompt
+
+**Action:** Open **Analyst** from the Agents list. Keep the main document pane at
+the top so the Analyst name, description, and opening prompt instructions are
+visible. The prompt is the large document pane; the tabs on the right configure
+chat and capabilities.
+
+**Expected state:** The prompt tells the Analyst to own the vulnerability case,
+treat the scanner result as an initial signal, use fresh sanitized evidence, and
+leave firewall changes to human-launched case tasks. The visible copy contains no
+exercise label or specialist-agent handoff.
+
+![Analyst prompt and investigation boundary](docs/screenshots/06-analyst-prompt.png)
+
+**Presenter notes:** “The preset carries the durable operating contract. One
+Analyst follows the case from assignment through closure, but the prompt keeps
+claims evidence-based and keeps firewall execution behind a human task.”
+
+#### 2b. Inspect the Analyst tools
+
+**Action:** With **Analyst** still open, select the **Tools** tab in the right
+pane. Scroll until **Allowed tools** and the configured approval rows are visible.
+
+**Expected state:** The allowed set contains case read/comment operations and
+`core.workflow.execute`. No firewall, credential, shell, HTTP, or arbitrary code
+tool is present. The workflow tool exists only so the published verification
+skill can launch the fixed verification workflow. The scan and firewall workflows
+have no agent-callable alias and remain available to their operator-controlled
+entry points.
+
+![Analyst tools and approval configuration](docs/screenshots/07-analyst-tools.png)
+
+**Presenter notes:** “The Analyst can gather case context, write accountable
+updates, and request one reviewed verification. The tool boundary itself offers
+no path to author or apply a firewall rule.”
+
+#### 2c. Inspect the published skills
+
+**Action:** Select **Skills** in the workspace navigation and capture the list.
+Then open `verify-exploitability`, select **SKILL.md**, and capture the published
+frontmatter and the start of **Instructions**. Return to the list, open
+`propose-firewall-mitigation`, select **SKILL.md**, and capture the same detail.
+
+**Expected state:** The list shows exactly the two case skills as published. The
+**Verify exploitability** detail limits execution to one fresh fixed-target run,
+matched execution evidence, cleanup, and sanitized reporting. The **Propose
+firewall mitigation** detail fixes the route, method, media type, compatibility
+checks, rollback conditions, and human decision boundary.
+
+![Published Analyst skills](docs/screenshots/08-skills-list.png)
+
+![Verify exploitability skill detail](docs/screenshots/09-verify-exploitability-skill.png)
+
+![Propose firewall mitigation skill detail](docs/screenshots/10-propose-firewall-mitigation-skill.png)
+
+**Presenter notes:** “Skills separate reusable procedures from the Analyst’s
+identity. Verification is bounded and evidence-producing; mitigation design is
+narrow and reviewable. Neither skill gives the model a credential or a free-form
+rule interface.”
+
+#### 2d. Inspect the customized workflows
+
+**Action:** Select **Workflows**, open **Verify exploitability**, and frame the
+complete builder graph. Keep action-detail drawers closed so only the workflow
+structure and safe action names are visible. Repeat for **Apply reviewed firewall
+rule**.
+
+**Expected state:** **Verify exploitability** shows the trigger followed by the
+attack and benign verification jobs, bounded waits, and the case evidence action.
+**Apply reviewed firewall rule** shows the reviewed rule job, bounded wait, and
+case result action. Both are published workflows. Neither screenshot exposes a
+credential, internal endpoint, raw request body, or exploit material.
+
+![Verify exploitability workflow builder](docs/screenshots/11-verification-workflow.png)
+
+![Reviewed firewall workflow builder](docs/screenshots/12-rule-application-workflow.png)
+
+**Presenter notes:** “These are ordinary Tracecat workflows assembled from
+reviewable actions. The verification workflow records attack and compatibility
+evidence. The firewall workflow performs the stateful change and posts the result
+for the Analyst to interpret, while its credential stays in the fixed service.”
 
 ### 3. Verify exploitability from the case
 

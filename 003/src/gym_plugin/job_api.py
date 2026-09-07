@@ -33,6 +33,15 @@ TIMEOUT = 60
 ALLOWED_KINDS = {"scan", "verify", "benign", "apply_rule", "evaluate"}
 POOL = ThreadPoolExecutor(max_workers=1, thread_name_prefix="gym003-job")
 LOCK = threading.RLock()
+SUBMISSION_LOCK = threading.Lock()
+
+
+class RuleApplicationError(RuntimeError):
+    """Rule application failed after recording deterministic rollback evidence."""
+
+    def __init__(self, message: str, result: dict[str, Any]) -> None:
+        super().__init__(message)
+        self.result = result
 
 
 def now() -> str:
@@ -115,11 +124,16 @@ def apply_rule(ctx: dict[str, Any], request: dict[str, Any]) -> dict[str, Any]:
     policy = validate_proposal(proposal, expected_revision=CURRENT_PROPOSAL_REVISION)
     client = WAFClient.from_env()
     with LOCK:
-        before = verify(ctx)
-        snapshot = client.snapshot()
+        before: dict[str, Any] = {}
+        after: dict[str, Any] = {}
+        benign: dict[str, Any] = {"passed": False}
+        events: list[dict[str, Any]] = []
+        snapshot: dict[str, Any] | None = None
         applied: dict[str, Any] | None = None
         rollback = {"attempted": False, "succeeded": None}
         try:
+            before = verify(ctx)
+            snapshot = client.snapshot()
             applied = client.apply_policy(policy.as_dict(), mode)
             activation = client.wait_active(applied)
             if not activation.get("active"):
@@ -174,13 +188,32 @@ def apply_rule(ctx: dict[str, Any], request: dict[str, Any]) -> dict[str, Any]:
                 "waf_events": events,
                 "rollback": rollback,
             }
-        except Exception:
-            rollback["attempted"] = True
-            restored = client.restore(snapshot)
-            rollback["succeeded"] = bool(restored.get("active"))
-            if not rollback["succeeded"]:
-                raise RuntimeError("rule operation failed and rollback failed")
-            raise
+        except Exception as exc:
+            failure_message = str(exc)
+            if snapshot is not None:
+                rollback["attempted"] = True
+                try:
+                    restored = client.restore(snapshot)
+                    rollback["succeeded"] = bool(restored.get("active"))
+                except Exception:
+                    rollback["succeeded"] = False
+                if not rollback["succeeded"]:
+                    failure_message = "rule operation failed and rollback failed"
+            result = {
+                "verdict": "inconclusive",
+                "rule": applied or {},
+                "rule_id": (applied or {}).get("rule_id"),
+                "proposal_revision": revision,
+                "mode": mode,
+                "before_attack": before,
+                "before_verdict": before.get("verdict"),
+                "after_attack": after,
+                "after_verdict": after.get("verdict"),
+                "benign": benign,
+                "waf_events": events,
+                "rollback": rollback,
+            }
+            raise RuleApplicationError(failure_message, result) from exc
 
 
 def run_job(record: dict[str, Any], request: dict[str, Any]) -> None:
@@ -197,6 +230,8 @@ def run_job(record: dict[str, Any], request: dict[str, Any]) -> None:
         record.update(result)
         record["status"] = "completed"
     except Exception as exc:
+        if isinstance(exc, RuleApplicationError):
+            record.update(exc.result)
         record["status"] = "inconclusive"
         record["verdict"] = "inconclusive"
         record["error"] = f"{type(exc).__name__}: {exc}"
@@ -232,7 +267,7 @@ def submit(request: dict[str, Any]) -> dict[str, Any]:
                 str(request.get("mode", "")).upper(),
             )
         )
-    submission_lock = LOCK if idempotency_key else nullcontext()
+    submission_lock = SUBMISSION_LOCK if idempotency_key else nullcontext()
     with submission_lock:
         if idempotency_key:
             for path in STATE.glob("run-*.json") if STATE.exists() else ():

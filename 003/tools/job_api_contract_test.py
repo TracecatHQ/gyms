@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import sys
 import tempfile
+import threading
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -71,7 +73,9 @@ class JobAPIContractTests(unittest.TestCase):
             patch.object(traffic, "run_benign_suite", return_value={"passed": True}),
             patch.object(waf.WAFClient, "from_env", return_value=client),
         ):
-            with self.assertRaisesRegex(RuntimeError, "post-change"):
+            with self.assertRaisesRegex(
+                job_api.RuleApplicationError, "post-change"
+            ) as raised:
                 job_api.apply_rule(
                     {},
                     {
@@ -81,6 +85,83 @@ class JobAPIContractTests(unittest.TestCase):
                 )
 
         self.assertTrue(client.restored)
+        self.assertEqual(
+            raised.exception.result["rollback"],
+            {"attempted": True, "succeeded": True},
+        )
+        self.assertEqual(raised.exception.result["benign"], {"passed": True})
+
+    def test_failed_rule_job_persists_rollback_result(self) -> None:
+        failure = job_api.RuleApplicationError(
+            "post-change checks failed",
+            {
+                "rollback": {"attempted": True, "succeeded": True},
+                "benign": {"passed": False},
+                "waf_events": [],
+            },
+        )
+        record = {
+            "run_id": "run-deadbeef",
+            "kind": "apply_rule",
+            "scenario": "supplier-intake",
+            "status": "queued",
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            with (
+                patch.object(job_api, "STATE", Path(directory) / "jobs"),
+                patch.object(job_api, "_dispatch", side_effect=failure),
+                patch("gym_plugin.evidence_store.upload_job", return_value=[]),
+            ):
+                job_api.run_job(record, {})
+                persisted = job_api.read_record("run-deadbeef")
+
+        self.assertEqual(persisted["status"], "inconclusive")
+        self.assertEqual(
+            persisted["rollback"], {"attempted": True, "succeeded": True}
+        )
+
+    def test_duplicate_submission_does_not_wait_for_running_rule(self) -> None:
+        request = {
+            "kind": "apply_rule",
+            "scenario": "supplier-intake",
+            "case_id": "case-1",
+            "proposal_revision": 1,
+            "mode": "BLOCK",
+        }
+        idempotency_key = "supplier-intake|case-1|1|BLOCK"
+        lock_held = threading.Event()
+        release_lock = threading.Event()
+
+        def hold_execution_lock() -> None:
+            with job_api.LOCK:
+                lock_held.set()
+                release_lock.wait(timeout=2)
+
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            with patch.object(job_api, "STATE", state):
+                job_api.write_record(
+                    {
+                        "run_id": "run-deadbeef",
+                        "kind": "apply_rule",
+                        "scenario": "supplier-intake",
+                        "case_id": "case-1",
+                        "status": "running",
+                        "idempotency_key": idempotency_key,
+                    }
+                )
+                holder = threading.Thread(target=hold_execution_lock)
+                holder.start()
+                self.assertTrue(lock_held.wait(timeout=1))
+                started = time.monotonic()
+                try:
+                    result = job_api.submit(request)
+                finally:
+                    release_lock.set()
+                    holder.join(timeout=2)
+
+        self.assertLess(time.monotonic() - started, 0.5)
+        self.assertEqual(result["run_id"], "run-deadbeef")
 
     def test_idempotent_existing_block_can_be_rechecked(self) -> None:
         client = FakeWAF(idempotent=True)

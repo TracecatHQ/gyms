@@ -27,6 +27,8 @@ class WorkflowAPI:
         self.rows = []
         self.definitions = {}
         self.deletions = []
+        self.patches = []
+        self.commits = []
         self.ignore_delete = ignore_delete
         for spec in workflows.WORKFLOW_SPECS:
             doc = workflows.load_definition(spec)
@@ -56,6 +58,17 @@ class WorkflowAPI:
             if not self.ignore_delete:
                 self.rows = [row for row in self.rows if row["id"] != tail]
             return None
+        if method == "PATCH":
+            row = next(row for row in self.rows if row["id"] == tail)
+            row.update(kwargs["body"])
+            self.patches.append((tail, copy.deepcopy(kwargs["body"])))
+            return None
+        if method == "POST" and tail.endswith("/commit"):
+            workflow_id = tail.removesuffix("/commit")
+            row = next(row for row in self.rows if row["id"] == workflow_id)
+            row["version"] = int(row.get("version") or 0) + 1
+            self.commits.append(workflow_id)
+            return {"status": "success"}
         raise AssertionError(f"unexpected mutation: {method} {url}")
 
 
@@ -98,6 +111,58 @@ class WorkflowContractTests(unittest.TestCase):
             self.assertEqual(len(workflows.verify_workflows(None, "workspace", api.request)), 3)
         self.assertEqual(api.deletions, [workflows.RETIRED_INVESTIGATION_ID])
 
+    def test_only_verification_has_an_agent_callable_alias(self):
+        self.assertEqual(
+            [spec.alias for spec in workflows.WORKFLOW_SPECS if spec.alias],
+            ["gym-003-verification"],
+        )
+
+    def test_reconcile_clears_obsolete_agent_aliases_and_republishes_once(self):
+        api = WorkflowAPI()
+        aliasless = [spec for spec in workflows.WORKFLOW_SPECS if spec.alias is None]
+        for spec in aliasless:
+            row = next(
+                row
+                for row in api.rows
+                if row["id"] == workflows.load_definition(spec)["workflow_id"]
+            )
+            row["alias"] = spec.key
+
+        workflows.reconcile_workflows(None, "workspace", api.request)
+        self.assertEqual(
+            api.commits,
+            [workflows.load_definition(spec)["workflow_id"] for spec in aliasless],
+        )
+        self.assertTrue(
+            all(
+                row["alias"] is None
+                for row in api.rows
+                if row["id"] in api.commits
+            )
+        )
+
+        workflows.reconcile_workflows(None, "workspace", api.request)
+        self.assertEqual(len(api.commits), len(aliasless))
+
+    def test_stale_alias_clone_is_rejected(self):
+        rule_spec = next(
+            spec
+            for spec in workflows.WORKFLOW_SPECS
+            if spec.key == "gym-003-rule-application"
+        )
+        clone = {
+            "id": "00000000-0000-4000-8000-000000000399",
+            "title": "Unrelated workflow",
+            "alias": rule_spec.key,
+            "version": 1,
+            "status": "online",
+        }
+        api = WorkflowAPI([clone])
+        with self.assertRaisesRegex(workflows.WorkflowError, "multiple workflows"):
+            workflows.reconcile_workflows(None, "workspace", api.request)
+        with self.assertRaisesRegex(workflows.WorkflowError, "agent-callable alias"):
+            workflows.verify_workflows(None, "workspace", api.request)
+
     def test_verification_comment_records_top_level_benign_transactions(self):
         spec = next(
             item for item in workflows.WORKFLOW_SPECS if item.filename == "verification.json"
@@ -114,6 +179,18 @@ class WorkflowContractTests(unittest.TestCase):
             "wait_for_benign_verification.result.data.benign",
             comment,
         )
+
+    def test_firewall_workflow_requires_explicit_decision_inputs(self):
+        spec = next(
+            item
+            for item in workflows.WORKFLOW_SPECS
+            if item.filename == "rule-application.json"
+        )
+        expects = workflows.load_definition(spec)["definition"]["entrypoint"][
+            "expects"
+        ]
+        for field in ("case_id", "scenario", "proposal_revision", "mode"):
+            self.assertNotIn("default", expects[field])
 
     def test_stable_id_handles_renamed_wrapper(self):
         api = WorkflowAPI([retired(alias=None, title="Old wrapper")])

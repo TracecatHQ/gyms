@@ -1,8 +1,9 @@
 """Reconcile Gym 003's managed Tracecat workflows.
 
-The checked-in JSON files use Tracecat's external workflow definition format.  The
-reconciler imports them with stable UUIDs, assigns stable aliases, publishes them,
-and refuses to silently overwrite a workflow whose graph has drifted.
+The checked-in JSON files use Tracecat's external workflow definition format. The
+reconciler imports them with stable UUIDs, exposes only the verification workflow
+through an agent-callable alias, publishes them, and refuses to silently overwrite
+a workflow whose graph has drifted.
 """
 
 from __future__ import annotations
@@ -49,13 +50,14 @@ def _canonical_workflow_id(value: Any) -> str | None:
 @dataclass(frozen=True)
 class WorkflowSpec:
     filename: str
-    alias: str
+    key: str
+    alias: str | None
 
 
 WORKFLOW_SPECS = (
-    WorkflowSpec("verification.json", "gym-003-verification"),
-    WorkflowSpec("scan.json", "gym-003-scan"),
-    WorkflowSpec("rule-application.json", "gym-003-rule-application"),
+    WorkflowSpec("verification.json", "gym-003-verification", "gym-003-verification"),
+    WorkflowSpec("scan.json", "gym-003-scan", None),
+    WorkflowSpec("rule-application.json", "gym-003-rule-application", None),
 )
 
 # Keep the retired identity here after removing its import fixture. A title alone
@@ -163,23 +165,23 @@ def _replace_known_legacy_workflow(
     legacy = load_legacy_definition(spec)
     if not _matches_definition(legacy, remote):
         raise WorkflowError(
-            f"managed workflow {spec.alias} has drifted; refusing to overwrite it"
+            f"managed workflow {spec.key} has drifted; refusing to overwrite it"
         )
     expected_id = str(legacy["workflow_id"])
     workflow_id = str(workflow.get("id", ""))
     if _canonical_workflow_id(workflow_id) != expected_id:
         raise WorkflowError(
-            f"managed workflow {spec.alias} has an unexpected identity; "
+            f"managed workflow {spec.key} has an unexpected identity; "
             "refusing to replace it"
         )
     request(client, "DELETE", f"{base}/{workflow_id}", expected=(204,))
     replacement = _upload(client, workspace_id, spec, load_definition(spec))
     if _canonical_workflow_id(replacement.get("id")) != expected_id:
         raise WorkflowError(
-            f"managed workflow {spec.alias} replacement did not retain its stable ID"
+            f"managed workflow {spec.key} replacement did not retain its stable ID"
         )
     if logger:
-        logger(f"workflow MIGRATED: {spec.alias}")
+        logger(f"workflow MIGRATED: {spec.key}")
     return replacement
 
 
@@ -237,12 +239,12 @@ def _upload(
     if response.status_code != 201:
         detail = response.text.strip().replace("\n", " ")[-600:]
         raise WorkflowError(
-            f"Tracecat workflow import for {spec.alias} returned "
+            f"Tracecat workflow import for {spec.key} returned "
             f"{response.status_code}: {detail}"
         )
     payload = response.json()
     if not isinstance(payload, dict) or not isinstance(payload.get("id"), str):
-        raise WorkflowError(f"Tracecat workflow import for {spec.alias} is malformed")
+        raise WorkflowError(f"Tracecat workflow import for {spec.key} is malformed")
     return payload
 
 
@@ -267,11 +269,11 @@ def reconcile_workflows(
             row
             for row in existing
             if _canonical_workflow_id(row.get("id")) == stable_id
-            or row.get("alias") == spec.alias
+            or row.get("alias") == spec.key
             or row.get("title") == title
         ]
         if len(matches) > 1:
-            raise WorkflowError(f"multiple workflows match managed alias {spec.alias}")
+            raise WorkflowError(f"multiple workflows match managed identity {spec.key}")
         if matches:
             workflow = matches[0]
             remote = request(client, "GET", f"{base}/{workflow['id']}/definition")
@@ -293,8 +295,9 @@ def reconcile_workflows(
             existing.append(workflow)
 
         workflow_id = str(workflow["id"])
-        needs_publish = not workflow.get("version")
-        if workflow.get("alias") != spec.alias or workflow.get("status") != "online":
+        alias_changed = workflow.get("alias") != spec.alias
+        needs_publish = not workflow.get("version") or alias_changed
+        if alias_changed or workflow.get("status") != "online":
             request(
                 client,
                 "PATCH",
@@ -306,7 +309,7 @@ def reconcile_workflows(
             commit = request(client, "POST", f"{base}/{workflow_id}/commit")
             if not isinstance(commit, dict) or commit.get("status") != "success":
                 raise WorkflowError(
-                    f"could not publish managed workflow {spec.alias}: {commit!r}"
+                    f"could not publish managed workflow {spec.key}: {commit!r}"
                 )
         current = request(client, "GET", f"{base}/{workflow_id}")
         if (
@@ -314,10 +317,10 @@ def reconcile_workflows(
             or current.get("alias") != spec.alias
             or current.get("status") != "online"
         ):
-            raise WorkflowError(f"managed workflow {spec.alias} was not activated")
-        managed[spec.alias] = current
+            raise WorkflowError(f"managed workflow {spec.key} was not activated")
+        managed[spec.key] = current
         if logger:
-            logger(f"workflow READY: {spec.alias}")
+            logger(f"workflow READY: {spec.key}")
     return managed
 
 
@@ -335,18 +338,33 @@ def verify_workflows(
     result: dict[str, dict[str, Any]] = {}
     for spec in WORKFLOW_SPECS:
         document = load_definition(spec)
-        matches = [row for row in existing if row.get("alias") == spec.alias]
+        stable_id = str(document["workflow_id"])
+        if spec.alias is None and any(
+            row.get("alias") == spec.key for row in existing
+        ):
+            raise WorkflowError(
+                f"managed workflow {spec.key} still has an agent-callable alias"
+            )
+        matches = [
+            row
+            for row in existing
+            if _canonical_workflow_id(row.get("id")) == stable_id
+        ]
         if len(matches) != 1:
             raise WorkflowError(
-                f"managed workflow {spec.alias} is missing or ambiguous ({len(matches)})"
+                f"managed workflow {spec.key} is missing or ambiguous ({len(matches)})"
             )
         workflow = matches[0]
-        if workflow.get("status") != "online" or not workflow.get("version"):
+        if (
+            workflow.get("status") != "online"
+            or not workflow.get("version")
+            or workflow.get("alias") != spec.alias
+        ):
             raise WorkflowError(
-                f"managed workflow {spec.alias} is not published online"
+                f"managed workflow {spec.key} is not published with its expected alias"
             )
         remote = request(client, "GET", f"{base}/{workflow['id']}/definition")
         if not _matches_definition(document, remote):
-            raise WorkflowError(f"managed workflow {spec.alias} has drifted")
-        result[spec.alias] = workflow
+            raise WorkflowError(f"managed workflow {spec.key} has drifted")
+        result[spec.key] = workflow
     return result

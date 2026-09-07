@@ -1,0 +1,31 @@
+003/benchmark/workflows/rule-application.json
+  s_35bf4dfa751518::t_55d5a529c54641 4-21
+003/README.md
+  s_35bf4dfa751518::t_992e568ffaedcd 3-6,140-142,220,252-253,257-260
+  s_35bf4dfa751518::t_e97a537e895f47 288,290-293
+003/tools/workflow_contract_test.py
+  s_35bf4dfa751518::t_72e71123697794 38,41-61,64-74,81-83,168,183-196
+  s_35bf4dfa751518::t_a8cb279ab0ed62 197
+003/src/gym_plugin/workflows.py
+  s_35bf4dfa751518::t_fec11a3c51c7f1 220-322,444-446,495-498
+003/gym.lock.json
+  s_35bf4dfa751518::t_5edf44a706ecd6 13
+003/benchmark/agent/analyst-prompt.md
+  s_35bf4dfa751518::t_624d1950756e93 9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "47a271a4274ee46a202fed20e1e55baab8d9499a",
+  "prompts": {},
+  "sessions": {
+    "s_35bf4dfa751518": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a07701-2e9b-7ab3-ac7f-cd3ffd9f5422",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Chris Lo <46541035+topher-lo@users.noreply.github.com>"
+    }
+  }
+}

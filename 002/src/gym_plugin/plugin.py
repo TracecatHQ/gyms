@@ -21,6 +21,15 @@ def dispatch(args):
         from .evaluate import main
 
         values = ["--alert-id", args.alert_id] if args.alert_id else []
+        if args.via_workflow:
+            values.append("--via-workflow")
+        return main(values)
+    if args.command == "internal-rescore":
+        from .rescore import main
+
+        values = ["--eval-id", args.eval_id]
+        if args.alert_id:
+            values += ["--alert-id", args.alert_id]
         return main(values)
     if args.command == "internal-reset-evals":
         from .reconcile import reset_managed_evaluations
@@ -61,7 +70,9 @@ def dispatch(args):
             raise ValueError(
                 "Gym 002 evaluates each selected case once; use --alert-id to select one"
             )
-        return host.evaluate(args.alert_id)
+        return host.evaluate(args.alert_id, via_workflow=args.via_workflow)
+    elif args.command == "rescore":
+        return host.rescore(args.eval_id, args.alert_id)
     elif args.command == "logs":
         host.logs(args.service)
     elif args.command == "down":

@@ -1,0 +1,33 @@
+{
+  "name": "entity_observations",
+  "columns": [
+    {
+      "name": "context",
+      "type": "TEXT"
+    },
+    {
+      "name": "embedding",
+      "type": "JSONB"
+    },
+    {
+      "name": "entity_ref",
+      "type": "TEXT"
+    },
+    {
+      "name": "observation_ref",
+      "type": "TEXT"
+    },
+    {
+      "name": "reviewed",
+      "type": "BOOLEAN"
+    },
+    {
+      "name": "reviewed_at",
+      "type": "TIMESTAMPTZ"
+    },
+    {
+      "name": "reviewed_by",
+      "type": "TEXT"
+    }
+  ]
+}

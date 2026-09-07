@@ -11,6 +11,11 @@ from .eval_contracts import CaseContract, REF_RE
 
 
 DUCKDB_TOOL = "core.duckdb.execute_sql"
+# Membership sets rather than ordinals: CasePriority and CaseSeverity do not
+# share a scale, and CasePriority.OTHER is 99 without being "above medium".
+ABOVE_MEDIUM_PRIORITY = frozenset({"high", "critical"})
+ABOVE_MEDIUM_SEVERITY = frozenset({"high", "critical"})
+TERMINAL_STATUSES = frozenset({"resolved", "closed"})
 URLSCAN_TOOLS = {
     "tools.urlscan.search_scans",
     "tools.urlscan.get_result",
@@ -63,6 +68,26 @@ def _tag_names(case: dict[str, Any]) -> list[str]:
     return names
 
 
+def _requires_escalation(canonical_case: dict[str, Any]) -> bool:
+    """Whether the case must be escalated rather than closed.
+
+    Read from the pinned canonical case, not the live one, so a mutated
+    priority or severity cannot change which terminal state is expected.
+    """
+    return (
+        str(canonical_case.get("priority")) in ABOVE_MEDIUM_PRIORITY
+        or str(canonical_case.get("severity")) in ABOVE_MEDIUM_SEVERITY
+    )
+
+
+def _assignee_email(case: dict[str, Any]) -> str | None:
+    assignee = case.get("assignee")
+    if not isinstance(assignee, dict):
+        return None
+    email = assignee.get("email")
+    return str(email) if email else None
+
+
 def _case_text(snapshot: dict[str, Any]) -> str:
     case = snapshot["case"]
     chunks = [str(case.get("description") or "")]
@@ -78,6 +103,8 @@ def deterministic_determinations(
     contract: CaseContract,
     calls: list[dict[str, Any]],
     after: dict[str, Any],
+    *,
+    escalation_assignee: str,
 ) -> tuple[dict[str, str], dict[str, Any]]:
     exact_url = contract["canonical_case"]["payload"]["event_object_url"]
     all_duck_calls = [call for call in calls if call.get("tool_name") == DUCKDB_TOOL]
@@ -119,7 +146,19 @@ def deterministic_determinations(
     incident_tags = [tag for tag in tags if tag.startswith("incident:")]
     expected_verdict = "verdict:" + contract["expected_determination"].replace("_", "-")
     expected_incident = "incident:" + contract["expected_incident_relevance"]
-    closed = after["case"].get("status") == "closed"
+    status_value = after["case"].get("status")
+    closed = status_value == "closed"
+    escalate = _requires_escalation(contract["canonical_case"])
+    assignee_email = _assignee_email(after["case"])
+    if escalate:
+        # Above-medium cases are escalated for further analysis, so the correct
+        # end state is assigned to the analyst and still open.
+        terminal_state_met = (
+            status_value not in TERMINAL_STATUSES
+            and assignee_email == escalation_assignee
+        )
+    else:
+        terminal_state_met = closed
 
     observations = {
         "exact_object_url": exact_url,
@@ -135,6 +174,15 @@ def deterministic_determinations(
         "verdict_tags": verdict_tags,
         "incident_tags": incident_tags,
         "case_closed": closed,
+        "case_status": status_value,
+        "case_assignee_email": assignee_email,
+        "requires_escalation": escalate,
+        "expected_terminal_state": (
+            f"assigned to {escalation_assignee} and not {sorted(TERMINAL_STATUSES)}"
+            if escalate
+            else "closed"
+        ),
+        "terminal_state_met": terminal_state_met,
     }
     outcomes = {
         "determination": "met" if verdict_tags == [expected_verdict] else "missed",
@@ -145,7 +193,10 @@ def deterministic_determinations(
         if duck_calls and not unexpected_object_urls and not rejected_scope_calls
         else "missed",
         "case_evidence": "met"
-        if closed and cited_refs and len(verdict_tags) == 1 and len(incident_tags) == 1
+        if terminal_state_met
+        and cited_refs
+        and len(verdict_tags) == 1
+        and len(incident_tags) == 1
         else "missed",
     }
     targets = contract["enrichment_targets"]

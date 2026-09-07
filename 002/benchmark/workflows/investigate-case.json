@@ -1,0 +1,1007 @@
+{
+  "alias": "investigate_case",
+  "case_trigger": {
+    "event_types": [
+      "case_created",
+      "case_updated",
+      "case_closed",
+      "case_reopened",
+      "comment_created",
+      "comment_updated",
+      "comment_deleted",
+      "comment_reply_created",
+      "comment_reply_updated",
+      "comment_reply_deleted",
+      "status_changed",
+      "priority_changed",
+      "severity_changed",
+      "fields_changed",
+      "assignee_changed",
+      "payload_changed",
+      "tag_added",
+      "tag_removed",
+      "task_created",
+      "task_deleted",
+      "task_status_changed",
+      "task_priority_changed",
+      "task_workflow_changed",
+      "task_assignee_changed",
+      "dropdown_value_changed"
+    ],
+    "status": "offline",
+    "tag_filters": []
+  },
+  "definition": {
+    "actions": [
+      {
+        "action": "core.cases.link_row",
+        "args": {
+          "case_id": "${{ TRIGGER.case_id }}",
+          "row_id": "${{ ACTIONS.insert_entity_observation.result.id }}",
+          "table_id": "${{ ACTIONS.get_entity_observations_table.result.id }}"
+        },
+        "depends_on": [
+          "insert_entity_observation"
+        ],
+        "description": "",
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "link_observation",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "ai.preset_agent",
+        "args": {
+          "actions": [
+            "core.cases.insert_row"
+          ],
+          "preset": "gym-002-soc-t1-analyst",
+          "user_prompt": "Your investigation is complete.\n\nWrite a concise, reusable note documenting how you completed your investigation, so that any new\nenvironmental information you discovered never has to be rediscovered. Include, where applicable:\n- the exact data queries/searches that you utilized, e.g. Splunk search(es), SQL queries, etc\n- the locations of the data you queried, e.g. Splunk index(es)/sourcetype(s), S3 buckets, etc\n- key fields and how records were correlated\n- information about how to use or call your available tools\n- durable facts about this environment (entities, IDs, relationships)\n\nDo not repeat information from your instructions, from the memory context, or the entity context,\nin the memory you save; only produce memories based on the work you performed during the\ninvestigation. If you there is nothing meaningful to save, skip running the tool rather than saving\na memory saying there's nothing to save.\n\nKeep it to a few tight bullet points. Store it so later investigations can reference it by calling\n`core.cases.insert_row` (or its MCP equivalent) and writing to the `memories` table:\n\n```\ncase_id: ${{ TRIGGER.case_id }}\ntable_id: ${{ ACTIONS.get_memories_table.result.id }}\nrow:\n  memory_ref: ${{ ACTIONS.format_memory_ref.result }}\n  summary: <short title of your note>\n  content: <the note text>\n```\n\n# Previous memories\n\nThis is the list of existing memories for this case, if any exist. Do not repeat information from previous memories.\n\n${{ FN.to_markdown_list(ACTIONS.get_previous_memories.result) if FN.is_not_empty(ACTIONS.get_previous_memories.result) else \"N/A\" }}"
+        },
+        "depends_on": [
+          "format_memory_ref",
+          "get_previous_memories"
+        ],
+        "description": "",
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "save_memory",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 1800
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "core.table.update_row",
+        "args": {
+          "row_data": {
+            "embedding": "${{ ACTIONS.embed_memory.result.data.data[0].embedding }}"
+          },
+          "row_id": "${{ ACTIONS.get_new_memory.result.id }}",
+          "table": "memories"
+        },
+        "depends_on": [
+          "embed_memory"
+        ],
+        "description": "",
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "save_memory_embedding",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "core.transform.reshape",
+        "args": {
+          "value": "${{ ACTIONS.create_agent_session.result.data.id if FN.is_null(TRIGGER.session_id) else TRIGGER.session_id }}"
+        },
+        "depends_on": [
+          "create_agent_session",
+          "trigger_has_session_id"
+        ],
+        "description": "",
+        "join_strategy": "any",
+        "mask_output": false,
+        "ref": "coalesce_session_id",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "core.http_request",
+        "args": {
+          "headers": {
+            "Authorization": "Bearer ${{ SECRETS.openrouter.OPENROUTER_API_KEY }}"
+          },
+          "method": "POST",
+          "payload": {
+            "dimensions": 1024,
+            "input": "${{ ACTIONS.scatter_entities.result.entity_type }} ${{ ACTIONS.scatter_entities.result.entity_text }} ${{ ACTIONS.scatter_entities.result.context }}",
+            "model": "voyageai/voyage-4-lite"
+          },
+          "url": "https://openrouter.ai/api/v1/embeddings"
+        },
+        "depends_on": [
+          "scatter_entities"
+        ],
+        "description": "",
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "embed_entity_observation",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "core.table.get_table_metadata",
+        "args": {
+          "name": "entity_observations"
+        },
+        "depends_on": [
+          "get_entities_table"
+        ],
+        "description": "",
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "get_entity_observations_table",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "core.script.run_python",
+        "args": {
+          "script": "from tracecat_registry.context import get_context\n\ndef main():\n    ctx = get_context()\n    return {\n        \"workspace_id\": ctx.workspace_id,\n        \"workflow_id\": ctx.workflow_id,\n        \"run_id\": ctx.run_id,\n        \"wf_exec_id\": ctx.wf_exec_id,\n        \"environment\": ctx.environment,\n        \"api_url\": ctx.api_url,\n        \"executor_url\": ctx.executor_url,\n        \"token\": ctx.token,\n    }"
+        },
+        "depends_on": [
+          "trigger_has_session_id.error"
+        ],
+        "description": "",
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "get_workflow_context",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "core.table.get_table_metadata",
+        "args": {
+          "name": "entities"
+        },
+        "depends_on": [
+          "extract_entities"
+        ],
+        "description": "",
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "get_entities_table",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "core.table.lookup",
+        "args": {
+          "column": "memory_ref",
+          "table": "memories",
+          "value": "${{ ACTIONS.format_memory_ref.result }}"
+        },
+        "depends_on": [
+          "save_memory"
+        ],
+        "description": "",
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "get_new_memory",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "core.script.run_python",
+        "args": {
+          "inputs": {
+            "linked_case_rows": "${{ ACTIONS.get_linked_case_rows.result }}"
+          },
+          "script": "def main(linked_case_rows):\n  return [row[\"row_data\"][\"entity_ref\"] for row in linked_case_rows if row[\"table_name\"] == \"entities\"]"
+        },
+        "depends_on": [
+          "get_linked_case_rows"
+        ],
+        "description": "",
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "get_linked_entities",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "core.script.run_python",
+        "args": {
+          "inputs": {
+            "embedding_column": "embedding",
+            "limit": 10,
+            "raw_query_vector": "${{ ACTIONS.embed_query.result.data.data[0].embedding }}",
+            "rows": "${{ ACTIONS.list_memories.result }}"
+          },
+          "script": "import numpy as np\n\ndef _normalize(matrix: \"np.ndarray\", **kwargs) -> \"np.ndarray\":\n    norms = np.linalg.norm(matrix, **kwargs)\n    return matrix / np.clip(norms, 1e-12, None)\n\ndef main(\n    raw_query_vector: \"list[float]\",\n    rows: \"Iterable[dict[str, Any]]\",\n    embedding_column: \"str\",\n    limit: \"int\",\n    min_score: \"float | None\" = None,\n):\n    if not rows:\n        return []\n    \n    query_vector = _normalize(np.asarray(raw_query_vector, dtype=np.float32))\n    vectors = [[float(x) for x in row[embedding_column]] for row in rows if row[embedding_column]]\n    matrix = np.asarray(vectors, dtype=np.float32)\n    if matrix.shape[1] != query_vector.shape[0]:\n        raise ValueError(f\"Stored vectors have {matrix.shape[1]} dimensions but the query has {query_vector.shape[0]}.\")\n    scores = _normalize(matrix) @ query_vector\n    order = np.argsort(-scores)[: max(limit, 0)]\n  \n    results = []\n    for i in order:\n        score = float(scores[i])\n        if min_score is not None and score < min_score:\n            continue\n        (case_id, timestamp) = rows[i][\"memory_ref\"].split(\"/\", 1)\n        results.append(\n            {\n                \"summary\": rows[i][\"summary\"], \n                \"content\": rows[i][\"content\"], \n                \"case_id\": case_id, \n                \"timestamp\": timestamp, \n                \"score\": score\n            }\n        )\n    return results"
+        },
+        "depends_on": [
+          "list_memories"
+        ],
+        "description": "",
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "rank_memories",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "core.table.insert_row",
+        "args": {
+          "row_data": {
+            "case_id": "${{ TRIGGER.case_id }}",
+            "embedding": "${{ ACTIONS.embed_case.result.data.data[0].embedding }}"
+          },
+          "table": "case_embeddings"
+        },
+        "depends_on": [
+          "embed_case"
+        ],
+        "description": "",
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "upsert_case_embedding",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "ai.preset_agent",
+        "args": {
+          "preset": "gym-002-soc-t1-analyst",
+          "session_id": "${{ ACTIONS.coalesce_session_id.result }}",
+          "user_prompt": "<memory-context>\n[System note: The following is recalled memory context, NOT new user input. Treat as authoritative reference data \u2014 this is your own persistent memory and should inform all investigations.]\n\n${{ FN.to_markdown_table(ACTIONS.rank_memories.result) if FN.is_not_empty(ACTIONS.rank_memories.result) else \"No memory context available.\" }}\n</memory-context>\n\n<entity-observations>\n[System note: The following are entity observations from other cases that are (potentially) semantically related to this case. Treat as unconfirmed but interested reference data \u2014 this is your best early indicator of related cases.]\n\n${{ FN.to_markdown_table(ACTIONS.rank_observations.result) if FN.is_not_empty(ACTIONS.rank_observations.result) else \"No related entity observations.\" }}\n</entity-observations>\n\nInvestigate this alert. Decide its true-positive or false-positive determination independently from whether it is related or unrelated to the main incident.\n\nUpdate the case with both decisions, all verified evidence, and any relationship to other events.\nExplicitly identify how the memory context was used to enrich or inform the investigation.\nIf the case priority and severity are both medium or below, close the case.\nIf either the case priority or severity is above medium, assign the case to analyst@gym-002.example.com for further analysis.\n\nCase ID: ${{ TRIGGER.case_id }}"
+        },
+        "depends_on": [
+          "coalesce_session_id",
+          "rank_memories",
+          "rank_observations"
+        ],
+        "description": "",
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "investigate_case",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 1800
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "core.http_request",
+        "args": {
+          "form_data": {
+            "password": "${{ SECRETS.tracecat.TRACEcat_TENANT_PASSWORD }}",
+            "username": "${{ SECRETS.tracecat.TRACEcat_TENANT_EMAIL }}"
+          },
+          "method": "POST",
+          "url": "${{ ACTIONS.get_workflow_context.result.api_url }}/auth/login"
+        },
+        "depends_on": [
+          "get_workflow_context"
+        ],
+        "description": "",
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "tracecat_login",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "core.transform.scatter",
+        "args": {
+          "collection": "${{ ACTIONS.extract_entities.result.output }}"
+        },
+        "depends_on": [
+          "get_entity_observations_table"
+        ],
+        "description": "",
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "scatter_entities",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "core.transform.filter",
+        "args": {
+          "items": "${{ ACTIONS.search_entity_observations.result }}",
+          "python_lambda": "lambda row: row[\"observation_ref\"].split(\"/\")[0] != \"${{ TRIGGER.case_id }}\" and (row[\"reviewed\"] or True)"
+        },
+        "depends_on": [
+          "search_entity_observations"
+        ],
+        "description": "",
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "filter_reviewed_observations",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "core.transform.reshape",
+        "args": {
+          "value": "${{ TRIGGER.case_id }}/${{ FN.to_isoformat(FN.now()) }}"
+        },
+        "depends_on": [
+          "get_memories_table"
+        ],
+        "description": "",
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "format_memory_ref",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "core.cases.link_row",
+        "args": {
+          "case_id": "${{ TRIGGER.case_id }}",
+          "row_id": "${{ ACTIONS.insert_entity.result.id }}",
+          "table_id": "${{ ACTIONS.get_entities_table.result.id }}"
+        },
+        "depends_on": [
+          "insert_entity"
+        ],
+        "description": "",
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "link_entity",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "core.table.insert_row",
+        "args": {
+          "row_data": {
+            "entity_name": "${{ ACTIONS.scatter_entities.result.entity_name }}",
+            "entity_ref": "${{ ACTIONS.scatter_entities.result.entity_type }}/${{ ACTIONS.scatter_entities.result.entity_name }}",
+            "entity_type": "${{ ACTIONS.scatter_entities.result.entity_type }}"
+          },
+          "table": "entities",
+          "upsert": true
+        },
+        "depends_on": [
+          "scatter_entities"
+        ],
+        "description": "",
+        "for_each": [],
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "insert_entity",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "core.cases.get_linked_case_rows",
+        "args": {
+          "case_id": "${{ TRIGGER.case_id }}"
+        },
+        "depends_on": [
+          "investigate_case"
+        ],
+        "description": "",
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "get_linked_case_rows",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "core.table.get_table_metadata",
+        "args": {
+          "name": "memories"
+        },
+        "depends_on": [
+          "get_linked_case_rows"
+        ],
+        "description": "",
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "get_memories_table",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "core.script.run_python",
+        "args": {
+          "inputs": {
+            "linked_case_rows": "${{ ACTIONS.get_linked_case_rows.result }}"
+          },
+          "script": "import json\n\ndef main(linked_case_rows):\n  memories = []\n  for row in linked_case_rows:\n    if row[\"table_name\"] != \"memories\":\n      continue\n    memories.append(json.dumps({\n      \"summary\": row[\"row_data\"][\"summary\"],\n      \"content\": row[\"row_data\"][\"content\"],\n    }))\n  return memories"
+        },
+        "depends_on": [
+          "get_linked_case_rows"
+        ],
+        "description": "",
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "get_previous_memories",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "ai.preset_agent",
+        "args": {
+          "instructions": "# Task description\n\nBelow you'll find unstructured text (e.g. log data, incident report, or security note) with cybersecurity-relevant entities mentioned. Please carefully review it and extract the entities, including their type and any related context. Do not record entities of types other than those below.\n\nThere is no alert to investigate in this session, it is purely a memory update session. Do not think or reason, just return the entities.\n\n# Schema definition\n\nYour output should contain:\n    \"entity_name\" which is the entity exactly as it appears in the text,\n    \"entity_type\" which is the entity type label, chosen from the list below,\n    \"context\" which is a brief note on the role or activity associated with the entity (e.g. \"failed login source\", \"destination host\", \"flagged process\")\n\n## Entity type enum\n\n- **Hostname** Unique name assigned to a device connected to a computer network. It may be a fully qualified domain name (FQDN). For example: `r2-d2.example.com.`, `mx.example.com`\n- **IP Address** Internet Protocol address (IP address), in either IPv4 or IPv6 format. For example: `192.168.200.24`, `2001:0db8:85a3:0000:0000:8a2e:0370:7334`\n- **MAC Address** Media Access Control (MAC) address. For example: `18:36:F3:98:4F:9A`\n- **User Name** User name. For example: `john_doe`\n- **Email Address** Email address. For example: `john_doe@example.com`\n- **URL String** Uniform Resource Locator (URL) string. For example: `http://www.example.com/download/trouble.exe`\n- **File Name** File name. For example: `text-file.txt`\n- **Hash** A value, in any format, that maps an arbitrarily large data item to a much shorter string that uniquely identifies the original data. Include the algorithm in the context\n- **Process Name** Process name. For example: `Notepad`.\n- **Resource UID** Resource unique identifier. For example, S3 Bucket name or EC2 Instance ID.\n- **Port** The TCP/UDP port number. For example: `80`, `22`.\n- **Subnet** The subnet represented in a CIDR notation, using the format network_address/prefix_length. The network_address can be in either IPv4 or IPv6 format. The prefix length indicates the number of bits used for the network portion, and the remaining bits are available for host addresses within that subnet. For example: `192.168.1.0/24`, `2001:0db8:85a3:0000::/64`\n- **Command Line** The full command line used to launch an application, service, process, or job. For example: `ssh user@10.0.0.10`.\n- **Country** The ISO 3166-1 Alpha-2 country code. Note: The two letter country code should be capitalized. For example: US or CA.\n- **Process ID** The process identifier, as reported by the operating system. Process ID (PID) is a number used by the operating system to uniquely identify an active process.\n- **HTTP User-Agent** The request header that identifies the operating system and web browser.\n- **CWE ID** Common Weakness Enumeration unique number assigned to a specific weakness. A CWE Identifier begins \"CWE\" followed by a sequence of digits that acts as a unique identifier. For example: `CWE-123`.\n- **CVE ID** Common Vulnerabilities and Exposures unique number assigned to a specific computer vulnerability. A CVE Identifier begins with 4 digits representing the year followed by a sequence of digits that acts as a unique identifier. For example: `CVE-2021-12345`.\n- **Geo Location** A geographical location, usually associated with an IP address.\n- **Container** The Container object describes an instance of a specific container. A container is a prepackaged, portable system image that runs isolated on an existing system using a container runtime like containerd.\n- **Registry Key** The registry key object describes a Windows registry key.\n- **Registry Value** The registry value object describes a Windows registry value.\n- **Group** Group name. For example: `Administrators`.\n- **Account GUID** Account GUID. For example: `A2C04331-A260-4980-B40C-67A1758AF3EE`.\n- **Script Content** The script content, normalized to UTF-8 encoding irrespective of its original encoding. When emitting this attribute, it may be appropriate to truncate large scripts.\n- **Message UID** The email header Message-ID value, as defined by RFC 5322.\n- **File Path** The full path to the file. For example: For example: `c:\\windows\\system32\\svchost.exe`.\n- **Registry Key Path** Full path of registry key.\n\n# Output format definition\n\nYour output should follow JSON format, for example:\n[\n    {\"entity_name\": \"<entity name>\", \"entity_type\": \"<entity type>\", \"context\": \"<optional role hint>\"},\n    {\"entity_name\": \"<entity name>\", \"entity_type\": \"<entity type>\", \"context\": \"<optional role hint>\"}\n]\n\n# Additional hints\n\n- Your output should be 100% based on the provided content. DO NOT output fake information.\n- Preserve the exact casing and formatting of the entity name as it appears in the text (do not normalize IPs, hostnames, etc.).\n- If the same value appears multiple times in different roles, list each occurrence separately with its own \"context\".\n- If an entity does not have a clear entity_type, do not return it; a mistyped entity is worse than a nonexistent one.",
+          "preset": "gym-002-soc-t1-analyst",
+          "user_prompt": "### Previously extracted entities\n\nThis is a list of entities that have already been extracted from the case. Do not return any of these entities in your output.\n\n${{ FN.to_markdown_list(ACTIONS.get_linked_entities.result) if FN.is_not_empty(ACTIONS.get_linked_entities.result) else \"N/A\" }}\n\nIf there are no other entities besides these, return an empty JSON array.\n\n### Context\n\nThe text below is the unstructured input:\n\n---\n\n${{ ACTIONS.format_updated_case.result }}"
+        },
+        "depends_on": [
+          "format_updated_case",
+          "get_linked_entities"
+        ],
+        "description": "",
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "extract_entities",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 1800
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "core.table.search_rows",
+        "args": {
+          "table": "memories"
+        },
+        "depends_on": [
+          "embed_query"
+        ],
+        "description": "",
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "list_memories",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "core.table.insert_row",
+        "args": {
+          "row_data": {
+            "context": "${{ ACTIONS.scatter_entities.result.context }}",
+            "embedding": "${{ ACTIONS.embed_entity_observation.result.data.data[0].embedding }}",
+            "entity_ref": "${{ ACTIONS.insert_entity.result.id }}",
+            "observation_ref": "${{ TRIGGER.case_id }}/${{ ACTIONS.scatter_entities.result.entity_type }}/${{ ACTIONS.scatter_entities.result.entity_name }}/${{ ACTIONS.scatter_entities.result.context }}",
+            "reviewed": false
+          },
+          "table": "${{ ACTIONS.get_entity_observations_table.result.name }}",
+          "upsert": true
+        },
+        "depends_on": [
+          "embed_entity_observation",
+          "insert_entity"
+        ],
+        "description": "",
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "insert_entity_observation",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "core.http_request",
+        "args": {
+          "headers": {
+            "Authorization": "Bearer ${{ SECRETS.openrouter.OPENROUTER_API_KEY }}"
+          },
+          "method": "POST",
+          "payload": {
+            "dimensions": 1024,
+            "input": "${{ ACTIONS.get_new_memory.result.summary }} ${{ ACTIONS.get_new_memory.result.content }}",
+            "model": "voyageai/voyage-4-lite"
+          },
+          "url": "https://openrouter.ai/api/v1/embeddings"
+        },
+        "depends_on": [
+          "get_new_memory"
+        ],
+        "description": "",
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "embed_memory",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "run_if": "${{ FN.is_not_null(ACTIONS.get_new_memory.result) }}",
+        "start_delay": 0.0
+      },
+      {
+        "action": "core.http_request",
+        "args": {
+          "headers": {
+            "Authorization": "Bearer ${{ SECRETS.openrouter.OPENROUTER_API_KEY }}"
+          },
+          "method": "POST",
+          "payload": {
+            "dimensions": 1024,
+            "input": "Investigate ${{ TRIGGER.case_id }}\n\n<case>\n<summary>\n${{ ACTIONS.format_case.result.case.summary }}\n</summary>\n<description>\n${{ ACTIONS.format_case.result.case.description }}\n</description>\n<payload>\n${{ FN.serialize_json(ACTIONS.format_case.result.case.payload) }}\n</payload>\n</case>",
+            "model": "voyageai/voyage-4-lite"
+          },
+          "url": "https://openrouter.ai/api/v1/embeddings"
+        },
+        "depends_on": [
+          "format_case"
+        ],
+        "description": "",
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "embed_query",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "core.table.search_rows",
+        "args": {
+          "table": "entity_observations"
+        },
+        "depends_on": [
+          "embed_query"
+        ],
+        "description": "",
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "search_entity_observations",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "core.require",
+        "args": {
+          "conditions": "${{ FN.is_not_null(TRIGGER.session_id) }}"
+        },
+        "depends_on": [],
+        "description": "",
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "trigger_has_session_id",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "core.http_request",
+        "args": {
+          "headers": {
+            "Authorization": "Bearer ${{ SECRETS.openrouter.OPENROUTER_API_KEY }}"
+          },
+          "method": "POST",
+          "payload": {
+            "dimensions": 1024,
+            "input": "${{ ACTIONS.format_updated_case.result.content }}",
+            "model": "voyageai/voyage-4-lite"
+          },
+          "url": "https://openrouter.ai/api/v1/embeddings"
+        },
+        "depends_on": [
+          "format_updated_case"
+        ],
+        "description": "",
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "embed_case",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "core.http_request",
+        "args": {
+          "headers": {
+            "Cookie": "${{ ACTIONS.pin_auth_cookie.result.name }}=${{ ACTIONS.pin_auth_cookie.result.value }}"
+          },
+          "method": "POST",
+          "payload": {
+            "agent_preset_id": "f10b023e-d9ed-4612-9953-6ec7bf6b6e15",
+            "entity_id": "${{ TRIGGER.case_id }}",
+            "entity_type": "case"
+          },
+          "url": "${{ ACTIONS.get_workflow_context.result.api_url }}/workspaces/${{ ACTIONS.get_workflow_context.result.workspace_id }}/agent/sessions"
+        },
+        "depends_on": [
+          "pin_auth_cookie"
+        ],
+        "description": "",
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "create_agent_session",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "core.workflow.execute",
+        "args": {
+          "trigger_inputs": {
+            "case_id": "${{ TRIGGER.case_id }}"
+          },
+          "wait_strategy": "wait",
+          "workflow_alias": "format_case_as_markdown"
+        },
+        "depends_on": [
+          "investigate_case"
+        ],
+        "description": "",
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "format_updated_case",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "core.script.run_python",
+        "args": {
+          "inputs": {
+            "embedding_column": "embedding",
+            "limit": 10,
+            "raw_query_vector": "${{ ACTIONS.embed_query.result.data.data[0].embedding }}",
+            "rows": "${{ ACTIONS.filter_reviewed_observations.result }}"
+          },
+          "script": "import numpy as np\n\ndef _normalize(matrix: \"np.ndarray\", **kwargs) -> \"np.ndarray\":\n    norms = np.linalg.norm(matrix, **kwargs)\n    return matrix / np.clip(norms, 1e-12, None)\n\ndef main(\n    raw_query_vector: \"list[float]\",\n    rows: \"Iterable[dict[str, Any]]\",\n    embedding_column: \"str\",\n    limit: \"int\",\n    min_score: \"float | None\" = None,\n):\n    if not rows:\n        return []\n    \n    query_vector = _normalize(np.asarray(raw_query_vector, dtype=np.float32))\n    vectors = [[float(x) for x in row[embedding_column]] for row in rows]\n    matrix = np.asarray(vectors, dtype=np.float32)\n    if matrix.shape[1] != query_vector.shape[0]:\n        raise ValueError(f\"Stored vectors have {matrix.shape[1]} dimensions but the query has {query_vector.shape[0]}.\")\n    scores = _normalize(matrix, axis=1, keepdims=True) @ query_vector\n    order = np.argsort(-scores)[: max(limit, 0)]\n  \n    results = []\n    for i in order:\n        score = float(scores[i])\n        if min_score is not None and score < min_score:\n            continue\n        (case_id, entity_type, entity_name, _) = rows[i][\"observation_ref\"].split(\"/\", 3)\n        results.append({\n            \"entity_name\": entity_name,\n            \"context\": rows[i][\"context\"],\n            \"entity_type\": entity_type,\n            \"score\": score\n        })\n    return results"
+        },
+        "depends_on": [
+          "filter_reviewed_observations"
+        ],
+        "description": "",
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "rank_observations",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "core.script.run_python",
+        "args": {
+          "inputs": {
+            "cookie_header": "${{ ACTIONS.tracecat_login.result.headers.\"set-cookie\" }}"
+          },
+          "script": "from http.cookies import SimpleCookie\n\ndef main(cookie_header: str):\n  result = {}\n  cookie_jar = SimpleCookie(cookie_header)\n  return {\n    \"name\": \"fastapiusersauth\",\n    \"value\": cookie_jar[\"fastapiusersauth\"].value\n  }"
+        },
+        "depends_on": [
+          "tracecat_login"
+        ],
+        "description": "",
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "pin_auth_cookie",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "core.workflow.execute",
+        "args": {
+          "trigger_inputs": {
+            "case_id": "${{ TRIGGER.case_id }}"
+          },
+          "wait_strategy": "wait",
+          "workflow_alias": "format_case_as_markdown"
+        },
+        "depends_on": [],
+        "description": "",
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "format_case",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "start_delay": 0.0
+      }
+    ],
+    "config": {
+      "environment": "default",
+      "timeout": 0.0
+    },
+    "description": "New workflow created Sep 05, 2026, 20:35:36",
+    "entrypoint": {
+      "expects": {
+        "case_id": {
+          "description": null,
+          "enum": null,
+          "optional": null,
+          "type": "str"
+        },
+        "entities": {
+          "default": null,
+          "description": null,
+          "enum": null,
+          "optional": null,
+          "type": "list[dict[str, str]] | None"
+        },
+        "session_id": {
+          "default": null,
+          "description": null,
+          "enum": null,
+          "optional": null,
+          "type": "str | None"
+        }
+      }
+    },
+    "title": "Investigate Case",
+    "triggers": []
+  },
+  "layout": {
+    "actions": [
+      {
+        "ref": "coalesce_session_id",
+        "x": 1277.5,
+        "y": 2508.0
+      },
+      {
+        "ref": "create_agent_session",
+        "x": 1413.5,
+        "y": 2134.0
+      },
+      {
+        "ref": "embed_case",
+        "x": 1014.5,
+        "y": 4004.0
+      },
+      {
+        "ref": "embed_entity_observation",
+        "x": 1799.25,
+        "y": 5500.0
+      },
+      {
+        "ref": "embed_memory",
+        "x": 498.5,
+        "y": 5126.0
+      },
+      {
+        "ref": "embed_query",
+        "x": 504.0,
+        "y": 1386.0
+      },
+      {
+        "ref": "extract_entities",
+        "x": 1554.0,
+        "y": 4004.0
+      },
+      {
+        "ref": "filter_reviewed_observations",
+        "x": 757.0,
+        "y": 2134.0
+      },
+      {
+        "ref": "format_case",
+        "x": 495.0,
+        "y": 1012.0
+      },
+      {
+        "ref": "format_memory_ref",
+        "x": 2.5,
+        "y": 4004.0
+      },
+      {
+        "ref": "format_updated_case",
+        "x": 1020.0,
+        "y": 3630.0
+      },
+      {
+        "ref": "get_entities_table",
+        "x": 1551.5,
+        "y": 4378.0
+      },
+      {
+        "ref": "get_entity_observations_table",
+        "x": 1551.5,
+        "y": 4752.0
+      },
+      {
+        "ref": "get_linked_case_rows",
+        "x": 492.5,
+        "y": 3256.0
+      },
+      {
+        "ref": "get_linked_entities",
+        "x": 1554.0,
+        "y": 3630.0
+      },
+      {
+        "ref": "get_memories_table",
+        "x": 0.0,
+        "y": 3630.0
+      },
+      {
+        "ref": "get_new_memory",
+        "x": 498.5,
+        "y": 4752.0
+      },
+      {
+        "ref": "get_previous_memories",
+        "x": 508.5,
+        "y": 4004.0
+      },
+      {
+        "ref": "get_workflow_context",
+        "x": 1413.5,
+        "y": 1012.0
+      },
+      {
+        "ref": "insert_entity",
+        "x": 1283.25,
+        "y": 5500.0
+      },
+      {
+        "ref": "insert_entity_observation",
+        "x": 1789.25,
+        "y": 5874.0
+      },
+      {
+        "ref": "investigate_case",
+        "x": 761.5,
+        "y": 2882.0
+      },
+      {
+        "ref": "link_entity",
+        "x": 1273.25,
+        "y": 5874.0
+      },
+      {
+        "ref": "link_observation",
+        "x": 1789.25,
+        "y": 6248.0
+      },
+      {
+        "ref": "list_memories",
+        "x": 251.0,
+        "y": 2134.0
+      },
+      {
+        "ref": "pin_auth_cookie",
+        "x": 1413.5,
+        "y": 1760.0
+      },
+      {
+        "ref": "rank_memories",
+        "x": 251.0,
+        "y": 2508.0
+      },
+      {
+        "ref": "rank_observations",
+        "x": 757.0,
+        "y": 2508.0
+      },
+      {
+        "ref": "save_memory",
+        "x": 498.5,
+        "y": 4378.0
+      },
+      {
+        "ref": "save_memory_embedding",
+        "x": 498.5,
+        "y": 5500.0
+      },
+      {
+        "ref": "scatter_entities",
+        "x": 1554.0,
+        "y": 5126.0
+      },
+      {
+        "ref": "search_entity_observations",
+        "x": 757.0,
+        "y": 1760.0
+      },
+      {
+        "ref": "tracecat_login",
+        "x": 1413.5,
+        "y": 1386.0
+      },
+      {
+        "ref": "trigger_has_session_id",
+        "x": 1277.5,
+        "y": 638.0
+      },
+      {
+        "ref": "upsert_case_embedding",
+        "x": 1014.5,
+        "y": 4378.0
+      }
+    ],
+    "trigger": {
+      "x": 771.5,
+      "y": 0.0
+    },
+    "viewport": {
+      "x": -230.38731812398487,
+      "y": 185.10611493291435,
+      "zoom": 0.7055367871159229
+    }
+  }
+}

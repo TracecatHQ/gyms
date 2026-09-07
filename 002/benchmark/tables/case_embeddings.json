@@ -1,0 +1,13 @@
+{
+  "name": "case_embeddings",
+  "columns": [
+    {
+      "name": "case_id",
+      "type": "TEXT"
+    },
+    {
+      "name": "embedding",
+      "type": "JSONB"
+    }
+  ]
+}

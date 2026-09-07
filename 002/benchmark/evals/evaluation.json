@@ -6,6 +6,9 @@
   "max_attempts": 3,
   "investigation_prompt_file": "../agent/investigation-prompt.md",
   "investigator_preset_slug": "gym-002-soc-t1-analyst",
+  "investigator_workflow": {
+    "alias": "investigate_case"
+  },
   "judge": {
     "model_provider": "openai",
     "model_name": "gpt-5.6-sol",

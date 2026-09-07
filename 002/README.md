@@ -26,6 +26,21 @@ reconciliation reports that no model is configured, configure a provider and
 organization-default model in the UI, then run `just reconcile` and `just
 wait`.
 
+An OpenRouter API key is required. Set `OPENROUTER_API_KEY` in `.env` before
+`just up` or `just reconcile`; reconcile publishes it into the `openrouter`
+workspace secret, which the managed `Investigate Case` workflow resolves for its
+embedding steps. Reconcile fails fast when the key is absent. To use a different
+embeddings provider, change the embedding actions in
+`benchmark/workflows/investigate-case.json` and update the secret name that
+`reconcile.py` publishes.
+
+Reconcile also manages the four case tables in `benchmark/tables/`, the
+`Investigate Case` workflow in `benchmark/workflows/`, and a `tracecat` secret
+holding the tenant analyst login that the workflow uses when a trigger does not
+supply an agent session. Workflow drift is detected by comparing the committed
+definition with the managed file, so edits made in the UI must be exported back
+over `benchmark/workflows/investigate-case.json` before reconcile will pass.
+
 URLscan and VirusTotal remain benchmark requirements for five applicable cases.
 Configure `URLSCAN_API_KEY` and `VIRUSTOTAL_API_KEY` directly in Tracecat when
 available. Missing credentials do not block an investigation; their gates are
@@ -36,6 +51,13 @@ reported as missed.
 ```bash
 # All 20 cases, sequentially
 just eval
+
+# Drive the managed workflow instead of prompting the preset directly
+just workflow-eval
+
+# Re-score a completed evaluation after a scorer change, without re-running
+# investigators; writes a sibling <eval-id>-rescore-<timestamp> directory
+just rescore EVAL_ID=20260907T075632Z-4584b519
 
 # One case
 just eval ALERT_ID=guardduty:c2-contact

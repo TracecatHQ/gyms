@@ -1,0 +1,275 @@
+{
+  "alias": "format_case_as_markdown",
+  "case_trigger": {
+    "event_types": [
+      "case_created",
+      "case_updated",
+      "case_closed",
+      "case_reopened",
+      "comment_created",
+      "comment_updated",
+      "comment_deleted",
+      "comment_reply_created",
+      "comment_reply_updated",
+      "comment_reply_deleted",
+      "status_changed",
+      "priority_changed",
+      "severity_changed",
+      "fields_changed",
+      "assignee_changed",
+      "payload_changed",
+      "tag_added",
+      "tag_removed",
+      "task_created",
+      "task_deleted",
+      "task_status_changed",
+      "task_priority_changed",
+      "task_workflow_changed",
+      "task_assignee_changed",
+      "dropdown_value_changed"
+    ],
+    "status": "offline",
+    "tag_filters": []
+  },
+  "definition": {
+    "actions": [
+      {
+        "action": "core.transform.reshape",
+        "args": {
+          "value": {
+            "display_name": "${{ var.item.definition_name}}",
+            "id": "${{ var.item.definition_ref }}",
+            "value": "${{ var.item.option_label }}"
+          }
+        },
+        "depends_on": [
+          "get_case"
+        ],
+        "description": "",
+        "for_each": [
+          "${{ for var.item in ACTIONS.get_case.result.dropdown_values }}"
+        ],
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "format_dropdowns",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "core.transform.reshape",
+        "args": {
+          "value": {
+            "display_name": "${{ var.item.display_name}}",
+            "id": "${{ var.item.id }}",
+            "value": "${{ var.item.value }}"
+          }
+        },
+        "depends_on": [
+          "get_case"
+        ],
+        "description": "",
+        "for_each": [
+          "${{ for var.item in ACTIONS.get_case.result.fields }}"
+        ],
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "format_custom_fields",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "core.cases.list_tasks",
+        "args": {
+          "case_id": "${{ TRIGGER.case_id }}"
+        },
+        "depends_on": [],
+        "description": "",
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "list_case_tasks",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "core.transform.reshape",
+        "args": {
+          "value": "### Comment by ${{ var.item.user.first_name + \" \" + var.item.user.last_name if FN.and(FN.is_not_null(var.item.first_name), FN.is_not_null(var.item.user.last_name)) else FN.at(FN.split(var.item.user.email, \"@\"), 0) }} at ${{ var.item.created_at }}\n\n${{ var.item.content }}"
+        },
+        "depends_on": [
+          "list_case_comments"
+        ],
+        "description": "",
+        "for_each": [
+          "${{ for var.item in ACTIONS.list_case_comments.result }}"
+        ],
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "format_comments",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "core.transform.reshape",
+        "args": {
+          "value": "[${{ \" \" if var.item.status == \"todo\" else \"X\" }}] ${{ var.item.title }} (${{ (var.item.assignee.first_name + \" \" + var.item.assignee.last_name if FN.and(FN.is_not_null(var.item.first_name), FN.is_not_null(var.item.last_name)) else FN.at(FN.split(var.item.assignee.email, \"@\"), 0)) if FN.is_not_null(var.item.assignee) else \"Unassigned\" }})"
+        },
+        "depends_on": [
+          "list_case_tasks"
+        ],
+        "description": "",
+        "for_each": [
+          "${{ for var.item in ACTIONS.list_case_tasks.result }}"
+        ],
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "format_case_tasks",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "core.transform.reshape",
+        "args": {
+          "value": {
+            "case": "${{ ACTIONS.get_case.result }}",
+            "case_comments": "${{ ACTIONS.list_case_comments.result }}",
+            "case_tasks": "${{ ACTIONS.list_case_tasks.result }}",
+            "content": "# ${{ ACTIONS.get_case.result.summary }}\n\n## Case metadata\n\nAssignee: ${{ (ACTIONS.get_case.result.assignee.first_name + \" \" + ACTIONS.get_case.result.assignee.last_name if FN.and(FN.is_not_null(ACTIONS.get_case.result.assignee.first_name), FN.is_not_null(ACTIONS.get_case.result.assignee.last_name)) else FN.at(FN.split(ACTIONS.get_case.result.assignee.email, \"@\"), 0)) if FN.is_not_null(ACTIONS.get_case.result.assignee) else \"Unassigned\" }}\nCreated: ${{ ACTIONS.get_case.result.created_at }}\nUpdated: ${{ ACTIONS.get_case.result.updated_at }}\nPriority: ${{ ACTIONS.get_case.result.priority }}\nSeverity: ${{ ACTIONS.get_case.result.priority }}\nTags:\n${{ FN.to_markdown_list(ACTIONS.get_case.result.tags) }}\n\n### Custom fields\n\n${{ FN.to_markdown_table(ACTIONS.format_custom_fields.result) }}\n\n### Dropdown fields\n\n${{ FN.to_markdown_table(ACTIONS.format_dropdowns.result) }}\n\n## Case description\n\n${{ ACTIONS.get_case.result.description }}\n\n## Case payload\n\n```\n${{ FN.serialize_json(ACTIONS.get_case.result.payload) }}\n```\n\n## Case comments\n\n${{ FN.join(ACTIONS.format_comments.result, \"\\n\\n\") if FN.is_not_empty(ACTIONS.list_case_comments.result) else \"No comments\" }}"
+          }
+        },
+        "depends_on": [
+          "format_case_tasks",
+          "format_comments",
+          "format_custom_fields",
+          "format_dropdowns"
+        ],
+        "description": "",
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "format_case",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "core.cases.get_case",
+        "args": {
+          "case_id": "${{ TRIGGER.case_id }}"
+        },
+        "depends_on": [],
+        "description": "",
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "get_case",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "start_delay": 0.0
+      },
+      {
+        "action": "core.cases.list_comments",
+        "args": {
+          "case_id": "${{ TRIGGER.case_id }}"
+        },
+        "depends_on": [],
+        "description": "",
+        "join_strategy": "all",
+        "mask_output": false,
+        "ref": "list_case_comments",
+        "retry_policy": {
+          "max_attempts": 1,
+          "timeout": 300
+        },
+        "start_delay": 0.0
+      }
+    ],
+    "config": {
+      "environment": "default",
+      "timeout": 0.0
+    },
+    "description": "New workflow created Sep 05, 2026, 20:35:36",
+    "entrypoint": {
+      "expects": {
+        "case_id": {
+          "description": null,
+          "enum": null,
+          "optional": null,
+          "type": "str"
+        }
+      }
+    },
+    "returns": "${{ ACTIONS.format_case.result }}",
+    "title": "Format Case as Markdown",
+    "triggers": []
+  },
+  "layout": {
+    "actions": [
+      {
+        "ref": "format_case",
+        "x": 1265.0,
+        "y": 2134.0
+      },
+      {
+        "ref": "format_case_tasks",
+        "x": 1012.0,
+        "y": 1760.0
+      },
+      {
+        "ref": "format_comments",
+        "x": 2024.0,
+        "y": 1760.0
+      },
+      {
+        "ref": "format_custom_fields",
+        "x": 506.0,
+        "y": 1760.0
+      },
+      {
+        "ref": "format_dropdowns",
+        "x": 0.0,
+        "y": 1760.0
+      },
+      {
+        "ref": "get_case",
+        "x": 253.0,
+        "y": 1386.0
+      },
+      {
+        "ref": "list_case_comments",
+        "x": 2024.0,
+        "y": 1386.0
+      },
+      {
+        "ref": "list_case_tasks",
+        "x": 1012.0,
+        "y": 1386.0
+      }
+    ],
+    "trigger": {
+      "x": 1518.0,
+      "y": 0.0
+    },
+    "viewport": {
+      "x": -725.0,
+      "y": -895.9715576171875,
+      "zoom": 0.75
+    }
+  }
+}

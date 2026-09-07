@@ -8,7 +8,7 @@ from contextlib import nullcontext
 from pathlib import Path
 from typing import Any
 
-from gymctl import agents, presets, tracecat
+from gymctl import agents, presets, secrets, tables, tracecat, workflows
 from gymctl.http import ClientLike
 
 
@@ -17,6 +17,18 @@ AGENT_DIR = ROOT / "benchmark/agent"
 EVALS_DIR = ROOT / "benchmark/evals"
 SCENARIO_FILE = ROOT / "benchmark/scenario.json"
 SKILLS_DIR = AGENT_DIR / "skills"
+WORKFLOWS_DIR = ROOT / "benchmark/workflows"
+TABLES_DIR = ROOT / "benchmark/tables"
+INVESTIGATE_WORKFLOW = WORKFLOWS_DIR / "investigate-case.json"
+INVESTIGATE_ALIAS = "investigate_case"
+EXPECTED_TABLES = 4
+# Investigate Case plus the Format Case as Markdown subflow it invokes.
+EXPECTED_WORKFLOWS = 2
+# The managed workflow resolves these by name; see benchmark/workflows.
+TENANT_SECRET = "tracecat"
+TENANT_SECRET_KEYS = ("TRACEcat_TENANT_EMAIL", "TRACEcat_TENANT_PASSWORD")
+OPENROUTER_SECRET = "openrouter"
+OPENROUTER_SECRET_KEY = "OPENROUTER_API_KEY"
 INVESTIGATOR_SLUG = "gym-002-soc-t1-analyst"
 GRADER_SLUG = "gym-002-evaluation-grader"
 STATIC_CASE_KEYS = (
@@ -218,6 +230,68 @@ def reconcile_presets(
     return investigator, grader
 
 
+def reconcile_secrets(client: ClientLike, workspace_id: str) -> None:
+    """Publish the workspace secrets the managed workflow resolves by name.
+
+    The workflow creates its own agent session when the trigger omits one, so it
+    needs the tenant login; its embedding steps need an OpenRouter key. Values
+    come from the gym .env so a rotated credential only has to change in one
+    place.
+    """
+    try:
+        secrets.reconcile_secret(
+            client,
+            workspace_id,
+            name=TENANT_SECRET,
+            keys={key: tracecat.required_env(key) for key in TENANT_SECRET_KEYS},
+            description="Managed by Gym 002. Tenant analyst login used by the investigation workflow.",
+            logger=log,
+        )
+        secrets.reconcile_secret(
+            client,
+            workspace_id,
+            name=OPENROUTER_SECRET,
+            keys={OPENROUTER_SECRET_KEY: tracecat.required_env("OPENROUTER_API_KEY")},
+            description="Managed by Gym 002. OpenRouter key used by the workflow embedding steps.",
+            logger=log,
+        )
+    except (secrets.SecretError, tracecat.TracecatError) as exc:
+        raise ReconcileError(str(exc)) from exc
+
+
+def reconcile_tables(client: ClientLike, workspace_id: str) -> list[str]:
+    try:
+        table_ids = tables.reconcile_tables(
+            client,
+            workspace_id,
+            TABLES_DIR,
+            expected_count=EXPECTED_TABLES,
+            logger=log,
+        )
+    except tables.TableError as exc:
+        raise ReconcileError(str(exc)) from exc
+    log(f"tables READY: {len(table_ids)} managed")
+    return table_ids
+
+
+def reconcile_workflows(client: ClientLike, workspace_id: str) -> dict[str, Any]:
+    """Publish every managed workflow, subflows before the callers that need them."""
+    try:
+        published = workflows.reconcile_workflows(
+            client,
+            WORKFLOWS_DIR,
+            workspace_id,
+            expected_count=EXPECTED_WORKFLOWS,
+            logger=log,
+        )
+    except workflows.WorkflowError as exc:
+        raise ReconcileError(str(exc)) from exc
+    if INVESTIGATE_ALIAS not in published:
+        raise ReconcileError(f"managed workflow {INVESTIGATE_ALIAS} was not published")
+    log(f"workflows READY: {len(published)} managed")
+    return published[INVESTIGATE_ALIAS]
+
+
 def enrichment_status(client: ClientLike, workspace_id: str) -> dict[str, bool]:
     rows = request(client, "GET", f"/workspaces/{workspace_id}/secrets")
     if not isinstance(rows, list):
@@ -241,9 +315,12 @@ def reconcile() -> None:
             tracecat.verify_entitlements(client)
         except tracecat.TracecatError as exc:
             raise ReconcileError(str(exc)) from exc
+        reconcile_secrets(client, workspace_id)
+        reconcile_tables(client, workspace_id)
         reconcile_cases(client, workspace_id)
         skill_ids = reconcile_skills(client, workspace_id)
         reconcile_presets(client, workspace_id, skill_ids)
+        reconcile_workflows(client, workspace_id)
         status = enrichment_status(client, workspace_id)
     log(
         f"READY: URLscan={'configured' if status['urlscan'] else 'pending'} VirusTotal={'configured' if status['virustotal'] else 'pending'}"
@@ -318,9 +395,24 @@ def status(
 
         for desired in desired_presets(client, workspace_id, skill_ids):
             presets.verify_preset(client, workspace_id, desired)
+        try:
+            secrets.verify_secret(
+                client, workspace_id, TENANT_SECRET, set(TENANT_SECRET_KEYS)
+            )
+            secrets.verify_secret(
+                client, workspace_id, OPENROUTER_SECRET, {OPENROUTER_SECRET_KEY}
+            )
+            tables.verify_tables(
+                client, workspace_id, TABLES_DIR, expected_count=EXPECTED_TABLES
+            )
+        except (secrets.SecretError, tables.TableError) as exc:
+            raise ReconcileError(str(exc)) from exc
+        workflow = reconcile_workflows(client, workspace_id)
         enrichments = enrichment_status(client, workspace_id)
     print(
         f"cases={len(cases)}/20 investigated={investigated} skills={len(skill_ids)}/7 "
+        f"tables={EXPECTED_TABLES}/{EXPECTED_TABLES} secrets=ready "
+        f"workflow={workflow['alias']} "
         "investigator=ready grader=ready "
         f"urlscan={'configured' if enrichments['urlscan'] else 'pending'} "
         f"virustotal={'configured' if enrichments['virustotal'] else 'pending'}"
@@ -338,19 +430,32 @@ def reset_managed_evaluations() -> None:
             title_prefix="Gym 002 grader ",
         )
         cases = list_managed_case_rows(client, workspace_id)
+        retained_sessions: list[str] = []
         for case in cases:
             payload = case.get("payload") or {}
             alert_id = str(payload.get("alert_id") or case.get("id") or "unknown")
             case_id = str(case["id"])
             for session in case_sessions(client, workspace_id, case_id):
                 session_id = session.get("id")
-                if session_id:
-                    request(
-                        client,
-                        "DELETE",
-                        f"/workspaces/{workspace_id}/agent/sessions/{session_id}",
-                        expected=(204, 404),
-                    )
+                if not session_id:
+                    continue
+                response = client.request(
+                    "DELETE",
+                    f"/workspaces/{workspace_id}/agent/sessions/{session_id}",
+                )
+                if response.status_code in (204, 404):
+                    continue
+                if (
+                    response.status_code == 403
+                    and "session_read_only" in response.text
+                ):
+                    # Sessions a workflow created have no creator, and Tracecat
+                    # only lets an actor delete sessions it created. The case is
+                    # deleted and recreated under a new id, so such a session is
+                    # orphaned rather than reattached to the fresh queue.
+                    retained_sessions.append(f"{alert_id}:{session_id}")
+                    continue
+                raise ReconcileError(str(tracecat.response_error(response)))
             request(
                 client,
                 "DELETE",
@@ -359,7 +464,13 @@ def reset_managed_evaluations() -> None:
             )
             log(f"removed managed evaluation state for {alert_id}")
         reconcile_cases(client, workspace_id)
+    if retained_sessions:
+        log(
+            f"{len(retained_sessions)} agent session(s) could not be deleted and were "
+            f"orphaned from the rebuilt queue: {retained_sessions}"
+        )
     log(
         "managed cases and case-scoped investigations were reset; providers, integrations, skills, and presets were retained"
         f"; removed_grader_sessions={removed_grader_sessions}"
+        f"; orphaned_sessions={len(retained_sessions)}"
     )

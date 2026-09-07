@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 import uuid
 from datetime import UTC, datetime
 from typing import Any, Callable
@@ -91,14 +92,30 @@ def assess_acceptance(report: dict[str, Any]) -> dict[str, Any]:
 
 
 def _phase(context: dict[str, Any], waf: Any, mode: str) -> dict[str, Any]:
-    since = datetime.now(UTC).isoformat()
     applied = waf.apply_policy(dict(ACCEPTANCE_POLICY), mode)
     active = waf.wait_active(applied)
     if not active.get("active"):
         raise RuntimeError(f"{mode} rule did not become active")
+    existing_event_ids = {
+        str(event.get("unique_id"))
+        for event in waf.events(0, [RULE_IDS[mode]])
+    }
+    verification_started_at = datetime.now(UTC).replace(microsecond=0).isoformat()
     verification = verify(context)
     benign = run_benign_suite(context)
-    events = waf.events(since=since, rule_ids=[RULE_IDS[mode]])
+    event_deadline = time.monotonic() + 5
+    while True:
+        events = [
+            event
+            for event in waf.events(
+                since=verification_started_at,
+                rule_ids=[RULE_IDS[mode]],
+            )
+            if str(event.get("unique_id")) not in existing_event_ids
+        ]
+        if events or time.monotonic() >= event_deadline:
+            break
+        time.sleep(0.25)
     return {
         "mode": mode,
         "apply": applied,

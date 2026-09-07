@@ -83,6 +83,81 @@ class AcceptanceContractTests(unittest.TestCase):
         report["block"]["waf_events"] = []
         self.assertFalse(assess_acceptance(report)["passed"])
 
+    def test_phase_correlates_only_events_created_after_activation(self) -> None:
+        order: list[str] = []
+
+        class FakeWAF:
+            def apply_policy(self, _policy, _mode):
+                order.append("apply")
+                return {"rule_id": RULE_IDS["BLOCK"]}
+
+            def wait_active(self, _applied):
+                order.append("active")
+                return {"active": True}
+
+            def events(self, since, rule_ids):
+                order.append(("events", since, rule_ids))
+                activation = {
+                    "unique_id": "activation",
+                    "rule_id": RULE_IDS["BLOCK"],
+                }
+                if since == 0:
+                    return [activation]
+                return [
+                    activation,
+                    {
+                        "unique_id": "verification",
+                        "rule_id": RULE_IDS["BLOCK"],
+                    },
+                ]
+
+        class FixedNow:
+            @classmethod
+            def now(cls, _timezone):
+                return cls()
+
+            def replace(self, **_kwargs):
+                return self
+
+            def isoformat(self):
+                return "2026-09-07T10:00:00+00:00"
+
+        with (
+            patch.object(acceptance, "datetime", FixedNow),
+            patch.object(
+                acceptance,
+                "verify",
+                side_effect=lambda _context: order.append("verify")
+                or {"verdict": "blocked_by_waf"},
+            ),
+            patch.object(
+                acceptance,
+                "run_benign_suite",
+                side_effect=lambda _context: order.append("benign") or benign(),
+            ),
+        ):
+            result = acceptance._phase({}, FakeWAF(), "BLOCK")
+
+        self.assertEqual(
+            order,
+            [
+                "apply",
+                "active",
+                ("events", 0, [RULE_IDS["BLOCK"]]),
+                "verify",
+                "benign",
+                (
+                    "events",
+                    "2026-09-07T10:00:00+00:00",
+                    [RULE_IDS["BLOCK"]],
+                ),
+            ],
+        )
+        self.assertEqual(
+            result["waf_events"],
+            [{"unique_id": "verification", "rule_id": RULE_IDS["BLOCK"]}],
+        )
+
     def test_active_evaluation_uses_an_empty_baseline_then_restores_original_state(self) -> None:
         original = {"schema_version": 1, "configs": [{"data": "existing rule"}]}
         empty = {"schema_version": 1, "configs": []}

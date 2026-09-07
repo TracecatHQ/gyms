@@ -13,14 +13,6 @@ from .policy import CURRENT_PROPOSAL_REVISION, validate_proposal
 LOCK = threading.RLock()
 
 
-class RuleApplicationError(RuntimeError):
-    """Rule application failed after recording deterministic rollback evidence."""
-
-    def __init__(self, message: str, result: dict[str, Any]) -> None:
-        super().__init__(message)
-        self.result = result
-
-
 def apply_rule(context: dict[str, Any], request: dict[str, Any]) -> dict[str, Any]:
     """Apply the validated policy and prove the resulting data-plane behavior."""
 
@@ -134,19 +126,22 @@ def apply_rule(context: dict[str, Any], request: dict[str, Any]) -> dict[str, An
                 ],
                 "rollback": rollback,
             }
-        except Exception as exc:
-            failure_message = str(exc)
-            if snapshot is not None:
-                rollback["attempted"] = True
-                try:
-                    restored = client.restore(snapshot)
-                    rollback["succeeded"] = bool(restored.get("active"))
-                except Exception:
-                    rollback["succeeded"] = False
-                if not rollback["succeeded"]:
-                    failure_message = "rule operation failed and rollback failed"
+        except Exception:
+            if snapshot is None:
+                raise
+            rollback["attempted"] = True
+            try:
+                restored = client.restore(snapshot)
+                rollback["succeeded"] = bool(restored.get("active"))
+            except Exception:
+                rollback["succeeded"] = False
             result = {
                 "verdict": "inconclusive",
+                "error": (
+                    "control verification failed; prior firewall state restored"
+                    if rollback["succeeded"]
+                    else "control verification failed; rollback failed"
+                ),
                 "rule_id": (applied or {}).get("rule_id"),
                 "proposal_revision": revision,
                 "mode": mode,
@@ -166,4 +161,4 @@ def apply_rule(context: dict[str, Any], request: dict[str, Any]) -> dict[str, An
                 ],
                 "rollback": rollback,
             }
-            raise RuleApplicationError(failure_message, result) from exc
+            return result

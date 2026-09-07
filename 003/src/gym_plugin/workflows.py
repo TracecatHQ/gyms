@@ -138,6 +138,14 @@ def load_legacy_definition(spec: WorkflowSpec) -> dict[str, Any]:
     return _load_definition(LEGACY_WORKFLOW_DIR / spec.filename)
 
 
+def load_legacy_definitions(spec: WorkflowSpec) -> list[dict[str, Any]]:
+    """Load every exact prior definition eligible for a managed migration."""
+
+    path = Path(spec.filename)
+    candidates = sorted(LEGACY_WORKFLOW_DIR.glob(f"{path.stem}*.json"))
+    return [_load_definition(candidate) for candidate in candidates]
+
+
 def _load_definition(path: Path) -> dict[str, Any]:
     try:
         value = json.loads(path.read_text())
@@ -182,8 +190,15 @@ def _replace_known_legacy_workflow(
     reconciliation pass.
     """
 
-    legacy = load_legacy_definition(spec)
-    if not _matches_definition(legacy, remote):
+    legacy = next(
+        (
+            candidate
+            for candidate in load_legacy_definitions(spec)
+            if _matches_definition(candidate, remote)
+        ),
+        None,
+    )
+    if legacy is None:
         raise WorkflowError(
             f"managed workflow {spec.key} has drifted; refusing to overwrite it"
         )

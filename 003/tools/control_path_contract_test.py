@@ -60,6 +60,17 @@ class _FixedNow:
         return self
 
 
+class _InactiveWAF(_FakeWAF):
+    def wait_active(self, _applied):
+        self.order.append("active")
+        return {"active": False}
+
+
+class _FailedRollbackWAF(_InactiveWAF):
+    def restore(self, _snapshot):
+        raise RuntimeError("password=must-not-reach-evidence")
+
+
 class ControlPathContractTests(unittest.TestCase):
     def test_waf_events_begin_at_post_activation_verification_boundary(self):
         order: list[str] = []
@@ -99,6 +110,70 @@ class ControlPathContractTests(unittest.TestCase):
         self.assertEqual(result["verdict"], "mitigated at tested ingress")
         self.assertEqual(order, ["before", "active", "events", "after", "events"])
         self.assertEqual(waf.event_boundary, "2026-09-07T10:00:00+00:00")
+
+    def test_post_change_failure_returns_sanitized_rollback_evidence(self):
+        order: list[str] = []
+        waf = _InactiveWAF(order)
+
+        with (
+            patch(
+                "gym_plugin.probe.verify",
+                return_value={"verdict": "confirmed_rce"},
+            ),
+            patch("gym_plugin.waf.WAFClient.from_env", return_value=waf),
+        ):
+            result = rule_application.apply_rule(
+                {},
+                {
+                    "mode": "BLOCK",
+                    "proposal_revision": 1,
+                    "proposal": {
+                        "scenario": "supplier-intake",
+                        "revision": 1,
+                        "route": "/form/supplier-intake",
+                        "method": "POST",
+                        "allowed_content_type": "multipart/form-data",
+                    },
+                },
+            )
+
+        self.assertEqual(result["verdict"], "inconclusive")
+        self.assertEqual(
+            result["error"],
+            "control verification failed; prior firewall state restored",
+        )
+        self.assertEqual(result["rollback"], {"attempted": True, "succeeded": True})
+        self.assertEqual(order, ["active"])
+
+    def test_rollback_failure_does_not_expose_underlying_error(self):
+        with (
+            patch(
+                "gym_plugin.probe.verify",
+                return_value={"verdict": "confirmed_rce"},
+            ),
+            patch(
+                "gym_plugin.waf.WAFClient.from_env",
+                return_value=_FailedRollbackWAF([]),
+            ),
+        ):
+            result = rule_application.apply_rule(
+                {},
+                {
+                    "mode": "BLOCK",
+                    "proposal_revision": 1,
+                    "proposal": {
+                        "scenario": "supplier-intake",
+                        "revision": 1,
+                        "route": "/form/supplier-intake",
+                        "method": "POST",
+                        "allowed_content_type": "multipart/form-data",
+                    },
+                },
+            )
+
+        self.assertEqual(result["error"], "control verification failed; rollback failed")
+        self.assertEqual(result["rollback"], {"attempted": True, "succeeded": False})
+        self.assertNotIn("must-not-reach-evidence", repr(result))
 
     def test_status_case_check_rejects_presentation_drift_without_patch(self):
         desired = reconcile.desired_case()

@@ -143,6 +143,9 @@ class WorkflowContractTests(unittest.TestCase):
         )
         self.assertFalse(any(action["action"] in {"core.http_request", "core.http_poll"} for action in actions))
         self.assertEqual(definition["returns"], "${{ ACTIONS.apply_reviewed_rule.result }}")
+        comment = actions[1]["args"]["content"]
+        self.assertIn("result.rollback.attempted", comment)
+        self.assertIn("result.rollback.succeeded", comment)
         expects = definition["entrypoint"]["expects"]
         for field in ("case_id", "scenario", "proposal_revision", "mode"):
             self.assertNotIn("default", expects[field])

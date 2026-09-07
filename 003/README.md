@@ -1,10 +1,10 @@
 # Gym 003: vulnerability-driven firewall mitigation
 
-> Cutover status: this README describes the direct-action architecture being
-> reconciled in this branch. The previous acceptance artifact proves the target
-> and firewall behavior, but does not prove the new Tracecat registry execution
-> path. Treat the run-dependent screenshots called out below as stale until
-> `just reconcile`, `just check`, and `just evaluate` pass on the cutover stack.
+> Live status: the direct-action architecture at commit `01dd8cc` passed
+> reconciliation, health checks, a case-scoped Analyst run, the human firewall
+> workflow, and all 15 acceptance gates. The screenshots explicitly marked for
+> recapture below still predate that cutover and are not customer-ready evidence
+> of the current execution path.
 
 Gym 003 is a reproducible, isolated exercise for this lifecycle:
 
@@ -138,11 +138,12 @@ evaluation outcomes are kept separately under `benchmark/evals/`.
 
 ## Case walkthrough
 
-Screenshot readiness after this cutover: the Agents list and Skills list are
-structure-only views; every other existing image depends on changed prompts,
-tools, actions, tasks, case data, or workflow structure. Preserve the files for
-review, but recapture those views from a successful live run before using this
-set in a customer-facing demo.
+Screenshot readiness after this cutover: `01-case-overview.png`,
+`02-agents.png`, and `08-skills-list.png` remain valid structure and case views.
+Screenshots 03–07, 09, 10, and 12 depend on changed prompts, tools, actions,
+tasks, case data, or workflow structure and remain explicitly marked for
+recapture. Do not use the incomplete set as customer-facing evidence of the new
+execution path.
 
 Enable dark mode and use a 1600 × 1000 browser window for the same framing as
 the reference images.
@@ -207,7 +208,8 @@ exercise label or specialist-agent handoff.
 
 ![Analyst prompt and investigation boundary](docs/screenshots/06-analyst-prompt.png)
 
-> Screenshot status: recapture after the direct-action prompt is reconciled.
+> Screenshot status: recapture required. The live prompt is reconciled, but this
+> image predates the direct-action cutover.
 
 **Presenter notes:** “The preset carries the durable operating contract. One
 Analyst follows the case from assignment through closure, but the prompt keeps
@@ -225,9 +227,8 @@ the fixed-target `security.supplier_intake.scan`,
 `core.workflow.execute`, the firewall application action, a credential, shell,
 generic HTTP, or arbitrary code tool.
 
-> Screenshot status: this image predates the direct-action cutover. Recapture it
-> after live reconciliation; the final image must show the three registry actions
-> above and must not show `core.workflow.execute`.
+> Screenshot status: recapture required. The final image must show the three
+> registry actions above and must not show `core.workflow.execute`.
 
 ![Previous Analyst tools view; recapture required](docs/screenshots/07-analyst-tools.png)
 
@@ -254,8 +255,8 @@ checks, rollback conditions, and human decision boundary.
 
 ![Propose firewall mitigation skill detail](docs/screenshots/10-propose-firewall-mitigation-skill.png)
 
-> Screenshot status: recapture both skill detail views after their direct action
-> instructions are published.
+> Screenshot status: recapture both skill detail views. Their direct-action
+> instructions are live, but these images predate the cutover.
 
 **Presenter notes:** “Skills separate reusable procedures from the Analyst’s
 identity. Verification is bounded and evidence-producing; mitigation design is
@@ -273,16 +274,10 @@ firewall rule** reads the case's persisted proposal, invokes the constrained
 application action, and records the sanitized result. It exposes no credential,
 internal endpoint, raw request body, or exploit material.
 
-> Screenshot status: the verification-workflow image below is retained only as a
-> historical reference and must not be used in a customer demo after the
-> direct-action cutover.
-
-![Retired verification workflow; historical reference](docs/screenshots/11-verification-workflow.png)
-
 ![Reviewed firewall workflow builder](docs/screenshots/12-rule-application-workflow.png)
 
-> Screenshot status: recapture this workflow after the HTTP job and polling
-> actions are absent and `apply_reviewed_policy` is visible.
+> Screenshot status: recapture required. The final image must show
+> `apply_reviewed_policy` and no HTTP job or polling actions.
 
 **Presenter notes:** “The Analyst performs investigation through native Tracecat
 actions. This one workflow is intentionally reserved for the human-controlled,
@@ -310,8 +305,8 @@ decision without copying raw exploit material.
 
 ![Analyst assignment and exploitability finding](docs/screenshots/03-verifier-run.png)
 
-> Screenshot status: recapture this run after the direct scan and verification
-> actions are visible in the Analyst tool history.
+> Screenshot status: recapture required. The final image must show the direct
+> scan and verification actions in the Analyst tool history.
 
 **Presenter notes:** “The same Analyst stays accountable from assignment through
 closure. Tracecat runs the pinned tools directly, a harmless marker proves impact,
@@ -338,9 +333,8 @@ and **Create LOG-only rule**.
 
 ![Analyst recommendation and controlled case tasks](docs/screenshots/04-proposal-and-tasks.png)
 
-> Screenshot status: recapture this view after reconciliation; the current image
-> shows the retired three-task layout and does not demonstrate the persisted
-> proposal record.
+> Screenshot status: recapture required. This image shows the retired three-task
+> layout and does not demonstrate the persisted proposal record.
 
 **Presenter notes:** “The analyst narrows the policy to the demonstrated route,
 method, and normalized media type, then persists the exact proposal that the
@@ -372,8 +366,8 @@ also states that the underlying application still requires remediation.
 
 ![Firewall evidence and Analyst closure](docs/screenshots/05-final-result.png)
 
-> Screenshot status: recapture after the one-workflow cutover passes live
-> acceptance so the run reference points to the custom registry action path.
+> Screenshot status: recapture required. Live acceptance passes, but this image's
+> run reference predates the custom registry action path.
 
 **Presenter notes:** “The workflow supplies the technical evidence and the Analyst
 turns it into a decision-grade closure. The control is active, the tested attack

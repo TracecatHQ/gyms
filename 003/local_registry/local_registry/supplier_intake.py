@@ -15,7 +15,11 @@ from tracecat_registry import RegistrySecret, ctx, registry
 
 
 NAMESPACE = "security.supplier_intake"
+GYM_ID = "003"
 SCENARIO = "supplier-intake"
+ASSET = "supplier.intake.test"
+CVE = "CVE-2026-21858"
+DEDUP_KEY = f"{SCENARIO}|{ASSET}|{CVE}"
 ROUTE = "/form/supplier-intake"
 METHOD = "POST"
 ALLOWED_CONTENT_TYPE = "multipart/form-data"
@@ -52,13 +56,23 @@ def _execution_context() -> dict[str, Any]:
 
 
 def _case_payload(case_id: str) -> dict[str, Any]:
-    """Resolve a real workspace case and return a defensive payload copy."""
+    """Resolve the managed incident case and return a defensive payload copy."""
 
     case = ctx.cases.get_case(case_id)
     if str(case.get("id")) != case_id:
         raise ValueError("case identity mismatch")
     payload = case.get("payload")
-    return dict(payload) if isinstance(payload, dict) else {}
+    payload = dict(payload) if isinstance(payload, dict) else {}
+    expected = {
+        "gym_id": GYM_ID,
+        "dedup_key": DEDUP_KEY,
+        "scenario": SCENARIO,
+        "asset": ASSET,
+        "cve": CVE,
+    }
+    if any(payload.get(key) != value for key, value in expected.items()):
+        raise ValueError("case is not the managed supplier intake incident")
+    return payload
 
 
 def _proposal_digest(proposal: dict[str, Any]) -> str:
@@ -241,6 +255,8 @@ def propose_policy(
 ) -> dict[str, Any]:
     """Persist and return the exact policy later consumed by the human workflow."""
 
+    payload = _case_payload(case_id)
+
     from gym_plugin.policy import validate_proposal
 
     if not 20 <= len(rationale.strip()) <= 2_000:
@@ -263,11 +279,6 @@ def propose_policy(
     proposal["proposal_id"] = _proposal_digest(proposal)
     proposal["created_at"] = datetime.now(UTC).isoformat()
 
-    case = ctx.cases.get_case(case_id)
-    if str(case.get("id")) != case_id:
-        raise ValueError("case identity mismatch")
-    raw_payload = case.get("payload")
-    payload = dict(raw_payload) if isinstance(raw_payload, dict) else {}
     existing = payload.get("firewall_proposal")
     if isinstance(existing, dict):
         checked = _validated_stored_proposal(existing)

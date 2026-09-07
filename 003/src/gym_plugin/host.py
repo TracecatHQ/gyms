@@ -181,7 +181,8 @@ def info() -> None:
         raise GymError(".env is missing; run just init")
     print("Tracecat UI: http://127.0.0.1:38080")
     print("Protected supplier intake: http://127.0.0.1:38081 (Host: supplier.intake.test)")
-    print(f"Tenant: {env['TRACEcat_TENANT_EMAIL']} / {env['TRACEcat_TENANT_PASSWORD']}")
+    print(f"Tenant email: {env['TRACEcat_TENANT_EMAIL']}")
+    print("Tenant password: stored in .env (not displayed)")
 
 
 def status() -> None:

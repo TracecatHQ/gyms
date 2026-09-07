@@ -151,6 +151,39 @@ class RegistryContractTests(unittest.TestCase):
         ):
             self.assertNotIn(forbidden, source)
 
+    def test_proposal_rejects_unrelated_case_without_persisting(self):
+        updates = []
+        previous_cases = self.module.ctx.cases
+        self.module.ctx.cases = types.SimpleNamespace(
+            get_case=lambda case_id: {
+                "id": case_id,
+                "payload": {
+                    "gym_id": "unmanaged",
+                    "dedup_key": "another|asset|CVE",
+                    "scenario": "another-scenario",
+                    "asset": "another.example",
+                    "cve": "CVE-0000-0000",
+                },
+            },
+            update_case_simple=lambda *args, **kwargs: updates.append((args, kwargs)),
+        )
+        try:
+            propose = self.actions[
+                "security.supplier_intake.propose_policy"
+            ]["function"]
+            with self.assertRaisesRegex(
+                ValueError, "not the managed supplier intake incident"
+            ):
+                propose(
+                    case_id="unrelated-case",
+                    recommended_mode="BLOCK",
+                    rationale="This rationale is long enough to pass validation.",
+                )
+        finally:
+            self.module.ctx.cases = previous_cases
+
+        self.assertEqual(updates, [])
+
     def test_tracecat_executor_hosts_the_registry_without_a_job_api_sidecar(self):
         compose = (GYM_ROOT / "compose.override.yml").read_text()
         dockerfile = (GYM_ROOT / "images/control/Dockerfile").read_text()

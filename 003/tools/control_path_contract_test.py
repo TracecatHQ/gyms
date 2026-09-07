@@ -3,8 +3,10 @@
 
 from __future__ import annotations
 
+import io
 import sys
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
@@ -12,7 +14,7 @@ from unittest.mock import patch
 GYM_ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(GYM_ROOT / "src"), str(GYM_ROOT.parent / "src")]
 
-from gym_plugin import reconcile, rule_application  # noqa: E402
+from gym_plugin import host, reconcile, rule_application  # noqa: E402
 
 
 class _FakeWAF:
@@ -72,6 +74,25 @@ class _FailedRollbackWAF(_InactiveWAF):
 
 
 class ControlPathContractTests(unittest.TestCase):
+    def test_info_does_not_print_tenant_password(self):
+        output = io.StringIO()
+        with (
+            patch.object(
+                host.config,
+                "parse_env",
+                return_value={
+                    "TRACEcat_TENANT_EMAIL": "analyst@example.test",
+                    "TRACEcat_TENANT_PASSWORD": "must-not-be-printed",
+                },
+            ),
+            redirect_stdout(output),
+        ):
+            host.info()
+
+        rendered = output.getvalue()
+        self.assertIn("Tenant email: analyst@example.test", rendered)
+        self.assertNotIn("must-not-be-printed", rendered)
+
     def test_waf_events_begin_at_post_activation_verification_boundary(self):
         order: list[str] = []
         waf = _FakeWAF(order)

@@ -95,6 +95,10 @@ class ProbeContractTests(unittest.TestCase):
             )
         )
         self.assertEqual(findings[0]["classification"], "version_suspicion")
+        self.assertEqual(findings[0]["route"], "/signin")
+        self.assertEqual(findings[0]["extracted_results"], ["n8n Version: 1.65.0"])
+        self.assertNotIn("matched_at", findings[0])
+        self.assertNotIn("bunkerweb", json.dumps(findings[0]))
 
     def test_content_type_and_route_variants_are_present(self) -> None:
         self.assertIn("Application/JSON; charset=utf-8", probe.CONTENT_TYPE_VARIANTS)

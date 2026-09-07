@@ -8,6 +8,7 @@ import subprocess
 import uuid
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from .probe import (
     INGRESS,
@@ -39,6 +40,19 @@ TEMPLATE_PATH = (
 )
 NUCLEI_BINARY = "nuclei"
 NUCLEI_CACHE = Path("/home/apiuser/.cache/tmp")
+PUBLIC_SCAN_ROUTES = frozenset({"/signin", "/rest/sentry.js"})
+
+
+def _matched_route(value: Any) -> str | None:
+    """Keep the useful route without returning Nuclei's internal target URL."""
+
+    if not isinstance(value, str):
+        return None
+    try:
+        route = urlsplit(value).path
+    except ValueError:
+        return None
+    return route if route in PUBLIC_SCAN_ROUTES else None
 
 
 def _parse_jsonl(output: str) -> list[dict[str, Any]]:
@@ -60,7 +74,7 @@ def _parse_jsonl(output: str) -> list[dict[str, Any]]:
                 "template_id": TEMPLATE_ID,
                 "cve": TEMPLATE_ID,
                 "severity": "critical",
-                "matched_at": item.get("matched-at") or item.get("matched"),
+                "route": _matched_route(item.get("matched-at") or item.get("matched")),
                 "extracted_results": item.get("extracted-results", []),
                 "classification": "version_suspicion",
             }

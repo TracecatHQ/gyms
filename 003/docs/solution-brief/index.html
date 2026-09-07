@@ -5,8 +5,8 @@
 <title>Tracecat · Verified zero-day mitigation</title>
 <style>
 @font-face { font-family: "Geist"; font-weight: 100 900; font-style: normal; src: url("fonts/geist-latin.woff2") format("woff2"); }
-@font-face { font-family: "Newsreader"; font-weight: 400; font-style: normal; src: url("fonts/newsreader-400.woff2") format("woff2"); }
-@font-face { font-family: "Newsreader"; font-weight: 500; font-style: normal; src: url("fonts/newsreader-500.woff2") format("woff2"); }
+@font-face { font-family: "Inter"; font-weight: 500; font-style: normal; src: url("fonts/inter-500.woff2") format("woff2"); }
+@font-face { font-family: "Inter"; font-weight: 600; font-style: normal; src: url("fonts/inter-600.woff2") format("woff2"); }
 @font-face { font-family: "JetBrains Mono"; font-weight: 400; font-style: normal; src: url("fonts/jetbrains-mono-400.woff2") format("woff2"); }
 
 @page { size: A4; margin: 0; }
@@ -18,7 +18,7 @@
   /* Tracecat UI palette: used only inside figure mocks */
   --uibg: #0C0C0E; --uicard: #141519; --uiline: rgba(255,255,255,0.11); --uisoft: rgba(255,255,255,0.05); --uichip: rgba(255,255,255,0.09);
   --green: #30B86A; --red: #EF4444; --amber: #F5B94B; --indigo: #6B7CFF; --indigo-bg: rgba(107,124,255,0.14);
-  --serif: "Newsreader", "Iowan Old Style", "Times New Roman", ui-serif, serif;
+  --display: "Inter", system-ui, -apple-system, "Helvetica Neue", sans-serif;
   --sans: "Geist", system-ui, -apple-system, "Helvetica Neue", sans-serif;
   --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 }
@@ -40,9 +40,10 @@ a { color: inherit; text-decoration: none; }
 
 /* type */
 .kicker { font-size: 8.8px; color: var(--muted); margin-bottom: 6px; }
-h1 { font-family: var(--serif); font-weight: 400; font-size: 27px; line-height: 1.22; letter-spacing: -0.55px; max-width: 470px; }
-h2 { font-family: var(--serif); font-weight: 400; font-size: 23px; line-height: 1.12; letter-spacing: -0.55px; margin-bottom: 5px; }
-h3 { font-family: var(--serif); font-weight: 400; font-size: 13.2px; line-height: 1.25; letter-spacing: -0.15px; }
+.lede { font-size: 9.6px; line-height: 1.45; color: var(--muted); margin-top: 6px; max-width: 560px; }
+h1 { font-family: var(--display); font-weight: 600; font-size: 24.5px; line-height: 1.18; letter-spacing: -0.02em; max-width: 640px; }
+h2 { font-family: var(--display); font-weight: 600; font-size: 20.5px; line-height: 1.15; letter-spacing: -0.02em; margin-bottom: 5px; }
+h3 { font-family: var(--display); font-weight: 600; font-size: 12px; line-height: 1.28; letter-spacing: -0.02em; }
 p { font-size: 8.8px; line-height: 1.5; }
 p + p { margin-top: 6px; }
 .cd { font-family: var(--mono); font-size: 0.92em; background: var(--soft2); padding: 0 3px; border-radius: 3px; white-space: nowrap; }
@@ -60,7 +61,7 @@ p + p { margin-top: 6px; }
 .figfull .fig { height: 274px; }
 
 /* hero row */
-.hero { display: grid; grid-template-columns: 236px 1fr; gap: 12px; margin-top: 11px; height: 392px; }
+.hero { display: grid; grid-template-columns: 236px 1fr; gap: 12px; margin-top: 9px; height: 392px; }
 .facts { background: var(--card); border-radius: 8px; padding: 18px 20px; display: flex; flex-direction: column; }
 .facts .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .facts .k { font-size: 8.4px; color: var(--muted); margin-bottom: 2px; }
@@ -190,10 +191,10 @@ p + p { margin-top: 6px; }
 .lst .row .tile span { font-size: 6.6px; font-weight: 700; color: #fff; line-height: 1; font-family: var(--sans); }
 
 /* page 1: two-column article grid */
-.grid2 { display: grid; grid-template-columns: 256px 1fr; gap: 30px; margin-top: 14px; }
-.kh { background: var(--soft); border-radius: 9px; padding: 14px; align-self: start; }
-.kh h2 { font-size: 16.5px; letter-spacing: -0.3px; margin-bottom: 8px; }
-.kh .m { padding: 7px 0; border-top: 1px solid var(--hair); }
+.grid2 { display: grid; grid-template-columns: 256px 1fr; gap: 30px; margin-top: 9px; }
+.kh { background: var(--soft); border-radius: 9px; padding: 10px 14px; align-self: start; }
+.kh h2 { font-size: 15px; letter-spacing: -0.02em; margin-bottom: 7px; }
+.kh .m { padding: 5px 0; border-top: 1px solid var(--hair); }
 .kh .m:first-of-type { border-top: 0; padding-top: 0; }
 .kh .m:last-of-type { padding-bottom: 0; }
 .kh .n { font-size: 11.5px; font-weight: 600; letter-spacing: -0.22px; line-height: 1.2; }
@@ -235,7 +236,7 @@ p + p { margin-top: 6px; }
 
 /* footer / CTA */
 .foot { margin-top: auto; padding-top: 8px; border-top: 1px solid var(--hair); display: grid; grid-template-columns: 0.9fr 1.3fr; gap: 0 28px; align-items: start; }
-.foot h2 { font-size: 20px; letter-spacing: -0.4px; margin-bottom: 4px; margin-top: 0; }
+.foot h2 { font-size: 18px; letter-spacing: -0.02em; margin-bottom: 4px; margin-top: 0; }
 .foot p { color: var(--muted); }
 .cta { display: flex; align-items: center; gap: 12px; margin-top: 9px; }
 .btn-primary { background: var(--text); color: var(--bg); font-weight: 500; font-size: 9px; border-radius: 999px; padding: 5px 12px; }
@@ -259,7 +260,8 @@ p + p { margin-top: 6px; }
   </header>
 
   <p class="kicker">Solution brief</p>
-  <h1>Verified mitigation for the post-Mythos zero-day clock.</h1>
+  <h1>Verified mitigation for post-Mythos /<br>GPT-6 Astra vulnerability discovery.</h1>
+  <p class="lede">The zero-day clock, the time from a vulnerability's disclosure to its first exploitation, has gone negative. Tracecat agents prove which scanner findings are really exploitable at your ingress, propose a narrow compensating control, and let one analyst approve, apply, and retest it in minutes, on your infrastructure, with your models.</p>
 
   <div class="hero">
     <div class="facts">
@@ -350,12 +352,12 @@ p + p { margin-top: 6px; }
     <div class="art">
       <h2>The problem</h2>
       <p><b>Discovery has gone machine-scale.</b> Anthropic's Project Glasswing (Claude Mythos, Apr–May 2026) reported 23,019 issues across 1,000+ open-source projects, 10,000+ of them high or critical, and more than 99% unpatched at disclosure. OpenAI's GPT-6 Astra (Sep 3, 2026) is the first model rated "Critical" for cyber under its Preparedness Framework, and found and exploited two zero-days unaided. Open-weight Z.ai GLM-5.3 claims 2,436 findings across 269 projects and 105 of 130 ExploitGym targets, and anyone, including attackers, can run it.</p>
-      <p><b>The zero-day clock is negative.</b> Mandiant/GTIG time-to-exploit fell from 63 days (2018–19) to 5 days (2023), then to about −1 day (2024) and about −7 days (2025). VulnCheck's 1H-2026 data shows 23% of KEVs exploited on or before CVE publication. Defender patch MTTR is still 55–61 days, and about 60% of breaches involve a vulnerability with a patch already available.</p>
+      <p><b>The zero-day clock is negative: exploitation now precedes disclosure.</b> Mandiant/GTIG time-to-exploit fell from 63 days (2018–19) to 5 days (2023), then to about −1 day (2024) and about −7 days (2025). VulnCheck's 1H-2026 data shows 23% of KEVs exploited on or before CVE publication. Defender patch MTTR is still 55–61 days, and about 60% of breaches involve a vulnerability with a patch already available.</p>
       <p><b>Where teams get stuck.</b> Vulnerability management receives thousands of version-match findings and cannot tell exploitable from noise. Patching waits on owners and change windows. A hand-written WAF rule is risky (a global JSON or POST block breaks the business), so nobody writes one, and the finding sits open. Every hour is exposure.</p>
     </div>
   </div>
 
-  <div class="art" style="margin-top:9px">
+  <div class="art" style="margin-top:4px">
   <h2>The solution</h2>
   <h3>An Analyst agent that verifies, proposes, and hands the decision to a human.</h3>
   <p>Tracecat runs an Analyst agent against each finding. The preset is case-scoped, has no internet access, and holds no firewall credential: it proves or disproves exploitability, then writes a narrow, reviewable control for a person to approve. Its tools are bounded Python actions with pinned dependencies (<code class="cd">scan</code>, <code class="cd">verify</code>, <code class="cd">propose_policy</code>), never free-form rule syntax; <code class="cd">apply_reviewed_policy</code>, which holds the WAF and app secrets, exists only inside the workflow a human launches (Figure 2, next page).</p>

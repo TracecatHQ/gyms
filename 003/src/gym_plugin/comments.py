@@ -94,7 +94,6 @@ def render_execution_comment(
         rollback = clean.get("cleanup")
     marker = f"<!-- gym-003-execution:{execution_id} -->"
     lines = [
-        marker,
         "## Gym 003 workflow result",
         "",
         f"- Task: `{task_id}`",
@@ -121,6 +120,7 @@ def render_execution_comment(
     ]
     if clean.get("error"):
         lines.extend(("", "### Error", "", f"```json\n{_json(clean['error'])}\n```"))
+    lines.extend(("", marker))
     return "\n".join(lines)
 
 

@@ -202,15 +202,19 @@ just evaluate
 **Expected state:** A successful BLOCK result records `confirmed_rce` before the
 rule, `blocked_by_waf` after it, required benign transactions as passed,
 audit-correlated WAF events, no rollback, and `mitigated at tested ingress`.
+The workflow-generated case comment renders the outcome as a Markdown table and
+Mermaid flow before the retained sanitized detail.
 `just evaluate` writes its JSON result beneath
 `eval-results/supplier-intake/acceptance/` and restores the managed WAF state.
 
 ![Gym 003 verified BLOCK result](docs/screenshots/05-final-result.png)
 
-**Presenter notes:** “The deterministic workflow holds the WAF credential. It
-confirms activation, proves the attack is denied, checks independent JSON,
-receipt, login, health, and upload traffic, and retains correlated evidence. The
-application is still vulnerable; the claim is mitigation at this ingress.”
+**Presenter notes:** “This comment came from the firewall workflow itself. Its
+table and diagram show the decision; the detailed evidence remains directly
+below. The workflow confirms activation, proves the attack is denied, checks
+independent JSON, receipt, login, health, and upload traffic, and retains
+correlated evidence. The application is still vulnerable; the claim is
+mitigation at this ingress.”
 
 ### Repeat the demo
 

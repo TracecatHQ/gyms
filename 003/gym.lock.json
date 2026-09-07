@@ -10,7 +10,7 @@
       "control": {
         "classification": "gym-owned",
         "future_repository": "ghcr.io/tracecathq/gym-003-control",
-        "input_sha256": "a46691f7dda006593e97d8409c98302190b97876411870bd388e8bbd7422e6a1",
+        "input_sha256": "d5aba2674fe9f54749dfcbe2a965c49869f58eebfc3d7dd9c77c6e05f3fb322c",
         "repository": "tracecat-gyms/gym-003-control"
       }
     }

@@ -25,6 +25,24 @@ ATTACK_SURFACE_SLUG = "gym-003-attack-surface"
 MITIGATION_ANALYST_SLUG = "gym-003-mitigation-analyst"
 SECRET_NAME = "gym_003_test_api"
 SECRET_KEY = "TOKEN"
+CASE_DESCRIPTION = """**Scanner finding:** Nuclei matched the vulnerable n8n version for `CVE-2026-21858`. Treat this as suspicion until the fixed-target verifier confirms impact.
+
+| Signal | Observed | Decision |
+| --- | --- | --- |
+| Asset | `supplier.intake.test` | Test only through the WAF ingress |
+| Scanner | Vulnerable-version match | Independent verification required |
+| Compatibility | Upload, webhook, login, health | All paths must pass after mitigation |
+
+```mermaid
+flowchart LR
+    A["Nuclei<br/>suspected"] --> B["Verifier<br/>confirm impact"]
+    B --> C["Analyst<br/>propose policy"]
+    C --> D["Human task<br/>apply rule"]
+    D --> E["Retest<br/>attack denied<br/>benign passes"]
+```
+
+**Decision boundary:** a successful result means mitigation at this tested ingress; the application version remains vulnerable.
+"""
 
 
 class ReconcileError(RuntimeError):
@@ -52,12 +70,7 @@ def request(
 def desired_case() -> dict[str, Any]:
     return {
         "summary": f"Suspected unauthenticated n8n RCE at {ASSET}",
-        "description": (
-            "Nuclei identified a vulnerable-version signal for CVE-2026-21858. "
-            "Use the independent attack-surface verification before treating impact as "
-            "confirmed. The service supports supplier multipart uploads, independent JSON "
-            "order webhooks, staff login, and health checks through the WAF."
-        ),
+        "description": CASE_DESCRIPTION,
         "status": "new",
         "priority": "high",
         "severity": "critical",
@@ -141,6 +154,23 @@ def reconcile_case(
         payload.get(k) != v for k, v in immutable.items()
     ):
         raise ReconcileError("managed case identity fields have drifted")
+
+    desired = desired_case()
+    content_patch = {
+        field: desired[field]
+        for field in ("summary", "description")
+        if actual.get(field) != desired[field]
+    }
+    if content_patch:
+        request(
+            client,
+            "PATCH",
+            f"/workspaces/{workspace_id}/cases/{case['id']}",
+            body=content_patch,
+            expected=(204,),
+        )
+        log(f"updated case presentation {DEDUP_KEY}")
+        actual = {**actual, **content_patch}
     return actual
 
 

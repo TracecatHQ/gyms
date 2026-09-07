@@ -121,15 +121,16 @@ README, screenshot, or case comment.
 **Action:** Open <http://127.0.0.1:38080>, select **Cases**, and open
 **CASE-0001 — Suspected unauthenticated n8n RCE at supplier.intake.test**.
 
-**Expected state:** The case is Critical/High and says Nuclei found a
-CVE-2026-21858 vulnerable-version signal. It also says independent verification
-is required before impact is confirmed.
+**Expected state:** The case is Critical/High. Its Markdown description presents
+the Nuclei version signal in a compact evidence table and renders a Mermaid flow
+from scanner suspicion through verification, proposal, human action, and retest.
 
 ![Gym 003 case and scanner evidence](docs/screenshots/01-case-overview.png)
 
 **Presenter notes:** “The scanner starts the investigation, but the gym treats a
-version match as suspicion. The case names the supplier upload surface and the
-benign traffic that a mitigation must preserve.”
+version match as suspicion. The table defines the evidence and compatibility
+boundary; the diagram previews the human-controlled path from finding to verified
+mitigation.”
 
 ### 2. Show the two specialist agents
 

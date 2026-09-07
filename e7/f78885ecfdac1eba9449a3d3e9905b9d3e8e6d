@@ -1,0 +1,83 @@
+003/benchmark/workflows/scan.json
+  s_35bf4dfa751518::t_45a55c9d0ecbde 50
+  s_35bf4dfa751518::t_ac695b16dd0009 5-6,10-11
+003/benchmark/workflows/legacy/scan.json
+  s_35bf4dfa751518::t_f996400cc60ba4 1-56
+003/benchmark/agent/analyst-prompt.md
+  s_35bf4dfa751518::t_88345d7df1f083 13
+  s_35bf4dfa751518::t_9201d05ae85ed7 1-8,10-12
+  s_35bf4dfa751518::t_273d64ceded0a1 9
+003/src/gym_plugin/workflows.py
+  s_35bf4dfa751518::t_5a1ab382816888 15,28-48,170,177,269
+  s_35bf4dfa751518::t_03be1259685042 21,110-119,136-169,171-176,178-185,265,270-271,278-287,289-290,349
+003/gym.lock.json
+  s_35bf4dfa751518::t_9bea56c668a313 13
+003/README.md
+  s_35bf4dfa751518::t_b481ac418a99dc 5,10,27,43,46,55,57-58,101,116-117,125,131,133-135,137,141-144,148-150,155,162-163,171,173-175,179,187-192,194,200,202-206,212-219,223,225-229
+  s_35bf4dfa751518::t_377347919155db 146,159,164-167,182
+  s_35bf4dfa751518::t_09799e46021edd 47-49,168-169,231
+003/IMPLEMENTATION.md
+  s_35bf4dfa751518::t_b481ac418a99dc 9-22
+  s_35bf4dfa751518::t_09799e46021edd 6-7,36-42
+  s_35bf4dfa751518::t_273ebed9836583 8
+  s_35bf4dfa751518::t_fcd883e2bea494 43
+003/benchmark/workflows/rule-application.json
+  s_35bf4dfa751518::t_ac695b16dd0009 5-6,10,12,59
+003/benchmark/agent/skills/propose-firewall-mitigation/SKILL.md
+  s_35bf4dfa751518::t_9201d05ae85ed7 1-22,25-27
+  s_35bf4dfa751518::t_273d64ceded0a1 23-24
+003/benchmark/workflows/legacy/verification.json
+  s_35bf4dfa751518::t_f996400cc60ba4 2-27,29-33,35,38-54,57-68,71-82,85-91,94-96
+003/src/gym_plugin/reconcile.py
+  s_35bf4dfa751518::t_b43c85850115dd 42-49,87-88,441
+  s_35bf4dfa751518::t_0e176823eb3021 20,26-30,460-473,476-498,500-502,505-591,612-617,659-668
+  s_35bf4dfa751518::t_bf320075d661e3 25
+  s_35bf4dfa751518::t_f8b239cdfefd41 31-39,248-325,610,638
+  s_35bf4dfa751518::t_f574b80c0acd66 430
+  s_35bf4dfa751518::t_cec6bbd53b46c0 1,50-54,58-66,70-73,76-78,89,108,133,157
+  s_35bf4dfa751518::t_440bc0faaa9caa 326-327
+003/benchmark/agent/analyst-preset.json
+  s_35bf4dfa751518::t_9201d05ae85ed7 2,4-5,7-13,16-17,19
+  s_35bf4dfa751518::t_bf320075d661e3 3
+003/src/gym_plugin/comments.py
+  s_35bf4dfa751518::t_53d2cab6c1fe24 1,15-16,59-119,126,129,133-152,155,157,159-160,162-167,169,171-175,177-184,186-198
+  s_35bf4dfa751518::t_6daae746aff3d6 20,31
+003/benchmark/workflows/legacy/rule-application.json
+  s_35bf4dfa751518::t_f996400cc60ba4 1-65
+003/tools/workflow_contract_test.py
+  s_35bf4dfa751518::t_a3f3dedf10b88a 307-336
+  s_35bf4dfa751518::t_88345d7df1f083 235-236
+  s_35bf4dfa751518::t_d036f9a2a83e6d 8,247-249,251,267,270-293,295-299
+  s_35bf4dfa751518::t_ce570e7132417d 20,182,184-187,189-198,203-210,212-214,216-229,231-234,240-246,252-258,260-266,269
+  s_35bf4dfa751518::t_6feb68bfb26ade 14,139-174,176-179
+  s_35bf4dfa751518::t_bf320075d661e3 188,250,259,268
+  s_35bf4dfa751518::t_fb7d01ae5b1087 71-83
+  s_35bf4dfa751518::t_c4ca3fc3173e1a 175
+  s_35bf4dfa751518::t_273d64ceded0a1 237-239
+  s_35bf4dfa751518::t_c390156408ebeb 11-12,300-305
+  s_35bf4dfa751518::t_6628c5ab5f8d98 294
+  s_35bf4dfa751518::t_34fdfcb318710c 180-181
+  s_35bf4dfa751518::t_64a85c490a3ddf 306
+003/benchmark/agent/skills/verify-exploitability/SKILL.md
+  s_35bf4dfa751518::t_9201d05ae85ed7 1-4,6,8,10,14-20
+  s_35bf4dfa751518::t_273d64ceded0a1 12
+003/benchmark/workflows/verification.json
+  s_35bf4dfa751518::t_45a55c9d0ecbde 91
+  s_35bf4dfa751518::t_ac695b16dd0009 5-6,11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "e7f78885ecfdac1eba9449a3d3e9905b9d3e8e6d",
+  "prompts": {},
+  "sessions": {
+    "s_35bf4dfa751518": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a07701-2e9b-7ab3-ac7f-cd3ffd9f5422",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Chris Lo <46541035+topher-lo@users.noreply.github.com>"
+    }
+  }
+}

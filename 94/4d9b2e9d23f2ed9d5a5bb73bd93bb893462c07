@@ -1,0 +1,26 @@
+003/gym.lock.json
+  s_35bf4dfa751518::t_3b7f34841da29d 13
+003/tools/probe_contract_test.py
+  s_35bf4dfa751518::t_a276f59282b261 150,171-217
+  s_35bf4dfa751518::t_3377e57fbe448e 218
+002/gym.lock.json
+  s_35bf4dfa751518::t_4a30090174e763 9
+003/src/gym_plugin/probe.py
+  s_35bf4dfa751518::t_a276f59282b261 34,230,415-434,557
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "944d9b2e9d23f2ed9d5a5bb73bd93bb893462c07",
+  "prompts": {},
+  "sessions": {
+    "s_35bf4dfa751518": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a07701-2e9b-7ab3-ac7f-cd3ffd9f5422",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Chris Lo <46541035+topher-lo@users.noreply.github.com>"
+    }
+  }
+}

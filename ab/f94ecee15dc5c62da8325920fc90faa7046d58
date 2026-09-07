@@ -1,0 +1,25 @@
+003/local_registry/local_registry/supplier_intake.py
+  s_35bf4dfa751518::t_e46e812eb388b0 258,281-291
+003/tools/registry_contract_test.py
+  s_35bf4dfa751518::t_329c660e04f80e 179-194,200-255
+  s_35bf4dfa751518::t_8c2b32a2662e60 10-11,15,18,24
+  s_35bf4dfa751518::t_bce91adfe69beb 256
+003/gym.lock.json
+  s_35bf4dfa751518::t_97e71c2393c924 13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "abf94ecee15dc5c62da8325920fc90faa7046d58",
+  "prompts": {},
+  "sessions": {
+    "s_35bf4dfa751518": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a07701-2e9b-7ab3-ac7f-cd3ffd9f5422",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Chris Lo <46541035+topher-lo@users.noreply.github.com>"
+    }
+  }
+}

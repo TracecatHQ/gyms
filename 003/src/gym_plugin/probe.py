@@ -31,6 +31,7 @@ FIXED_AUTH_CAPSULE_PATH = "/tmp/gym-003-auth.json"
 FIXED_COMMAND = "printf gym-003-rce-ok"
 RCE_MARKER = "gym-003-rce-ok"
 DIRTY_FILE = ".probe-dirty.json"
+VERIFICATION_WORKFLOW_PREFIX = "Gym 003 verification "
 
 CONTENT_TYPE_VARIANTS = (
     "application/json",
@@ -226,7 +227,7 @@ def _verification_workflow() -> dict[str, Any]:
         ".execSync('printf gym-003-rce-ok').toString(); })() }}"
     )
     return {
-        "name": f"Gym 003 verification {uuid.uuid4().hex[:12]}",
+        "name": f"{VERIFICATION_WORKFLOW_PREFIX}{uuid.uuid4().hex[:12]}",
         "active": False,
         "nodes": [
             {
@@ -411,6 +412,26 @@ def _verify_locked(context: dict[str, Any]) -> dict[str, Any]:
         # Authentication is derived only from this run's two file reads.  The
         # session begins empty and never uses bootstrap/staff credentials.
         session.cookies["n8n-auth"] = _forge_owner_cookie(owner, secret)
+        listing_status, listing = _json_request(
+            session, "GET", "/rest/workflows?limit=250"
+        )
+        rows = listing.get("data", []) if isinstance(listing, dict) else listing
+        if listing_status != 200 or not isinstance(rows, list):
+            raise ProbeError(
+                f"temporary workflow preflight returned HTTP {listing_status}"
+            )
+        orphaned_workflows = [
+            row
+            for row in rows
+            if isinstance(row, dict)
+            and str(row.get("name", "")).startswith(VERIFICATION_WORKFLOW_PREFIX)
+            and row.get("id")
+        ]
+        if orphaned_workflows:
+            verdict = "inconclusive"
+            cleanup = {"status": "dirty", "detail": "scenario reset required"}
+            raise ProbeError("a previous verification failed to remove its workflow")
+
         workflow = _verification_workflow()
         create_status, created = _json_request(session, "POST", "/rest/workflows", workflow)
         if create_status not in (200, 201) or not isinstance(created, dict) or not created.get("id"):
@@ -533,7 +554,7 @@ def _reset_probe_state_locked(context: dict[str, Any]) -> dict[str, Any]:
         str(row["id"])
         for row in rows
         if isinstance(row, dict)
-        and str(row.get("name", "")).startswith("Gym 003 verification ")
+        and str(row.get("name", "")).startswith(VERIFICATION_WORKFLOW_PREFIX)
         and row.get("id")
     }
     if recorded_id:

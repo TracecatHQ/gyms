@@ -147,6 +147,7 @@ class ProbeContractTests(unittest.TestCase):
                     probe,
                     "_json_request",
                     side_effect=[
+                        (200, {"data": []}),
                         (201, {"id": "temporary-workflow"}),
                         (200, {"proof": probe.RCE_MARKER}),
                         (500, {}),
@@ -166,6 +167,54 @@ class ProbeContractTests(unittest.TestCase):
         self.assertEqual(result["verdict"], "inconclusive")
         self.assertEqual(result["cleanup"]["status"], "failed")
         self.assertEqual(result["error"], "temporary workflow cleanup was not confirmed")
+
+    def test_orphaned_verification_workflow_blocks_new_workflow_creation(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+
+            def read_file(_session, path, **_kwargs):
+                if path == probe.FIXED_CONFIG_PATH:
+                    return 200, b"config"
+                return 200, b"capsule"
+
+            with (
+                patch.object(probe, "_read_file", side_effect=read_file),
+                patch.object(probe, "_jwt_secret", return_value="secret"),
+                patch.object(
+                    probe,
+                    "_extract_auth_capsule",
+                    return_value=("owner-id", "auth-hash"),
+                ),
+                patch.object(probe, "_forge_owner_cookie", return_value="cookie"),
+                patch.object(
+                    probe,
+                    "_json_request",
+                    return_value=(
+                        200,
+                        {
+                            "data": [
+                                {
+                                    "id": "orphaned-workflow",
+                                    "name": f"{probe.VERIFICATION_WORKFLOW_PREFIX}abc123",
+                                }
+                            ]
+                        },
+                    ),
+                ) as request,
+            ):
+                result = probe._verify_locked(
+                    {
+                        "evidence_dir": root / "evidence",
+                        "state_dir": root / "state",
+                    }
+                )
+
+        request.assert_called_once_with(
+            unittest.mock.ANY, "GET", "/rest/workflows?limit=250"
+        )
+        self.assertEqual(result["verdict"], "inconclusive")
+        self.assertEqual(result["cleanup"]["status"], "dirty")
+        self.assertEqual(result["error"], "a previous verification failed to remove its workflow")
 
 
 if __name__ == "__main__":

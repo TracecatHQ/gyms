@@ -9,12 +9,169 @@ The analyst makes two independent decisions:
 - determination: `true_positive` or `false_positive`
 - incident relevance: `related` or `unrelated`
 
+The managed `Investigate Case` workflow wraps those decisions in an agent memory
+loop:
+
+`case → semantic recall of memories and entity observations → investigation →
+entity extraction → case-linked entities and observations → durable memory`
+
+Each investigation reads what earlier investigations learned and writes back what
+it learned itself. The walkthrough screenshots were captured from a live
+environment in dark mode.
+
+## Agent memory architecture
+
+```mermaid
+flowchart TB
+    subgraph Recall
+        T["Trigger<br/>case_id, optional session_id"] --> FC["format_case<br/>Format Case as Markdown"]
+        FC --> EQ["embed_query<br/>case ID + summary +<br/>description + payload"]
+        EQ --> LM["list_memories<br/>memories table"]
+        EQ --> SO["search_entity_observations<br/>entity_observations table"]
+        SO --> FR["filter_reviewed_observations<br/>drops the current case"]
+        LM --> RM["rank_memories<br/>numpy cosine, top 10"]
+        FR --> RO["rank_observations<br/>numpy cosine, top 10"]
+    end
+    RM --> IC["investigate_case<br/>Analyst preset + memory tables"]
+    RO --> IC
+    S["create_agent_session<br/>or TRIGGER.session_id"] --> IC
+    subgraph Writeback
+        FU["format_updated_case<br/>re-rendered after investigation"]
+        FU --> EC["embed_case"] --> CE[("case_embeddings")]
+        FU --> EE["extract_entities<br/>separate agent session"]
+        EE --> SC["scatter_entities"]
+        SC --> IE["insert_entity<br/>upsert"] --> ENT[("entities")]
+        SC --> EO["embed_entity_observation"] --> IO["insert_entity_observation<br/>upsert"] --> OBS[("entity_observations")]
+        IE --> IO
+        IE --> LE["link_entity"]
+        IO --> LO["link_observation"]
+    end
+    IC --> FU
+    IC --> SM["save_memory<br/>follow-up message in the<br/>same investigation session"]
+    SM --> MEM[("memories")]
+    SM --> EM["embed_memory"] --> UM["save_memory_embedding"] --> MEM
+    LE --> CASE["Case"]
+    LO --> CASE
+    MEM --> CASE
+```
+
+Tracecat owns the case, the tables, the agent sessions, and every deterministic
+insert and link. The only external dependency is the embedding endpoint.
+
+### Recall
+
+`format_case` calls the managed `Format Case as Markdown` child workflow. Only
+the case ID, summary, description, and payload are embedded — not the whole
+rendered case. That keeps the query vector small and focused on the details most
+likely to match a related alert. If a deployment carries categorization data in
+custom fields or dropdowns, add those to the query input; the goal is as much
+real case context as possible.
+
+The `format_case` call is a leftover from an earlier approach. Everything the
+query embedding needs is the structured case, so this step can be reduced to a
+plain case read. `format_updated_case` later in the workflow is the call that
+actually needs the rendered Markdown, and it re-runs the same child workflow
+after the investigation.
+
+Every embedding is a plain `core.http_request` POST to OpenRouter using
+`voyageai/voyage-4-lite` at 1024 dimensions. There is no mechanism to call an
+embedding model through the Tracecat model catalog, so the key is resolved from
+the `openrouter` workspace secret rather than from a configured provider. Any
+embedding model works. The `dimensions` value must match on **all** embedding
+steps — query, case, observation, and memory — or ranking fails on a vector
+shape mismatch.
+
+`filter_reviewed_observations` does not currently filter on review state. Its
+lambda is `row["observation_ref"].split("/")[0] != case_id and (row["reviewed"]
+or True)`, so it only excludes observations belonging to the case under
+investigation. In a real deployment you would restrict this to `reviewed = True`
+and implement a review process behind it. Observations are inserted and linked
+deterministically later in the workflow, so there is no agent-based tool
+approval on them — and there is no way to insert a human approval step inside the
+workflow itself. Doing so would leave the workflow *running* until someone got
+around to approving, and there can be many observations per case.
+
+`rank_memories` and `rank_observations` are functionally the same numpy cosine
+comparison against the stored vectors; only the output shape differs. Both return
+the top 10 with no score restriction. The score is part of the returned shape, so
+the agent can decide for itself whether a match is close enough to reference.
+Pass `min_score` in the script inputs to enforce a floor instead. Both results are
+rendered into the agent's prompt as Markdown tables.
+
+### Investigation
+
+The `investigate_case` user prompt is functionally the prompt the evaluator was
+already using, plus two additions: a `<memory-context>` block and an
+`<entity-observations>` block, each framed as recalled reference data rather than
+new user input. It also carries the severity-conditional instruction to close
+cases at medium priority *and* severity or below, and to assign
+`analyst@gym-002.example.com` for anything above medium.
+
+This is a place where just-in-time tool approval would be preferred — approve
+closing cases at or below medium, require approval above it. As written, nothing
+actually stops the agent from closing instead of escalating except the prompt.
+
+The session ID is either passed in by the harness as part of `TRIGGER` or created
+by the workflow at the top, so that the session maps to the user and carries the
+case as its linked entity.
+
+### Entity extraction
+
+`extract_entities` runs in a new agent session with no linked entity, against the
+Markdown-formatted case regenerated *after* the investigation — so it sees
+comments, custom fields, and dropdowns written during the investigation. It is
+given the entities already linked to the case and told not to return them again.
+
+Entity types are based on the types allowed for OCSF observables, but not
+strictly. There is a prompt instruction not to invent new types; it is not
+enforced.
+
+The `entities` table holds every entity discovered across all cases, which are
+then linked to the cases they appear in. With linked-row-to-case lookups, an
+agent could use this to quickly discover other cases involving the same entity.
+
+`entity_observations` provide the case-specific context for what an entity's
+involvement in a case actually is; that context is part of what entity extraction
+returns. Observations are linked to the case as well. Note that both tables have
+a column named `entity_ref` and they hold different things: on `entities` it is
+the `<entity_type>/<entity_name>` natural key, while on `entity_observations` it
+is the `entities` **row ID** returned by the upsert.
+
+Only observations are embedded for future semantic search, because they carry the
+entity details **plus** the relationship to the case. `entities` rows have no
+embedding, and `case_embeddings` is written for future case-to-case similarity
+but is not read back by this workflow.
+
+The `entities` and `entity_observations` tables each have a unique index defined —
+on `entity_ref` and `observation_ref` respectively — which is what makes the
+`upsert: true` inserts work and keeps both tables deduplicated.
+
+### Memory production
+
+Memories are created as a follow-up message in the agent's *investigation*
+session. That keeps the same investigative context — tool calling and everything
+it observed — available to the memory production step. The agent's available
+actions are overridden for that message to only `core.cases.insert_row`.
+
+If HITL approval is desired, that is the action to gate. Again, just-in-time and
+argument-based approval rules would help here: the agent should only ever write to
+the `memories` table, and attempts to write to other tables should be rejected
+outright. There are also values that should not be set at all by the agent
+(`embedding`) or that should be set to a static value (`memory_ref`), which the
+same approval logic could handle.
+
+The agent is given any previous memories created for the case and told not to
+repeat past memories, its own instructions, or memories from other cases. It has
+explicit permission to produce **no** memory if nothing new is worth remembering.
+It is given a static `memory_ref` value — `<case_id>/<ISO timestamp>` — so the
+workflow can find the new row afterwards and write its embedding.
+
 ## Start
 
 Requirements are Docker with Compose 2.24.4+, Git LFS, `just`, and Python 3.11+.
 
 ```bash
-cd /Users/chris/repos/gyms/002
+cd 002
 git lfs install
 just init
 just up
@@ -32,14 +189,16 @@ workspace secret, which the managed `Investigate Case` workflow resolves for its
 embedding steps. Reconcile fails fast when the key is absent. To use a different
 embeddings provider, change the embedding actions in
 `benchmark/workflows/investigate-case.json` and update the secret name that
-`reconcile.py` publishes.
+`reconcile.py` publishes. Change the `dimensions` value on every embedding action
+together, and re-embed anything already stored.
 
 Reconcile also manages the four case tables in `benchmark/tables/`, the
-`Investigate Case` workflow in `benchmark/workflows/`, and a `tracecat` secret
-holding the tenant analyst login that the workflow uses when a trigger does not
-supply an agent session. Workflow drift is detected by comparing the committed
-definition with the managed file, so edits made in the UI must be exported back
-over `benchmark/workflows/investigate-case.json` before reconcile will pass.
+`Investigate Case` and `Format Case as Markdown` workflows in
+`benchmark/workflows/`, and a `tracecat` secret holding the tenant analyst login
+that the workflow uses when a trigger does not supply an agent session. Workflow
+drift is detected by comparing the committed definition with the managed file, so
+edits made in the UI must be exported back over
+`benchmark/workflows/investigate-case.json` before reconcile will pass.
 
 URLscan and VirusTotal remain benchmark requirements for five applicable cases.
 Configure `URLSCAN_API_KEY` and `VIRUSTOTAL_API_KEY` directly in Tracecat when
@@ -63,9 +222,17 @@ just rescore EVAL_ID=20260907T075632Z-4584b519
 just eval ALERT_ID=guardduty:c2-contact
 ```
 
+`just eval` prompts the investigator preset directly and exercises no memory.
+`just workflow-eval` drives `Investigate Case`, so it is the only mode that
+recalls prior memories and observations and writes new ones back. The harness
+creates the agent session itself and hands the ID to the workflow, keeping session
+identity and the workflow definition version under harness control.
+
 Each selected case must be pristine. The investigator can access only that
 case, its exact MinIO object, the seven local reasoning skills, case-update
-actions, DuckDB, and read-only enrichments. Cross-case search is not enabled.
+actions, DuckDB, and read-only enrichments. Cross-case search is not enabled;
+recalled memories and entity observations are the only cross-case signal, and
+they arrive as prompt context rather than as a searchable tool.
 
 MinIO records contain a stored, deterministic `event_ref`. The investigator
 must select it directly, cite an audited anchor reference in the case, record
@@ -87,6 +254,11 @@ The command is interruption-safe and idempotent. It removes any remaining
 `gym_id=002` cases and any gym-titled grader sessions left by interrupted
 cleanup, then recreates the exact 20-case queue. Models, integration credentials,
 skills, presets, service volumes, and host artifacts are retained.
+
+Memory accumulates across evaluation runs. `entities`, `entity_observations`,
+`memories`, and `case_embeddings` are not cleared by `just reset-evals`, so a
+second `just workflow-eval` over the same 20 cases starts with everything the
+first run learned. Clear those tables in the UI for a cold-memory baseline.
 
 ## Dataset and evidence boundary
 
@@ -123,7 +295,135 @@ just clean-restart CONFIRM=artifacts-captured
 
 These full-cleanup commands remove only Gym 002 Compose state and never delete
 host `eval-results/`. A clean restart also removes the Tracecat database, so UI
-model and integration settings must be configured again.
+model and integration settings must be configured again — and it destroys the
+accumulated memory tables.
+
+## Memory walkthrough
+
+The reference set covers the three memory stores, what one investigation linked
+back to its case, and what gating the memory write looks like. All images use
+dark mode.
+
+Before presenting, start and reconcile the exercise, then drive at least one case
+through the workflow so the tables are populated:
+
+```bash
+cd 002
+just up
+just wait
+just reconcile
+just status
+just workflow-eval ALERT_ID=guardduty:c2-contact
+```
+
+`just status` must report 20 cases, the managed tables, the investigator preset,
+and the seven skills. Do not place a key in a terminal, README, screenshot, or
+case comment.
+
+### 1. Show the three memory stores
+
+**Action:** Open Tracecat at <http://127.0.0.1:28080>, select **Tables**, and open
+`memories`, then `entities`, then `entity_observations`.
+
+**Expected state:** `memories` holds the durable investigation notes with a
+`summary`, `content`, the static `memory_ref` of `<case_id>/<ISO timestamp>`, and
+a populated `embedding`. Note that one row is a memory recording that there was
+nothing new to remember — the agent has permission to skip, and does not always
+take it.
+
+![Memories table](docs/screenshots/03-memories-table.png)
+
+`entities` is the cross-case store. `entity_ref` carries the unique index that
+makes upsert deduplicate, and its values are `<entity_type>/<entity_name>`. The
+type column shows the OCSF-derived labels — `Hash`, `Port`, `User Name`,
+`IP Address`, `URL String`, `File Name`, `Hostname`, `Process Name`, `Group`,
+`Email Address`. There are no embeddings here.
+
+![Entities table](docs/screenshots/01-entities-table.png)
+
+`entity_observations` holds the case-specific context — "Invalid SSH username
+attempted from 5.101.40.81", "External source of SSH invalid-user/password-spray
+attempts" — with the unique index on `observation_ref`
+(`<case_id>/<entity_type>/<entity_name>/<context>`), the `reviewed` flag, its
+`reviewed_by` / `reviewed_at` companions, and the embedding. Every row's
+`reviewed` value is `false`, and every row is still eligible for recall.
+
+![Entity observations table](docs/screenshots/02-entity-observations-table.png)
+
+**Presenter notes:** "Entities are global and deduplicated; observations are what
+that entity *did* in a specific case. Only observations get embedded, because only
+they carry the relationship. The `reviewed` column is the hook for a review
+process — right now the filter ignores it, so everything is recallable."
+
+### 2. Show what one investigation linked back to its case
+
+**Action:** Select **Cases**, open a case that has been through
+`Investigate Case`, and select the linked-rows tab. Scroll through `entities`,
+then `entity_observations`, then `memories`.
+
+**Expected state:** The case carries its two decision tags —
+`verdict:true-positive` and `incident:related` — and, because its priority and
+severity are both High, it is **In Progress** and assigned to
+`analyst@gym-002.example.com` rather than closed. The linked `entities` rows are
+the ones extracted from this case's post-investigation Markdown.
+
+![Case-linked entities](docs/screenshots/04-case-linked-entities.png)
+
+Scrolling down shows the 17 `entity_observations` rows with their per-case context
+and the single `memories` row this investigation produced.
+
+![Case-linked observations and memory](docs/screenshots/05-case-linked-observations-and-memory.png)
+
+**Presenter notes:** "Everything the agent learned is attached to the case as
+first-class linked rows, not buried in a comment. The severity routing worked —
+this one was High, so it escalated instead of closing. Note also that extraction
+picked up the assignee email and the MinIO object URL; entity types are guided by
+a prompt, not enforced by a schema."
+
+### 3. Gate the memory write
+
+**Action:** Configure a tool approval on `core.cases.insert_row` for the
+investigator preset, run a case through the workflow, and open the **Inbox**.
+
+**Expected state:** The `investigate_case` session appears under **Review
+required**, sourced from the workflow and created by the `analyst` tenant user.
+
+![Memory write pending review](docs/screenshots/06-memory-write-review-required.png)
+
+Opening the session shows the pending `core.cases.insert_row` call with its full
+arguments — the memory `row` with `content`, `summary`, and the workflow-supplied
+`memory_ref`, plus the `case_id` and the `memories` `table_id` — and Approve /
+Edit + approve / Deny controls.
+
+![Memory write approval](docs/screenshots/07-memory-write-approval.png)
+
+**Presenter notes:** "This is the one agent write in the whole memory loop, and it
+is the only one worth gating — entities and observations are inserted
+deterministically by the workflow after extraction. What is missing is
+argument-level approval: the reviewer should not have to read the arguments to
+confirm the agent is writing to the `memories` table and not another one, or that
+it did not try to set `embedding` itself. That belongs in a rule, not in a human's
+attention."
+
+### Repeat the walkthrough
+
+Reset only the managed cases and sessions, keeping the memory tables so the next
+run demonstrates recall:
+
+```bash
+just reset-evals CONFIRM=artifacts-captured
+just reconcile
+just status
+```
+
+For a cold-memory baseline, clear `memories`, `entities`, `entity_observations`,
+and `case_embeddings` in the UI before rerunning, or use
+`just clean-restart CONFIRM=artifacts-captured` to rebuild the whole workspace.
+
+Review the case before presenting again and avoid displaying credentials,
+cookies, extracted values, raw payloads, or secret-bearing logs.
 
 See [`benchmark/README.md`](benchmark/README.md) and
-[`PROVENANCE.md`](PROVENANCE.md) for source and evaluator boundaries.
+[`PROVENANCE.md`](PROVENANCE.md) for source and evaluator boundaries, and
+[`docs/screenshots/CAPTURE-LIST.md`](docs/screenshots/CAPTURE-LIST.md) for the
+captures still outstanding.

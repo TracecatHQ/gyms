@@ -16,8 +16,8 @@ loop:
 entity extraction → case-linked entities and observations → durable memory`
 
 Each investigation reads what earlier investigations learned and writes back what
-it learned itself. The walkthrough screenshots were captured from a live
-environment in dark mode.
+it learned itself. The walkthrough screenshots are illustrative examples from one
+live run, not expected states.
 
 ## Agent memory architecture
 
@@ -304,6 +304,15 @@ The reference set covers the three memory stores, what one investigation linked
 back to its case, and what gating the memory write looks like. All images use
 dark mode.
 
+**The screenshots are examples, not expected states.** Each was captured from one
+run of one case in one workspace. Row counts, entity values, case numbers,
+verdicts, memory text, and how much memory has accumulated all differ between
+runs, between models, and between a cold workspace and one that has already been
+through `just workflow-eval`. Nothing here is a fixture to diff against — the
+harness gates in `benchmark/evals/` are the only deterministic checks in this gym.
+Each step below separates the structure that holds on every run from the
+run-specific detail visible in that particular capture.
+
 Before presenting, start and reconcile the exercise, then drive at least one case
 through the workflow so the tables are populated:
 
@@ -325,30 +334,42 @@ case comment.
 **Action:** Open Tracecat at <http://127.0.0.1:28080>, select **Tables**, and open
 `memories`, then `entities`, then `entity_observations`.
 
-**Expected state:** `memories` holds the durable investigation notes with a
-`summary`, `content`, the static `memory_ref` of `<case_id>/<ISO timestamp>`, and
-a populated `embedding`. Note that one row is a memory recording that there was
-nothing new to remember — the agent has permission to skip, and does not always
-take it.
+**What holds every run:** `memories` carries a `summary`, `content`, a
+`memory_ref` of `<case_id>/<ISO timestamp>` supplied by the workflow, and an
+`embedding` written back after the row is inserted. How many rows exist, and what
+any of them say, depends entirely on what the agent decided was worth recording.
 
-![Memories table](docs/screenshots/03-memories-table.png)
+**In this capture:** three memories from earlier runs, one of them titled "No new
+durable investigation details" — the agent has explicit permission to skip writing
+a memory when nothing new is worth remembering, and it does not always take it.
+Expect different titles, different counts, and possibly none at all.
 
-`entities` is the cross-case store. `entity_ref` carries the unique index that
-makes upsert deduplicate, and its values are `<entity_type>/<entity_name>`. The
-type column shows the OCSF-derived labels — `Hash`, `Port`, `User Name`,
-`IP Address`, `URL String`, `File Name`, `Hostname`, `Process Name`, `Group`,
-`Email Address`. There are no embeddings here.
+![Memories table — example](docs/screenshots/03-memories-table.png)
 
-![Entities table](docs/screenshots/01-entities-table.png)
+**What holds every run:** `entities` is the cross-case store. `entity_ref` is
+`<entity_type>/<entity_name>` and carries the unique index that makes the upsert
+deduplicate. There is no embedding column.
 
-`entity_observations` holds the case-specific context — "Invalid SSH username
-attempted from 5.101.40.81", "External source of SSH invalid-user/password-spray
-attempts" — with the unique index on `observation_ref`
-(`<case_id>/<entity_type>/<entity_name>/<context>`), the `reviewed` flag, its
-`reviewed_by` / `reviewed_at` companions, and the embedding. Every row's
-`reviewed` value is `false`, and every row is still eligible for recall.
+**In this capture:** the OCSF-derived type labels that happened to appear —
+`Hash`, `Port`, `User Name`, `IP Address`, `URL String`, `File Name`, `Hostname`,
+`Process Name`, `Group`, `Email Address`. The enum in the extraction prompt is
+much longer than this; which labels show up is a property of the cases run so far,
+and the model is not prevented from emitting one that is not in the enum at all.
 
-![Entity observations table](docs/screenshots/02-entity-observations-table.png)
+![Entities table — example](docs/screenshots/01-entities-table.png)
+
+**What holds every run:** `entity_observations` holds the case-specific context
+for an entity, keyed by an `observation_ref` of
+`<case_id>/<entity_type>/<entity_name>/<context>` under its own unique index, with
+`reviewed`, `reviewed_by`, `reviewed_at`, and the embedding. Every row is inserted
+with `reviewed` hardcoded to `false`, and every row is eligible for recall
+regardless, because the filter ignores the column.
+
+**In this capture:** contexts like "Invalid SSH username attempted from
+5.101.40.81" and "External source of SSH invalid-user/password-spray attempts".
+The wording is model-generated and will not reproduce verbatim.
+
+![Entity observations table — example](docs/screenshots/02-entity-observations-table.png)
 
 **Presenter notes:** "Entities are global and deduplicated; observations are what
 that entity *did* in a specific case. Only observations get embedded, because only
@@ -361,41 +382,54 @@ process — right now the filter ignores it, so everything is recallable."
 `Investigate Case`, and select the linked-rows tab. Scroll through `entities`,
 then `entity_observations`, then `memories`.
 
-**Expected state:** The case carries its two decision tags —
-`verdict:true-positive` and `incident:related` — and, because its priority and
-severity are both High, it is **In Progress** and assigned to
-`analyst@gym-002.example.com` rather than closed. The linked `entities` rows are
-the ones extracted from this case's post-investigation Markdown.
+**What holds every run:** the case carries both decision tags, one from each axis
+— `verdict:true-positive` or `verdict:false-positive`, and `incident:related` or
+`incident:unrelated`. Severity routing applies: at medium priority *and* severity
+or below the case is closed, above medium it is assigned to
+`analyst@gym-002.example.com`. Whatever entities extraction found are linked as
+first-class rows from the case's post-investigation Markdown.
 
-![Case-linked entities](docs/screenshots/04-case-linked-entities.png)
+**In this capture:** CASE-0184, tagged `verdict:true-positive` and
+`incident:related`, High/High, and therefore **In Progress** and assigned rather
+than closed. Which case number you get, which way the verdict falls, and whether
+it escalates all depend on the case you run and how the model reads it.
 
-Scrolling down shows the 17 `entity_observations` rows with their per-case context
-and the single `memories` row this investigation produced.
+![Case-linked entities — example](docs/screenshots/04-case-linked-entities.png)
 
-![Case-linked observations and memory](docs/screenshots/05-case-linked-observations-and-memory.png)
+**In this capture:** 16 linked entities, 17 linked observations, and one memory.
+These counts are outputs of a single extraction pass, not a target.
+
+![Case-linked observations and memory — example](docs/screenshots/05-case-linked-observations-and-memory.png)
 
 **Presenter notes:** "Everything the agent learned is attached to the case as
-first-class linked rows, not buried in a comment. The severity routing worked —
-this one was High, so it escalated instead of closing. Note also that extraction
-picked up the assignee email and the MinIO object URL; entity types are guided by
-a prompt, not enforced by a schema."
+first-class linked rows, not buried in a comment. In this run the case was High,
+so it escalated instead of closing — that is the prompt's severity rule working,
+not something the workflow enforces. Note also that extraction picked up the
+assignee email and the MinIO object URL; entity types are guided by a prompt, not
+enforced by a schema."
 
 ### 3. Gate the memory write
 
 **Action:** Configure a tool approval on `core.cases.insert_row` for the
-investigator preset, run a case through the workflow, and open the **Inbox**.
+investigator preset, run a case through the workflow, and open the **Inbox**. This
+is not the shipped configuration — `benchmark/agent/investigator-preset.json` sets
+`tool_approvals` to `{}`, so the gate below has to be turned on deliberately.
 
-**Expected state:** The `investigate_case` session appears under **Review
-required**, sourced from the workflow and created by the `analyst` tenant user.
+**What holds every run:** with that approval configured, the `investigate_case`
+session appears under **Review required**, sourced from the workflow and created
+by the `analyst` tenant user, and the run blocks there until someone acts.
 
-![Memory write pending review](docs/screenshots/06-memory-write-review-required.png)
+![Memory write pending review — example](docs/screenshots/06-memory-write-review-required.png)
 
-Opening the session shows the pending `core.cases.insert_row` call with its full
-arguments — the memory `row` with `content`, `summary`, and the workflow-supplied
-`memory_ref`, plus the `case_id` and the `memories` `table_id` — and Approve /
-Edit + approve / Deny controls.
+**What holds every run:** opening the session shows the pending
+`core.cases.insert_row` call with its full arguments — the memory `row` with
+`content`, `summary`, and the workflow-supplied `memory_ref`, plus the `case_id`
+and the `memories` `table_id` — behind Approve / Edit + approve / Deny controls.
 
-![Memory write approval](docs/screenshots/07-memory-write-approval.png)
+**In this capture:** the specific memory the agent proposed for that case. The
+argument shape is fixed by the workflow; the `content` and `summary` are not.
+
+![Memory write approval — example](docs/screenshots/07-memory-write-approval.png)
 
 **Presenter notes:** "This is the one agent write in the whole memory loop, and it
 is the only one worth gating — entities and observations are inserted

@@ -424,6 +424,4 @@ Review the case before presenting again and avoid displaying credentials,
 cookies, extracted values, raw payloads, or secret-bearing logs.
 
 See [`benchmark/README.md`](benchmark/README.md) and
-[`PROVENANCE.md`](PROVENANCE.md) for source and evaluator boundaries, and
-[`docs/screenshots/CAPTURE-LIST.md`](docs/screenshots/CAPTURE-LIST.md) for the
-captures still outstanding.
+[`PROVENANCE.md`](PROVENANCE.md) for source and evaluator boundaries.

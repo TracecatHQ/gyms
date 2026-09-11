@@ -116,6 +116,24 @@ def _literal_value(expression: Any) -> Any:
     return value.get("value")
 
 
+def _boolean_cast_child(expression: Any) -> Any:
+    """Unwrap DuckDB's parse of a bare boolean literal.
+
+    ``union_by_name=true`` does not reach the tree as a constant: DuckDB emits an
+    ``OPERATOR_CAST`` of the string ``'t'`` to BOOLEAN. Unwrapping that keeps the
+    literal-only guarantee while accepting the spelling agents actually write;
+    anything else is returned untouched and still has to be a constant.
+    """
+    if (
+        isinstance(expression, dict)
+        and expression.get("class") == "CAST"
+        and isinstance(expression.get("cast_type"), dict)
+        and expression["cast_type"].get("id") == "BOOLEAN"
+    ):
+        return expression.get("child")
+    return expression
+
+
 def _audit_read_json_function(function: Any, exact_url: str) -> str:
     if not isinstance(function, dict) or function.get("class") != "FUNCTION":
         raise ValueError("DuckDB table source is missing its function")
@@ -140,7 +158,15 @@ def _audit_read_json_function(function: Any, exact_url: str) -> str:
             or len(left["column_names"]) != 1
         ):
             raise ValueError("read_json_auto option name is invalid")
-        _literal_value(right)
+        try:
+            _literal_value(_boolean_cast_child(right))
+        except ValueError:
+            # _literal_value phrases its error for the source URL; an option
+            # value failing here is a different fault and used to be reported
+            # as a bad source.
+            raise ValueError(
+                "read_json_auto accepts only literal named options"
+            ) from None
     return url
 
 
@@ -264,6 +290,27 @@ def _audit_table_source(
         query_node = query.get("node") if isinstance(query, dict) else None
         if not isinstance(query_node, dict) or query.get("named_param_map"):
             raise ValueError("DuckDB SQL tree has an invalid table subquery")
+        return _audit_query_node(
+            query_node, exact_url, ctes, active_ctes, state, depth + 1
+        )
+    if source_type == "SHOW_REF":
+        # DESCRIBE over an inline query is schema discovery, not a scope escape:
+        # it returns column metadata for a query whose own sources are audited
+        # below exactly as any other query's would be. Describing a *named*
+        # table or a qualified object stays forbidden.
+        if source.get("show_type") != "DESCRIBE":
+            raise ValueError(
+                f"show type {source.get('show_type')!r} is forbidden"
+            )
+        if (
+            source.get("table_name")
+            or source.get("catalog_name")
+            or source.get("schema_name")
+        ):
+            raise ValueError("DESCRIBE of a named table is forbidden")
+        query_node = source.get("query")
+        if not isinstance(query_node, dict):
+            raise ValueError("DuckDB SQL tree has an invalid DESCRIBE query")
         return _audit_query_node(
             query_node, exact_url, ctes, active_ctes, state, depth + 1
         )

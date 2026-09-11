@@ -1,0 +1,17 @@
+{
+  "name": "entities",
+  "columns": [
+    {
+      "name": "entity_name",
+      "type": "TEXT"
+    },
+    {
+      "name": "entity_ref",
+      "type": "TEXT"
+    },
+    {
+      "name": "entity_type",
+      "type": "TEXT"
+    }
+  ]
+}

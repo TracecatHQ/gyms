@@ -231,7 +231,7 @@ def migrate() -> None:
     log("Gym 002 has no legacy volume namespace; no migration is required.")
 
 
-def evaluate(alert_id: str | None = None) -> int:
+def evaluate(alert_id: str | None = None, *, via_workflow: bool = False) -> int:
     wait()
     build()
     results = config.ROOT / "eval-results"
@@ -244,6 +244,30 @@ def evaluate(alert_id: str | None = None) -> int:
         "--no-deps",
         "eval-runner",
         "internal-eval",
+    ]
+    if alert_id:
+        command += ["--alert-id", alert_id]
+    if via_workflow:
+        command.append("--via-workflow")
+    return config.run_compose(*command, check=False).returncode
+
+
+def rescore(eval_id: str, alert_id: str | None = None) -> int:
+    """Re-score a completed evaluation without re-running investigators."""
+    build()
+    results = config.ROOT / "eval-results"
+    if not (results / eval_id).is_dir():
+        raise GymError(f"evaluation {eval_id} not found under {results}")
+    command = [
+        "--profile",
+        "evaluation",
+        "run",
+        "--rm",
+        "--no-deps",
+        "eval-runner",
+        "internal-rescore",
+        "--eval-id",
+        eval_id,
     ]
     if alert_id:
         command += ["--alert-id", alert_id]

@@ -53,6 +53,7 @@ services:
       TRACEcat_INTERNAL_API_URL: http://api:8000
       TRACEcat_TENANT_EMAIL: ${TRACEcat_TENANT_EMAIL}
       TRACEcat_TENANT_PASSWORD: ${TRACEcat_TENANT_PASSWORD}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:?missing OpenRouter API key}
     command: [internal-reconcile, reconcile]
     depends_on:
       api: {condition: service_healthy}

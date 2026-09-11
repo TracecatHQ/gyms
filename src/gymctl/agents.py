@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
 import uuid
 from pathlib import Path
 from typing import Any
@@ -19,6 +20,11 @@ SENSITIVE_KEY = re.compile(
 TRANSIENT_ERROR = re.compile(
     r"\b(429|500|502|503|504)\b|timeout|timed out|connection reset|temporar", re.I
 )
+
+
+WORKFLOW_POLL_SECONDS = 5
+WORKFLOW_SUCCESS_STATUS = "COMPLETED"
+WORKFLOW_RUNNING_STATUS = "RUNNING"
 
 
 class AgentRuntimeError(RuntimeError):
@@ -139,6 +145,103 @@ def find_preset(api: TracecatAPI, workspace_id: str, slug: str) -> dict[str, Any
     if not isinstance(preset, dict) or not preset.get("current_version_id"):
         raise AgentRuntimeError(f"preset {slug!r} has no current version")
     return preset
+
+
+def _workflow_error(execution_id: str, message: str) -> AgentRuntimeError:
+    """Carry the execution id on the error so failed attempts can record it."""
+    error = AgentRuntimeError(message)
+    error.execution_id = execution_id  # type: ignore[attr-defined]
+    return error
+
+
+def find_workflow(api: TracecatAPI, workspace_id: str, alias: str) -> dict[str, Any]:
+    """Resolve a workflow alias to the row the execution endpoint accepts.
+
+    ``POST /workflow-executions`` takes a UUID or short id, never an alias, so
+    the alias is resolved here the same way preset slugs are. The committed
+    definition is verified against Git by reconcile rather than by a pinned
+    version number, because the workspace assigns version numbers on publish.
+    """
+    payload = api.request_json(
+        "GET", f"/workspaces/{workspace_id}/workflows", params={"limit": 0}
+    )
+    try:
+        rows = tracecat.paginated_items(payload, "workflow list")
+    except tracecat.TracecatError as exc:
+        raise AgentRuntimeError(str(exc)) from exc
+    matches = [row for row in rows if row.get("alias") == alias]
+    if len(matches) != 1:
+        raise AgentRuntimeError(f"expected exactly one workflow with alias {alias!r}")
+    workflow = matches[0]
+    if not workflow.get("id"):
+        raise AgentRuntimeError(f"workflow {alias!r} has no id")
+    definition = workflow.get("latest_definition")
+    if not isinstance(definition, dict) or not isinstance(
+        definition.get("version"), int
+    ):
+        raise AgentRuntimeError(f"workflow {alias!r} has no committed definition")
+    return workflow
+
+
+def run_workflow(
+    api: TracecatAPI,
+    workspace_id: str,
+    workflow_id: str,
+    inputs: dict[str, Any],
+    *,
+    timeout_seconds: int,
+    poll_seconds: int = WORKFLOW_POLL_SECONDS,
+) -> dict[str, Any]:
+    """Trigger a workflow and block until it leaves RUNNING.
+
+    The create endpoint schedules without waiting, so completion is observed by
+    polling. The per-execution read returns the full event history, which is far
+    too heavy to fetch on every tick, so the minimal list is polled instead and
+    the execution is matched by id.
+    """
+    base = f"/workspaces/{workspace_id}/workflow-executions"
+    response = api.request_json(
+        "POST",
+        base,
+        body={"workflow_id": workflow_id, "inputs": inputs},
+        expected=(200, 201, 202),
+    )
+    if not isinstance(response, dict) or not response.get("wf_exec_id"):
+        raise AgentRuntimeError("Tracecat did not return a workflow execution id")
+    execution_id = str(response["wf_exec_id"])
+    deadline = time.monotonic() + timeout_seconds
+    last_status: str | None = None
+    while True:
+        rows = api.request_json(
+            "GET", base, params={"workflow_id": workflow_id, "limit": 100}
+        )
+        if not isinstance(rows, list):
+            raise AgentRuntimeError("workflow execution list response is malformed")
+        current = next(
+            (
+                row
+                for row in rows
+                if isinstance(row, dict) and str(row.get("id")) == execution_id
+            ),
+            None,
+        )
+        if current is not None:
+            last_status = str(current.get("status") or "")
+            if last_status != WORKFLOW_RUNNING_STATUS:
+                break
+        if time.monotonic() >= deadline:
+            # Phrased as a timeout so is_transient() lets the caller retry.
+            raise _workflow_error(
+                execution_id,
+                f"workflow execution {execution_id} timed out after "
+                f"{timeout_seconds}s in status {last_status or 'PENDING'}",
+            )
+        time.sleep(poll_seconds)
+    if last_status != WORKFLOW_SUCCESS_STATUS:
+        raise _workflow_error(
+            execution_id, f"workflow execution {execution_id} finished as {last_status}"
+        )
+    return {"execution_id": execution_id, "status": last_status}
 
 
 def create_session(

@@ -1,0 +1,21 @@
+{
+  "name": "memories",
+  "columns": [
+    {
+      "name": "content",
+      "type": "TEXT"
+    },
+    {
+      "name": "embedding",
+      "type": "JSONB"
+    },
+    {
+      "name": "memory_ref",
+      "type": "TEXT"
+    },
+    {
+      "name": "summary",
+      "type": "TEXT"
+    }
+  ]
+}

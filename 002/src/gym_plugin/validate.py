@@ -75,6 +75,7 @@ def validate() -> None:
     actions = set(investigator["actions"])
     expected_actions = {
         "core.cases.add_case_tag",
+        "core.cases.assign_user_by_email",
         "core.cases.create_comment",
         "core.cases.get_case",
         "core.cases.update_case",
@@ -103,6 +104,44 @@ def validate() -> None:
         and grader["mcp_integrations"] == []
         and grader.get("skills", []) == [],
         "grader manifest must remain tool-free",
+    )
+    from gymctl import tables as table_lib, workflows as workflow_lib
+
+    workflow_paths = sorted(reconcile.WORKFLOWS_DIR.glob("*.json"))
+    require(
+        len(workflow_paths) == reconcile.EXPECTED_WORKFLOWS,
+        f"expected {reconcile.EXPECTED_WORKFLOWS} managed workflow manifests",
+    )
+    managed_workflows = {
+        (manifest := workflow_lib.load_manifest(path))["alias"]: manifest
+        for path in workflow_paths
+    }
+    for alias, manifest in managed_workflows.items():
+        unknown = sorted(
+            workflow_lib.subflow_aliases(manifest) - set(managed_workflows)
+        )
+        require(not unknown, f"workflow {alias} invokes unmanaged subflows: {unknown}")
+    workflow = workflow_lib.load_manifest(reconcile.INVESTIGATE_WORKFLOW)
+    require(
+        workflow["alias"] == evaluation["investigator_workflow"]["alias"],
+        "managed workflow alias does not match the evaluation configuration",
+    )
+    expects = set((workflow["definition"].get("entrypoint") or {}).get("expects") or {})
+    require(
+        {"case_id", "session_id"} <= expects,
+        "managed workflow must accept case_id and session_id trigger inputs",
+    )
+    require(
+        (workflow.get("case_trigger") or {}).get("status") != "online",
+        "managed workflow case trigger must not be online; it would race the evaluator",
+    )
+    manifests = [
+        table_lib.load_manifest(path)
+        for path in sorted(reconcile.TABLES_DIR.glob("*.json"))
+    ]
+    require(
+        len(manifests) == reconcile.EXPECTED_TABLES,
+        f"expected {reconcile.EXPECTED_TABLES} managed table manifests",
     )
     require(
         not (config.ROOT / "evals.json").exists(), "legacy evals.json must be removed"

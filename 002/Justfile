@@ -36,6 +36,17 @@ reconcile:
 eval ALERT_ID="":
     @alert_id="{{ALERT_ID}}"; if [ -n "$alert_id" ]; then {{gymctl}} eval --alert-id "${alert_id#ALERT_ID=}"; else {{gymctl}} eval; fi
 
+# Usage: just workflow-eval or just workflow-eval ALERT_ID=guardduty:c2-contact
+workflow-eval ALERT_ID="":
+    @alert_id="{{ALERT_ID}}"; if [ -n "$alert_id" ]; then {{gymctl}} eval --via-workflow --alert-id "${alert_id#ALERT_ID=}"; else {{gymctl}} eval --via-workflow; fi
+
+# Usage: just rescore EVAL_ID=20260907T075632Z-4584b519 [ALERT_ID=guardduty:c2-contact]
+rescore EVAL_ID="" ALERT_ID="":
+    @eval_id="{{EVAL_ID}}"; alert_id="{{ALERT_ID}}"; \
+    if [ -z "$eval_id" ]; then echo "EVAL_ID is required" >&2; exit 1; fi; \
+    if [ -n "$alert_id" ]; then {{gymctl}} rescore --eval-id "${eval_id#EVAL_ID=}" --alert-id "${alert_id#ALERT_ID=}"; \
+    else {{gymctl}} rescore --eval-id "${eval_id#EVAL_ID=}"; fi
+
 logs service="":
     @{{gymctl}} logs {{service}}
 

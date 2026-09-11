@@ -6,6 +6,7 @@
   "model_selection": "organization_default",
   "actions": [
     "core.cases.add_case_tag",
+    "core.cases.assign_user_by_email",
     "core.cases.create_comment",
     "core.cases.get_case",
     "core.cases.update_case",

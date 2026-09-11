@@ -124,6 +124,99 @@ def run_investigator(
     raise AssertionError("unreachable")
 
 
+def run_investigator_via_workflow(
+    api: agents.TracecatAPI,
+    workspace_id: str,
+    preset: dict[str, Any],
+    config: dict[str, Any],
+    contract: CaseContract,
+    case_info: ManagedCase,
+    case_dir: Path,
+    eval_id: str,
+    public_url: str,
+    workflow: dict[str, Any],
+) -> tuple[str, list[dict[str, Any]], dict[str, Any], str, list[dict[str, Any]]]:
+    """Drive the managed investigation workflow instead of prompting directly.
+
+    The harness still mints the case-scoped session so the preset and its pinned
+    version stay under harness control, then hands the id to the workflow. That
+    keeps session correlation exact: the id read back is the id created here.
+    Returns the same tuple as run_investigator so scoring is unchanged.
+    """
+    before = case_info["snapshot"]
+    attempts: list[dict[str, Any]] = []
+    for attempt in range(1, config["max_attempts"] + 1):
+        session = agents.create_session(
+            api,
+            workspace_id,
+            preset,
+            title=f"Gym 002 {contract['alert_id']} {eval_id} attempt {attempt}",
+            entity_type="case",
+            entity_id=case_info["id"],
+        )
+        session_id = str(session["id"])
+        session_url = (
+            f"{public_url}/workspaces/{workspace_id}/cases/{case_info['id']}"
+            f"?chatId={session_id}"
+        )
+        execution: dict[str, Any] | None = None
+        try:
+            execution = agents.run_workflow(
+                api,
+                workspace_id,
+                str(workflow["id"]),
+                {"case_id": case_info["id"], "session_id": session_id},
+                timeout_seconds=config["investigator_timeout_seconds"],
+            )
+            raw_session = agents.read_session(api, workspace_id, session_id)
+            report, calls = agents.session_artifacts(raw_session)
+            after = agents.case_snapshot(api, workspace_id, case_info["id"])
+            attempts.append(
+                {
+                    "attempt": attempt,
+                    "session_id": session_id,
+                    "session_url": session_url,
+                    "execution_id": execution["execution_id"],
+                    "status": "complete",
+                }
+            )
+            agents.write_json(case_dir / "investigator-session.json", raw_session)
+            return report, calls, after, session_id, attempts
+        except Exception as exc:
+            failed_attempt = {
+                "attempt": attempt,
+                "session_id": session_id,
+                "session_url": session_url,
+                "execution_id": (execution or {}).get("execution_id")
+                or getattr(exc, "execution_id", None),
+                "status": "failed",
+                "error": str(exc),
+            }
+            attempts.append(failed_attempt)
+            try:
+                after = agents.case_snapshot(api, workspace_id, case_info["id"])
+            except Exception as snapshot_error:
+                failed_attempt["snapshot_error"] = str(snapshot_error)
+                agents.write_json(case_dir / "investigator-attempts.json", attempts)
+                exc.add_note(
+                    f"The post-failure case snapshot also failed: {snapshot_error}"
+                )
+                raise exc
+            agents.write_json(case_dir / f"case-after-attempt-{attempt}.json", after)
+            agents.write_json(case_dir / "investigator-attempts.json", attempts)
+            unchanged = agents.state_fingerprint(before) == agents.state_fingerprint(
+                after
+            )
+            if (
+                attempt >= config["max_attempts"]
+                or not agents.is_transient(exc)
+                or not unchanged
+            ):
+                raise
+            log(f"{contract['alert_id']}: transient workflow failure; retrying")
+    raise AssertionError("unreachable")
+
+
 def grader_prompt(
     config: dict[str, Any],
     contract: CaseContract,
@@ -278,7 +371,13 @@ def render_report(result: dict[str, Any]) -> str:
         "# Gym 002 evaluation",
         "",
         f"- Evaluation: `{metadata['eval_id']}`",
-        f"- Investigator: `{metadata['investigator_model']}`",
+        f"- Investigator: `{metadata['investigator_model']}`"
+        + (
+            f" via workflow `{metadata['investigator_workflow']['alias']}`"
+            f" (definition v{metadata['investigator_workflow']['definition_version']})"
+            if metadata.get("investigator_workflow")
+            else ""
+        ),
         f"- Grader: `{metadata['grader_model']}`",
         f"- Cases: {metadata['selected_cases']}",
         "",
@@ -298,6 +397,8 @@ def run_evaluation(
     config: dict[str, Any],
     contracts: list[CaseContract],
     result_dir: Path,
+    *,
+    via_workflow: bool = False,
 ) -> dict[str, Any]:
     workspace_id = api.login()
     investigator = agents.find_preset(
@@ -309,14 +410,30 @@ def run_evaluation(
         or grader.get("model_name") != config["judge"]["model_name"]
     ):
         raise EvalError("grader preset does not use the locked grader model")
+    workflow: dict[str, Any] | None = None
+    if via_workflow:
+        workflow = agents.find_workflow(
+            api, workspace_id, str(config["investigator_workflow"]["alias"])
+        )
     cases = preflight_cases(api, workspace_id, contracts)
     public_url = agents.required_env("TRACEcat_PUBLIC_APP_URL").rstrip("/")
+    escalation_assignee = agents.required_env("TRACEcat_TENANT_EMAIL")
     eval_id = result_dir.name
     metadata = {
         "eval_id": eval_id,
         "started_at": datetime.now(UTC).isoformat(),
         "workspace_id": workspace_id,
         "selected_cases": len(contracts),
+        "investigator_driver": "workflow" if via_workflow else "preset",
+        "investigator_workflow": (
+            {
+                "alias": config["investigator_workflow"]["alias"],
+                "id": str(workflow["id"]),
+                "definition_version": workflow["latest_definition"]["version"],
+            }
+            if workflow is not None
+            else None
+        ),
         "investigator_preset_id": investigator["id"],
         "investigator_preset_version_id": investigator["current_version_id"],
         "investigator_model": (
@@ -349,17 +466,35 @@ def run_evaluation(
         agents.write_json(case_dir / "case-before.json", cases[alert_id]["snapshot"])
         log(f"starting {index}/{len(contracts)}: {alert_id}")
         try:
-            report, calls, after, session_id, investigator_attempts = run_investigator(
-                api,
-                workspace_id,
-                investigator,
-                config,
-                contract,
-                cases[alert_id],
-                case_dir,
-                eval_id,
-                public_url,
-            )
+            if workflow is not None:
+                report, calls, after, session_id, investigator_attempts = (
+                    run_investigator_via_workflow(
+                        api,
+                        workspace_id,
+                        investigator,
+                        config,
+                        contract,
+                        cases[alert_id],
+                        case_dir,
+                        eval_id,
+                        public_url,
+                        workflow,
+                    )
+                )
+            else:
+                report, calls, after, session_id, investigator_attempts = (
+                    run_investigator(
+                        api,
+                        workspace_id,
+                        investigator,
+                        config,
+                        contract,
+                        cases[alert_id],
+                        case_dir,
+                        eval_id,
+                        public_url,
+                    )
+                )
             (case_dir / "investigation.md").write_text(report.rstrip() + "\n")
             agents.write_json(case_dir / "tool-calls.json", calls)
             agents.write_json(case_dir / "case-after.json", after)
@@ -367,7 +502,7 @@ def run_evaluation(
                 case_dir / "investigator-attempts.json", investigator_attempts
             )
             objective, observations = deterministic_determinations(
-                contract, calls, after
+                contract, calls, after, escalation_assignee=escalation_assignee
             )
             agents.write_json(case_dir / "objective-observations.json", observations)
             judgment, grader_attempts = run_grader(
@@ -443,6 +578,7 @@ def run_evaluation(
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--alert-id")
+    parser.add_argument("--via-workflow", action="store_true")
     return parser.parse_args(argv)
 
 
@@ -464,7 +600,9 @@ def main(argv: list[str] | None = None) -> int:
         result_dir.mkdir(parents=True, mode=0o700)
         api = agents.TracecatAPI()
         try:
-            result = run_evaluation(api, config, contracts, result_dir)
+            result = run_evaluation(
+                api, config, contracts, result_dir, via_workflow=args.via_workflow
+            )
         finally:
             api.close()
     except Exception as exc:

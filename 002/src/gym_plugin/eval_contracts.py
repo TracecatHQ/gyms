@@ -66,6 +66,7 @@ def load_configuration() -> dict[str, Any]:
         "max_attempts",
         "investigation_prompt_file",
         "investigator_preset_slug",
+        "investigator_workflow",
         "judge",
         "validation_gates",
         "enrichment_validation_gates",
@@ -91,6 +92,14 @@ def load_configuration() -> dict[str, Any]:
         raise EvalError("investigation prompt is empty")
     if not isinstance(config["investigator_preset_slug"], str):
         raise EvalError("investigator preset slug is missing")
+    workflow = config["investigator_workflow"]
+    if (
+        not isinstance(workflow, dict)
+        or set(workflow) != {"alias"}
+        or not isinstance(workflow["alias"], str)
+        or not workflow["alias"]
+    ):
+        raise EvalError("investigator workflow configuration drifted")
     if config["judge"] != {
         "model_provider": "openai",
         "model_name": "gpt-5.6-sol",

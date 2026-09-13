@@ -1,0 +1,25 @@
+003/evals/cases.ndjson
+  s_644e0236e3110b::t_feeba6915ad94e 1
+003/target/n8n/supplier-intake.json
+  s_644e0236e3110b::t_feeba6915ad94e 2
+003/target/n8n/order-update.json
+  s_644e0236e3110b::t_feeba6915ad94e 2
+003/README.md
+  s_644e0236e3110b::t_87f7e78880966d 20,39
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "5dbeab561ca1e11413c836f11702076e6fc5ccbc",
+  "prompts": {},
+  "sessions": {
+    "s_644e0236e3110b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09b87-9b6d-7393-a77c-33195bead7cd",
+        "model": "gpt-daybreak-blue-latest"
+      },
+      "human_author": "Chris Lo <46541035+topher-lo@users.noreply.github.com>"
+    }
+  }
+}

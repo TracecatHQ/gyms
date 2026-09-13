@@ -47,7 +47,8 @@ just up 001
 just plan 001
 just apply 001
 just run 001
-just status 001 RUN_ID=<evaluation-run-id>
-just judge 001 RUN_ID=<evaluation-run-id>
-just export 001 RUN_ID=<evaluation-run-id>
+just status 001 RUN_ID=<candidate-run-id>
+just judge 001 RUN_ID=<candidate-run-id>
+just status 001 RUN_ID=<judge-run-id>
+just export 001 RUN_ID=<candidate-run-id>
 ```

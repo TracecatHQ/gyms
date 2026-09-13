@@ -39,13 +39,16 @@ just up 001
 just plan 001
 just apply 001
 just run 001
-just status 001 RUN_ID=<evaluation-run-id>
-just judge 001 RUN_ID=<evaluation-run-id>
-just export 001 RUN_ID=<evaluation-run-id>
+just status 001 RUN_ID=<candidate-run-id>
+just judge 001 RUN_ID=<candidate-run-id>
+just status 001 RUN_ID=<judge-run-id>
+just export 001 RUN_ID=<candidate-run-id>
 ```
 
-`Candidate Run` and `Judge Run` are asynchronous. Repeat `just status` after
-either trigger. Results are written to `NNN/results/<run-id>/scores.csv`.
+Both triggers return a native Tracecat workflow execution ID and run
+asynchronously. Wait for Candidate Run to complete before starting Judge Run,
+then wait for Judge Run before exporting. Results are written to
+`NNN/results/<candidate-run-id>/scores.csv`.
 
 ## Gyms
 

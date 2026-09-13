@@ -14,7 +14,10 @@ decisions, with Case-scoped evidence:
 ## Scoring
 
 Determination is worth 50 points and incident relevance is worth 50 points.
-Formatting, embeddings, entities, memory, and private reasoning are not scored.
+Both criteria require Tracecat's captured tool audit to show that every DuckDB
+query read only the Case's exact evidence object; missing or out-of-scope access
+scores zero. Formatting, embeddings, entities, memory, and private reasoning
+are not scored.
 
 ## Target
 
@@ -38,7 +41,8 @@ just up 002
 just plan 002
 just apply 002
 just run 002
-just status 002 RUN_ID=<evaluation-run-id>
-just judge 002 RUN_ID=<evaluation-run-id>
-just export 002 RUN_ID=<evaluation-run-id>
+just status 002 RUN_ID=<candidate-run-id>
+just judge 002 RUN_ID=<candidate-run-id>
+just status 002 RUN_ID=<judge-run-id>
+just export 002 RUN_ID=<candidate-run-id>
 ```

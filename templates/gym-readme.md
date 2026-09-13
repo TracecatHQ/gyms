@@ -34,7 +34,8 @@ just up NNN
 just plan NNN
 just apply NNN
 just run NNN
-just status NNN RUN_ID=<evaluation-run-id>
-just judge NNN RUN_ID=<evaluation-run-id>
-just export NNN RUN_ID=<evaluation-run-id>
+just status NNN RUN_ID=<candidate-run-id>
+just judge NNN RUN_ID=<candidate-run-id>
+just status NNN RUN_ID=<judge-run-id>
+just export NNN RUN_ID=<candidate-run-id>
 ```

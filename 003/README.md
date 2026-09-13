@@ -22,7 +22,8 @@ A target or helper failure fails the evaluation instead of creating a score.
 Gym 003 starts pinned n8n and BunkerWeb services. The helper workflow owns the
 executable malicious and benign fixtures; `evals/cases.ndjson` stores only their
 expected outcomes. Set `N8N_ENCRYPTION_KEY`, `BUNKERWEB_DB_PASSWORD`, and
-`BUNKERWEB_API_TOKEN` in the root `.env`.
+`BUNKERWEB_API_TOKEN` in the root `.env`. Tracecat runs the cleanup helper as
+the validation workflow's error handler if normal cleanup is not reached.
 
 ## Agent access
 
@@ -41,7 +42,8 @@ just up 003
 just plan 003
 just apply 003
 just run 003
-just status 003 RUN_ID=<evaluation-run-id>
-just judge 003 RUN_ID=<evaluation-run-id>
-just export 003 RUN_ID=<evaluation-run-id>
+just status 003 RUN_ID=<candidate-run-id>
+just judge 003 RUN_ID=<candidate-run-id>
+just status 003 RUN_ID=<judge-run-id>
+just export 003 RUN_ID=<candidate-run-id>
 ```

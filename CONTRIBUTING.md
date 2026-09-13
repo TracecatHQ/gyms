@@ -76,7 +76,9 @@ gym must not require another CLI command or a gym-specific Just recipe.
 The Candidate receives only `case`. Judge Run receives the captured Submission,
 `oracle`, and the Rubric. Every Oracle criterion key must match one Rubric
 criterion ID. Keep executable verifier fixtures in the helper workflow and only
-their expected outcomes in the Oracle.
+their expected outcomes in the Oracle. Candidate Run may also attach
+platform-captured tool inputs to the Trial as `tool_audit`; this is verifier
+metadata, not private model reasoning.
 
 ## Rubric contract
 
@@ -139,10 +141,32 @@ secrets, and helper workflows:
 Candidate presets must not have table access. Judge presets receive hidden
 material through Judge Run; grant them only the helper action they require.
 
+Optional credential mappings keep the generic `just plan` and `just apply`
+wrappers free of gym-specific branches. Map Tracecat field names to root `.env`
+variable names in the object that consumes them:
+
+```json
+{
+  "mcp_integrations": [{
+    "catalog_slug": "example-mcp",
+    "credentials_from_env": {"Authorization": "EXAMPLE_MCP_AUTHORIZATION"}
+  }],
+  "secrets": [{
+    "name": "gym_NNN_target",
+    "keys_from_env": {"API_TOKEN": "GYM_NNN_API_TOKEN"}
+  }]
+}
+```
+
+Terraform receives these values through ephemeral, sensitive variables; the
+manifest stores only environment variable names.
+
 ## Results contract
 
-The shared workflows write `case_templates`, `evaluation_runs`, and
-`evaluation_scores`. `just export NNN RUN_ID=...` writes this fixed CSV schema:
+The shared module writes `case_templates` and `evaluation_scores`. The
+Candidate Run's native Tracecat execution result is the Evaluation Run record;
+Judge Run reads it with `core.workflow.get_status`. `just export NNN RUN_ID=...`
+writes this fixed CSV schema:
 
 ```text
 schema_version,gym_id,evaluation_run_id,trial_id,case_id,trial_number,candidate_session_id,judge_run_execution_id,judge_session_id,rubric_id,rubric_version,criterion_id,criterion_weight,criterion_result,criterion_points,criterion_hard_gate,trial_hard_failed,trial_score,reason,evidence_refs,candidate_completed_at,judged_at
@@ -175,11 +199,13 @@ just up NNN
 just plan NNN
 just apply NNN
 just run NNN
-just status NNN RUN_ID=<evaluation-run-id>
-just judge NNN RUN_ID=<evaluation-run-id>
-just export NNN RUN_ID=<evaluation-run-id>
+just status NNN RUN_ID=<candidate-run-id>
+just judge NNN RUN_ID=<candidate-run-id>
+just status NNN RUN_ID=<judge-run-id>
+just export NNN RUN_ID=<candidate-run-id>
 ```
 
 A gym is ready when Terraform can plan it, Candidate Run creates fresh Trial
-Cases, Judge Run scores every Trial, the CSV exports with the shared schema, and
-`just check` passes.
+Cases and returns immutable Trials, Judge Run scores every Trial, the CSV
+exports with the shared schema, and `just check` passes. Repeated measurements
+are separate Candidate Runs, not repetitions inside one run.

@@ -17,7 +17,7 @@ fails the evaluation instead of manufacturing a Candidate score.
 
 Files:
 
-- `evals/cases.ndjson`: vulnerability-report Case Template and hidden fixtures
+- `evals/cases.ndjson`: vulnerability-report Case Template and expected outcomes
 - `evals/rubric.json`: one hard gate plus ten weighted criteria
 - `tracecat/`: presets, manifest, and Judge-only validation helper
 - `target/n8n/`: the two target workflow fixtures
@@ -36,6 +36,6 @@ just judge 003 RUN_ID=<evaluation-run-id>
 just export 003 RUN_ID=<evaluation-run-id>
 ```
 
-The Candidate has Case actions only. The Judge receives the frozen Submission
+The Candidate has Case actions only. The Judge receives the captured Submission
 from Judge Run and is instructed to execute the validation helper exactly once;
 only that helper receives the BunkerWeb secret and network access.

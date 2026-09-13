@@ -1,0 +1,38 @@
+services:
+  splunk:
+    build:
+      context: .
+      dockerfile: target/splunk/Dockerfile
+    image: tracecat-gym-001-splunk:local
+    platform: linux/amd64
+    restart: unless-stopped
+    networks: [tracecat]
+    ports:
+      - "127.0.0.1:${SPLUNK_WEB_PORT:-18000}:8000"
+    environment:
+      SPLUNK_PASSWORD: ${SPLUNK_ADMIN_PASSWORD:?set SPLUNK_ADMIN_PASSWORD}
+      SPLUNK_START_ARGS: --accept-license
+      SPLUNK_GENERAL_TERMS: --accept-sgt-current-at-splunk-com
+      SPLUNK_LICENSE_URI: /run/gym-assets/Splunk.License
+      SPLUNK_APPS_URL: /lab/assets/splunk-mcp-server_200.tgz
+      SPLUNKD_SSL_ENABLE: "false"
+      SPLUNK_SKIP_PREINSTALL_CPU_CHECKS_CORRUPTING_DATA_IF_UNSUPPORTED: "1"
+    volumes:
+      - splunk-etc:/opt/splunk/etc
+      - splunk-var:/opt/splunk/var
+      - ./assets/Splunk.License:/run/gym-assets/Splunk.License:ro
+    healthcheck:
+      test: ["CMD", "/opt/gym/healthcheck.sh"]
+      interval: 10s
+      timeout: 10s
+      retries: 60
+      start_period: 2m
+
+volumes:
+  splunk-etc:
+  splunk-var:
+
+networks:
+  tracecat:
+    external: true
+    name: tracecat_core

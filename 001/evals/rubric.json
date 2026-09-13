@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "rubric_id": "gym-001-incident-investigation",
+  "rubric_version": 1,
+  "criteria": [
+    {"criterion_id":"true-positive-disposition","label":"Disposition is True Positive","weight":0,"hard_gate":true,"judge_instruction":"Met only if the Work Product unambiguously concludes true positive."},
+    {"criterion_id":"credential-exfiltration","label":"Lambda 2, 3, and 6 credential exfiltration","weight":3,"hard_gate":false,"judge_instruction":"Require the credential-exfiltration mechanism and the relevant Lambda functions."},
+    {"criterion_id":"malicious-vpc-peering","label":"Lambda 1 malicious VPC peering","weight":2,"hard_gate":false,"judge_instruction":"Require the malicious VPC-peering activity."},
+    {"criterion_id":"rds-eks-security-groups","label":"Lambda 4 and 5 open RDS and EKS security groups","weight":2,"hard_gate":false,"judge_instruction":"Require both protected surfaces to be identified."},
+    {"criterion_id":"lambda-controller-identity","label":"Lambda creation by ack-lambda-controller","weight":2,"hard_gate":false,"judge_instruction":"Require the controller identity attribution."},
+    {"criterion_id":"controller-pod-api-calls","label":"API calls from controller Pod Python entrypoint","weight":5,"hard_gate":false,"judge_instruction":"Require the source Pod and Python entrypoint."},
+    {"criterion_id":"aws-auth-patch","label":"orchestrator-sa patches aws-auth","weight":5,"hard_gate":false,"judge_instruction":"Require the identity and aws-auth patch."},
+    {"criterion_id":"daemonset-rootkit","label":"Rootkit and implant deployed as DaemonSet","weight":5,"hard_gate":false,"judge_instruction":"Require both payload purpose and DaemonSet mechanism."},
+    {"criterion_id":"ci-runner-credential-reuse","label":"Orchestrator backdoor through CI runner credentials","weight":10,"hard_gate":false,"judge_instruction":"Require credential reuse to connect the CI runner to the orchestrator compromise."},
+    {"criterion_id":"static-pod-rootkit","label":"Rootkit and implant deployed as static Pod","weight":10,"hard_gate":false,"judge_instruction":"Require static-Pod persistence and payload purpose."},
+    {"criterion_id":"kubelet-node-debugger-exec","label":"monitoring-sa exec through kubelet API","weight":8,"hard_gate":false,"judge_instruction":"Require monitoring-sa, node-debugger, and kubelet API."},
+    {"criterion_id":"monitoring-file-read","label":"app-1 file read obtains monitoring-sa token","weight":10,"hard_gate":false,"judge_instruction":"Require the exploited arbitrary file read and token obtained."},
+    {"criterion_id":"github-cache-poisoning","label":"app-1 backdoored through GitHub cache poisoning","weight":10,"hard_gate":false,"judge_instruction":"Require the cache-poisoning path."},
+    {"criterion_id":"external-workflow-run","label":"External msan actor runs development workflow","weight":8,"hard_gate":false,"judge_instruction":"Require the external actor and development workflow context."},
+    {"criterion_id":"eks-endpoint-ioc","label":"Malicious EKS endpoint IOC","weight":5,"hard_gate":false,"judge_instruction":"Require the exact EKS endpoint from the Oracle."},
+    {"criterion_id":"rds-endpoint-ioc","label":"Staging RDS endpoint IOC","weight":10,"hard_gate":false,"judge_instruction":"Require the exact RDS endpoint from the Oracle."},
+    {"criterion_id":"attacker-account-ioc","label":"Attacker AWS account IOC","weight":5,"hard_gate":false,"judge_instruction":"Require exact AWS account 226363753890."}
+  ]
+}

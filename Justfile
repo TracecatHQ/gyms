@@ -19,8 +19,16 @@ provider:
 # Build the local provider and initialize one gym, or every gym when omitted.
 init gym="": provider
     #!/usr/bin/env bash
-    gyms="${gym:-001 002 003}"
-    for current in $gyms; do
+    if [[ -n "{{ gym }}" ]]; then
+      gyms=("{{ gym }}")
+    else
+      gyms=()
+      for terraform_dir in "{{ root }}"/[0-9][0-9][0-9]/terraform; do
+        [[ -d "$terraform_dir" ]] || continue
+        gyms+=("$(basename "$(dirname "$terraform_dir")")")
+      done
+    fi
+    for current in "${gyms[@]}"; do
       test -d "{{ root }}/$current/terraform" || { echo "Unknown gym: $current" >&2; exit 2; }
       rm -f "{{ root }}/$current/terraform/.terraform.lock.hcl"
       terraform -chdir="{{ root }}/$current/terraform" init -upgrade -plugin-dir="{{ root }}/.terraform.d/plugins"
@@ -137,10 +145,15 @@ export gym RUN_ID:
 
 check:
     #!/usr/bin/env bash
-    for gym in 001 002 003; do
+    found=0
+    for gym_dir in "{{ root }}"/[0-9][0-9][0-9]; do
+      [[ -d "$gym_dir/terraform" ]] || continue
+      found=1
+      gym="$(basename "$gym_dir")"
       jq -e . "{{ root }}/$gym/tracecat/tracecat.json" >/dev/null
       jq -e . "{{ root }}/$gym/evals/rubric.json" >/dev/null
       jq -cs --slurpfile rubric "{{ root }}/$gym/evals/rubric.json" '
+        (length > 0) and
         ($rubric[0].schema_version == 1) and
         (($rubric[0].rubric_id | type) == "string") and
         (($rubric[0].rubric_version | type) == "number") and
@@ -152,11 +165,12 @@ check:
         (($rubric[0].criteria | map(select(.hard_gate == false) | .weight) | add) == 100) and
         (all($rubric[0].criteria[]; if .hard_gate then .weight == 0 else true end))
       ' "{{ root }}/$gym/evals/cases.ndjson" >/dev/null
+      for heading in "Task" "Scoring" "Target" "Agent access" "Run"; do
+        grep -Fxq "## $heading" "{{ root }}/$gym/README.md"
+      done
     done
-    test "$(wc -l < "{{ root }}/001/evals/cases.ndjson" | tr -d ' ')" = 1
-    test "$(wc -l < "{{ root }}/002/evals/cases.ndjson" | tr -d ' ')" = 20
-    test "$(wc -l < "{{ root }}/003/evals/cases.ndjson" | tr -d ' ')" = 1
-    ruby -e 'require "yaml"; ARGV.each { |path| YAML.load_file(path) }' "{{ root }}/terraform/modules/gym/workflows/candidate-run.yml" "{{ root }}/terraform/modules/gym/workflows/judge-run.yml" "{{ root }}/003/tracecat/workflows/validate-firewall-rule.yml"
+    test "$found" = 1
+    ruby -e 'require "yaml"; ARGV.flat_map { |pattern| Dir[pattern] }.each { |path| YAML.load_file(path) }' "{{ root }}/terraform/modules/gym/workflows/*.yml" "{{ root }}/[0-9][0-9][0-9]/tracecat/workflows/*.yml"
     terraform fmt -check -recursive "{{ root }}"
     cd "{{ root }}/terraform-provider-tracecat"
     GOCACHE="{{ root }}/.cache/go-build" go test ./...

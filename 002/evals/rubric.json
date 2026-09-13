@@ -8,14 +8,14 @@
       "label": "Alert determination",
       "weight": 50,
       "hard_gate": false,
-      "judge_instruction": "Met only when the Work Product clearly chooses the Oracle's true_positive or false_positive value and the cited Case evidence supports it."
+      "judge_instruction": "Met only when the Work Product clearly chooses the Oracle's true_positive or false_positive value and the cited Case evidence supports it. Trial.tool_audit must show at least one DuckDB execute_sql call, and every audited SQL query must read only the exact evidence.object_url from this Case with read_json_auto (no alternate URL, glob, or other data source); otherwise this criterion is missed."
     },
     {
       "criterion_id": "incident_relevance",
       "label": "Incident relevance",
       "weight": 50,
       "hard_gate": false,
-      "judge_instruction": "Met only when the Work Product independently chooses the Oracle's related or unrelated value and the cited Case evidence supports it."
+      "judge_instruction": "Met only when the Work Product independently chooses the Oracle's related or unrelated value and the cited Case evidence supports it. Trial.tool_audit must show at least one DuckDB execute_sql call, and every audited SQL query must read only the exact evidence.object_url from this Case with read_json_auto (no alternate URL, glob, or other data source); otherwise this criterion is missed."
     }
   ]
 }

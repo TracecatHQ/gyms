@@ -1,0 +1,29 @@
+002/README.md
+  s_644e0236e3110b::t_e518be01df3420 17-20,44-47
+003/README.md
+  s_644e0236e3110b::t_e518be01df3420 25-26,45-48
+CONTRIBUTING.md
+  s_644e0236e3110b::t_e518be01df3420 79-81,144-163,166-169,202-205,209-211
+README.md
+  s_644e0236e3110b::t_e518be01df3420 42-45,48-51
+templates/gym-readme.md
+  s_644e0236e3110b::t_e518be01df3420 37-40
+001/README.md
+  s_644e0236e3110b::t_e518be01df3420 50-53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "ba93307be48ac65ef9b2337d15d131b82c1e3913",
+  "prompts": {},
+  "sessions": {
+    "s_644e0236e3110b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09b87-9b6d-7393-a77c-33195bead7cd",
+        "model": "gpt-daybreak-blue-latest"
+      },
+      "human_author": "Chris Lo <46541035+topher-lo@users.noreply.github.com>"
+    }
+  }
+}

@@ -1,41 +1,47 @@
-# Gym 003 — vulnerability firewall mitigation
+# Gym 003 — Vulnerability Firewall Mitigation
 
-The Candidate receives one n8n vulnerability-report Case and writes exactly one
-clearly designated ModSecurity ruleset plus rationale. This makes the attack
-surface agent the verifier: Judge Run extracts the submitted ruleset and calls
-the Judge-only `Validate Firewall Rule` workflow against the live target.
+Turn one n8n vulnerability report into a deployable ModSecurity ruleset.
 
-Scoring is deterministic:
+## Task
 
-- deployable, activatable, healthy, and safely cleaned-up ruleset: hard gate
-- five hidden malicious request variants blocked: 10 points each
-- five hidden benign request variants preserved: 10 points each
+The Candidate writes exactly one clearly designated ruleset plus its rationale
+on the Trial Case. Judge Run extracts that ruleset and invokes the Judge-only
+`Validate Firewall Rule` workflow against the live target.
 
-A candidate-caused syntax, activation, or outage failure misses the hard gate
-and produces a zero. Target infrastructure or candidate-slot cleanup failure
-fails the evaluation instead of manufacturing a Candidate score.
+## Scoring
 
-Files:
+- Deployable, activatable, healthy, and cleaned-up ruleset: hard gate
+- Five malicious request variants blocked: 10 points each
+- Five benign request variants preserved: 10 points each
 
-- `evals/cases.ndjson`: vulnerability-report Case Template and expected outcomes
-- `evals/rubric.json`: one hard gate plus ten weighted criteria
-- `tracecat/`: presets, manifest, and Judge-only validation helper
-- `target/n8n/`: the two target workflow fixtures
-- `compose.yml`: pinned n8n and BunkerWeb target stack
+A Candidate-caused syntax, activation, or outage failure misses the hard gate.
+A target or helper failure fails the evaluation instead of creating a score.
+
+## Target
+
+Gym 003 starts pinned n8n and BunkerWeb services. The helper workflow owns the
+executable malicious and benign fixtures; `evals/cases.ndjson` stores only their
+expected outcomes. Set `N8N_ENCRYPTION_KEY`, `BUNKERWEB_DB_PASSWORD`, and
+`BUNKERWEB_API_TOKEN` in the root `.env`.
+
+## Agent access
+
+The Candidate has Case actions only. The Judge receives the captured Submission
+and may invoke the validation helper exactly once. Only the helper receives the
+BunkerWeb secret and target-network access.
+
+## Run
 
 Run from the repository root:
 
 ```bash
 just tracecat-up
-just up 003
 just init 003
+just up 003
 just plan 003
 just apply 003
 just run 003
+just status 003 RUN_ID=<evaluation-run-id>
 just judge 003 RUN_ID=<evaluation-run-id>
 just export 003 RUN_ID=<evaluation-run-id>
 ```
-
-The Candidate has Case actions only. The Judge receives the captured Submission
-from Judge Run and is instructed to execute the validation helper exactly once;
-only that helper receives the BunkerWeb secret and network access.

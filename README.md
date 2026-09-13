@@ -1,105 +1,61 @@
 # Tracecat gyms
 
-Security-agent evaluations provisioned as Tracecat configuration. Terraform owns
-the platform resources; Docker Compose owns only the scenario targets; `just`
-contains thin lifecycle and REST-trigger wrappers. There is no gym CLI, Python
-control runtime, copied Tracecat source tree, or per-gym provisioning plugin.
+Security-agent evaluations provisioned as Tracecat configuration. Terraform
+owns Tracecat resources, Docker Compose owns only scenario targets, and `just`
+provides thin lifecycle and REST wrappers. The repository has no gym CLI,
+Python control runtime, or copied Tracecat source tree.
 
-## Standard vocabulary
-
-| Name | Meaning | Stable local representation |
-|---|---|---|
-| Case Template | One evaluation question plus hidden answer material | One line in `evals/cases.ndjson`; one row in `case_templates` |
-| Case | Fresh Tracecat Case created for one attempt | Candidate-visible question and Work Product |
-| Trial | One Candidate attempt on one Case Template | Runtime Case UUID |
-| Evaluation Run | Selected templates × repetitions | One row in `evaluation_runs` |
-| Candidate | Agent under test | Agent preset slug `candidate` |
-| Judge | Verifier agent | Agent preset slug `judge` |
-| Candidate Run | Batch workflow that creates Trials and runs the Candidate | Workflow alias `candidate_run` |
-| Judge Run | Batch workflow that grades completed Trials | Workflow alias `judge_run` |
-| Oracle | Hidden expected facts or fixture outcomes | `oracle` in NDJSON and `case_templates` |
-| Rubric | Versioned list of scoring criteria | `evals/rubric.json` and `case_templates` |
-| Work Product | Candidate-authored Case state and comments | Tracecat Case |
-| Submission | Case-and-comments snapshot at Candidate completion | JSON recorded on the Trial |
-| Criterion Result | `met` or `missed`, with a reason and evidence references | One row in `evaluation_scores` |
-
-There is deliberately no “COT” object. Private model reasoning is not a graded
-artifact. Visible analysis that matters must be written into the Case Work
-Product; its evaluation contract is called the Rubric. Candidate presets have no
-table access, so only the Judge path receives the Oracle and Rubric.
-
-## One shape for every gym
+Each evaluation follows the same path:
 
 ```text
-NNN/
-├── README.md
-├── compose.yml                 # target services only
-├── evals/
-│   ├── cases.ndjson            # canonical Case Templates
-│   └── rubric.json             # canonical Rubric
-├── target/                     # target configuration, if required
-├── tracecat/
-│   ├── tracecat.json           # workspace manifest
-│   ├── agent_presets/
-│   └── workflows/              # gym-only helper workflows
-└── terraform/main.tf           # shared module invocation
+Case Template → Candidate Run → Trial Case → Judge Run → scores.csv
 ```
 
-The shared module in `terraform/modules/gym` always provisions exactly three
-tables: `case_templates`, `evaluation_runs`, and `evaluation_scores`. It also
-provisions the workspace, presets, native YAML workflows, MCP catalog
-integrations, and write-only secrets.
+The Case is the Candidate's unit of work. Visible analysis, evidence, timelines,
+and final answers belong on that Case. Hidden expected facts are the Oracle;
+the versioned grading contract is the Rubric. Private model reasoning is not a
+stored or graded artifact.
 
-Tracecat itself is cloned at the exact public release in `TRACECAT_VERSION` into
-ignored `.cache/tracecat`; it is never vendored here. The repository-local Go
-provider in `terraform-provider-tracecat` talks only to Tracecat's public REST
-API.
+## Quick start
 
-## Commands
+Requirements: Terraform 1.11+, Go, Docker, `just`, `jq`, `curl`, Git LFS, and
+Ruby.
 
-Copy `.env.example` to `.env`, replace every placeholder, and create an
-organization service-account API key in Tracecat with workspace administration
-scopes. On the pinned beta release, enable the `service_accounts` entitlement
-for the local organization's tier first. `just tracecat-up` reads Tracecat's
-defaults from the pinned release, then applies the short local `.env` overrides.
-Configure credentials in Tracecat for the model providers named in `.env`;
-model secrets remain organization settings rather than gym state. Terraform
-1.11+, Go, Docker, `just`, `jq`, `curl`, Git LFS, and Ruby are required.
+Copy `.env.example` to `.env`, replace the runtime and target placeholders, and
+start Tracecat:
 
 ```bash
 just tracecat-up
-just init
+```
+
+In Tracecat, configure the model providers named in `.env` and create an
+organization service-account API key with workspace administration scopes. The
+pinned beta requires the `service_accounts` entitlement. Put the key in `.env`,
+then run:
+
+```bash
+just init 001
 just up 001
 just plan 001
 just apply 001
 just run 001
-just run 002 CASE_IDS=sigma-web-password-spray REPETITIONS=3
-just judge 001 RUN_ID=<evaluation-run-id>
 just status 001 RUN_ID=<evaluation-run-id>
+just judge 001 RUN_ID=<evaluation-run-id>
 just export 001 RUN_ID=<evaluation-run-id>
 ```
 
-`Candidate Run` and `Judge Run` are asynchronous REST triggers. A Trial always
-uses a fresh Case and fresh agent session. Judge Run accepts only a completed,
-previously unjudged Evaluation Run, invokes a fresh Judge for every Trial, and
-writes criterion rows. Tracecat records the preset version on each agent session;
-the gym records the actual Candidate and Judge session IDs rather than copying
-preset-head metadata before execution. A missed hard gate forces `trial_score`
-to 0.
-
-Exports are written to `NNN/results/<run-id>/scores.csv` with this fixed schema:
-
-```text
-schema_version,gym_id,evaluation_run_id,trial_id,case_id,trial_number,candidate_session_id,judge_run_execution_id,judge_session_id,rubric_id,rubric_version,criterion_id,criterion_weight,criterion_result,criterion_points,criterion_hard_gate,trial_hard_failed,trial_score,reason,evidence_refs,candidate_completed_at,judged_at
-```
-
-`just check` validates all NDJSON/Rubric contracts, workflow YAML, Terraform
-formatting, and the provider tests without changing external state.
+`Candidate Run` and `Judge Run` are asynchronous. Repeat `just status` after
+either trigger. Results are written to `NNN/results/<run-id>/scores.csv`.
 
 ## Gyms
 
 | Gym | Candidate task | Score |
 |---|---|---|
-| [001](001/) | Investigate one EventBridge alert and write the evidence-backed incident timeline to the Case | True-positive hard gate plus 16 weighted findings |
-| [002](002/) | Classify 20 BOTSv3 alerts from exact bounded evidence objects | Determination 50; incident relevance 50 |
-| [003](003/) | Turn one vulnerability report into one deployable ModSecurity ruleset | Deployability hard gate; 5 malicious and 5 benign fixtures at 10 points each |
+| [001](001/) | Investigate one EventBridge alert and write an evidence-backed incident timeline | True-positive hard gate plus 16 weighted findings |
+| [002](002/) | Classify 20 BOTSv3 alerts from bounded evidence objects | Determination 50; incident relevance 50 |
+| [003](003/) | Turn a vulnerability report into a deployable ModSecurity ruleset | Deployability hard gate; five malicious and five benign fixtures |
+
+## Adding a gym
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for naming, required files, evaluation
+contracts, the README template, and the validation checklist.

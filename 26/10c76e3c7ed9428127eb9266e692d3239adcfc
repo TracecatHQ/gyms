@@ -1,0 +1,31 @@
+CONTRIBUTING.md
+  s_644e0236e3110b::t_04a6ade27c80f0 1-185
+003/README.md
+  s_644e0236e3110b::t_ff1b42d28177af 1,3,5,7-9,11,13-15,17-33,40,44
+README.md
+  s_644e0236e3110b::t_511d63af0dcaa7 3-6,8,11,14-17,19,21-22,37,43,47-48,54-61
+  s_644e0236e3110b::t_ab1d8cf96ae415 24-25,29-36
+002/README.md
+  s_644e0236e3110b::t_971ec70337356b 1,3,5,7-9,11-12,14-25,29-30,37,41
+  s_644e0236e3110b::t_b047f4aab1d0ef 26-28
+templates/gym-readme.md
+  s_644e0236e3110b::t_04a6ade27c80f0 1-40
+001/README.md
+  s_644e0236e3110b::t_f31800a8aa8c63 3-26,28-37,45-46,50
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "2610c76e3c7ed9428127eb9266e692d3239adcfc",
+  "prompts": {},
+  "sessions": {
+    "s_644e0236e3110b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09b87-9b6d-7393-a77c-33195bead7cd",
+        "model": "gpt-daybreak-blue-latest"
+      },
+      "human_author": "Chris Lo <46541035+topher-lo@users.noreply.github.com>"
+    }
+  }
+}

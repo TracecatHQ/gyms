@@ -1,0 +1,36 @@
+003/tracecat/workflows/validate-firewall-rule.yml
+  s_644e0236e3110b::t_1d4a1a4534b6a4 5
+003/tracecat/workflows/cleanup-firewall-rule.yml
+  s_644e0236e3110b::t_1d4a1a4534b6a4 1-21
+terraform/modules/gym/main.tf
+  s_644e0236e3110b::t_29778377968471 79,82
+Justfile
+  s_644e0236e3110b::t_d5c4754b05a09d 70,75,80-85
+  s_644e0236e3110b::t_174f2b6e321f2b 12,23,42,54,68,97,110,121,133,166
+  s_644e0236e3110b::t_c01e2fb45df01a 66,69,71-74,76-79,86-89,92,94-95,103,125-128,140-141,153-156,159-161
+terraform/modules/gym/workflows/judge-run.yml
+  s_644e0236e3110b::t_21d506d48f7cb3 4,6,10,14-15,17-18,20,22,25-28,32-37,40-41,74,82,90,101,132,134,142-143,162
+  s_644e0236e3110b::t_f71b17d06407f7 49-50,52
+003/tracecat/tracecat.json
+  s_644e0236e3110b::t_f71b17d06407f7 5-13,35-36
+terraform/modules/gym/workflows/candidate-run.yml
+  s_644e0236e3110b::t_64a6de17bfa4ac 4,44,54-55,57-60,62-64,70,93-113,139-140,144-145,149,151-152,156-158
+001/tracecat/tracecat.json
+  s_644e0236e3110b::t_f71b17d06407f7 13-16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "84daad1ae8fe568c400266d54fb3d872cfff8307",
+  "prompts": {},
+  "sessions": {
+    "s_644e0236e3110b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09b87-9b6d-7393-a77c-33195bead7cd",
+        "model": "gpt-daybreak-blue-latest"
+      },
+      "human_author": "Chris Lo <46541035+topher-lo@users.noreply.github.com>"
+    }
+  }
+}

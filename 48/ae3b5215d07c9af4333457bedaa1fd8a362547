@@ -1,0 +1,47 @@
+003/tracecat/tracecat.json
+  s_644e0236e3110b::t_03c01518febeda 14,23,28
+001/tracecat/tracecat.json
+  s_644e0236e3110b::t_03c01518febeda 24,33,35
+terraform-provider-tracecat/tracecat/resource_json.go
+  s_644e0236e3110b::t_2601f90ab56198 13-14
+terraform/modules/gym/workflows/judge-run.yml
+  s_644e0236e3110b::t_6f38b2884394fd 106,131,133
+002/tracecat/tracecat.json
+  s_644e0236e3110b::t_03c01518febeda 11,20,22
+terraform/modules/gym/main.tf
+  s_644e0236e3110b::t_6f38b2884394fd 20-21,96,100,102
+  s_644e0236e3110b::t_19e9274ffa7cd1 141-149
+  s_644e0236e3110b::t_2b05384b55fd7e 163,165-166
+terraform-provider-tracecat/tracecat/provider.go
+  s_644e0236e3110b::t_2601f90ab56198 29
+terraform-provider-tracecat/tracecat/resource_workspace.go
+  s_644e0236e3110b::t_03c01518febeda 14
+001/target/splunk/Dockerfile
+  s_644e0236e3110b::t_567365b7003a11 13-18
+Justfile
+  s_644e0236e3110b::t_7cabce2707c438 14,16-17,24-26,33,35,39,43,45,49,52,56,59,64,68,71,76,81-83,85,95-97,105-107,114-116,118,141-143,154,156-162
+  s_644e0236e3110b::t_6f38b2884394fd 88,90,134-135
+  s_644e0236e3110b::t_2b05384b55fd7e 111
+README.md
+  s_644e0236e3110b::t_87f7e78880966d 23,50-51,56,63-67,85-88,93
+.env.example
+  s_644e0236e3110b::t_5df7f52b5aead0 1,5-7,23-24,29,35,40,44
+terraform-provider-tracecat/README.md
+  s_644e0236e3110b::t_4464757f647759 5-6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "48ae3b5215d07c9af4333457bedaa1fd8a362547",
+  "prompts": {},
+  "sessions": {
+    "s_644e0236e3110b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09b87-9b6d-7393-a77c-33195bead7cd",
+        "model": "gpt-daybreak-blue-latest"
+      },
+      "human_author": "Chris Lo <46541035+topher-lo@users.noreply.github.com>"
+    }
+  }
+}

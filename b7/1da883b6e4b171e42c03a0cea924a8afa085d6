@@ -1,0 +1,41 @@
+002/terraform/main.tf
+  s_644e0236e3110b::t_3d7240007ea22e 1-12,29,35-39
+  s_644e0236e3110b::t_29deec48496662 13-28,30-34
+002/evals/cases.ndjson
+  s_644e0236e3110b::t_ff95b95b90f0d0 1-20
+002/README.md
+  s_644e0236e3110b::t_14222582dd4e99 1,3-5,7-8,10-12,14,16-20,22,25-36
+002/compose.yml
+  s_644e0236e3110b::t_3d7240007ea22e 1-16,29,31-35,38-42,44-45,47-50,52-56
+  s_644e0236e3110b::t_6e95f6dbe516c7 37
+  s_644e0236e3110b::t_677526cfaae087 17-28,30,36,43,46,51
+002/tracecat/agent_presets/judge.md
+  s_644e0236e3110b::t_3d7240007ea22e 1-10
+  s_644e0236e3110b::t_79aa4548e7e09d 11-12
+002/.env.example
+  s_644e0236e3110b::t_335e80d3088c5e 1-3
+002/tracecat/tracecat.json
+  s_644e0236e3110b::t_3d7240007ea22e 1-39
+002/evals/rubric.json
+  s_644e0236e3110b::t_3d7240007ea22e 1-21
+002/tracecat/agent_presets/candidate.md
+  s_644e0236e3110b::t_3d7240007ea22e 1-3,8-17,19-20
+  s_644e0236e3110b::t_3f0c3c672b2197 4-5
+  s_644e0236e3110b::t_6e95f6dbe516c7 6-7,18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "b71da883b6e4b171e42c03a0cea924a8afa085d6",
+  "prompts": {},
+  "sessions": {
+    "s_644e0236e3110b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09b87-9b6d-7393-a77c-33195bead7cd",
+        "model": "gpt-daybreak-blue-latest"
+      },
+      "human_author": "Chris Lo <46541035+topher-lo@users.noreply.github.com>"
+    }
+  }
+}

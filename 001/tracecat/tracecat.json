@@ -20,14 +20,8 @@
       "description": "Investigates one Gym 001 alert using only Case actions and the attached Splunk MCP integration.",
       "instructions_file": "agent_presets/candidate.md",
       "model_role": "candidate",
-      "output_type": "str",
       "actions": ["core.cases.create_comment","core.cases.get_case","core.cases.update_case","core.cases.add_case_tag"],
-      "namespaces": [],
-      "tool_approvals": {},
-      "mcp_catalog_slugs": ["splunk-mcp"],
-      "retries": 3,
-      "enable_thinking": true,
-      "enable_internet_access": false
+      "mcp_catalog_slugs": ["splunk-mcp"]
     },
     {
       "name": "Judge",
@@ -35,17 +29,8 @@
       "description": "Grades a frozen Gym 001 Case Work Product against the hidden Oracle and Rubric.",
       "instructions_file": "agent_presets/judge.md",
       "model_role": "judge",
-      "output_type": {"type":"object","additionalProperties":false,"required":["criteria"],"properties":{"criteria":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["criterion_id","result","reason","evidence_refs"],"properties":{"criterion_id":{"type":"string"},"result":{"type":"string","enum":["met","missed"]},"reason":{"type":"string"},"evidence_refs":{"type":"array","items":{"type":"string"}}}}}}},
       "actions": [],
-      "namespaces": [],
-      "tool_approvals": {},
-      "retries": 1,
-      "enable_thinking": true,
-      "enable_internet_access": false
+      "retries": 1
     }
-  ],
-  "workflows": [],
-  "case_fields": [],
-  "case_dropdowns": [],
-  "case_tags": []
+  ]
 }

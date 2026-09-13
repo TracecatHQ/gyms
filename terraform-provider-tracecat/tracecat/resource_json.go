@@ -5,15 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"sort"
-	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
-func resourceJSON(endpoint string, forceNew bool) *schema.Resource {
-	r := &schema.Resource{
+func resourceJSON(endpoint string) *schema.Resource {
+	return &schema.Resource{
 		Description:   "A granular Tracecat REST resource represented by canonical JSON.",
 		CreateContext: jsonCreate(endpoint),
 		ReadContext:   jsonRead(endpoint),
@@ -25,15 +23,10 @@ func resourceJSON(endpoint string, forceNew bool) *schema.Resource {
 			"config_json": {
 				Type:             schema.TypeString,
 				Required:         true,
-				ForceNew:         forceNew,
 				DiffSuppressFunc: suppressEquivalentJSON,
 			},
 		},
 	}
-	if forceNew {
-		r.UpdateContext = nil
-	}
-	return r
 }
 
 func decodeObject(raw string) (map[string]any, error) {
@@ -151,14 +144,3 @@ func jsonDelete(endpoint string) schema.DeleteContextFunc {
 		return nil
 	}
 }
-
-func sortedKeys(value map[string]any) []string {
-	keys := make([]string, 0, len(value))
-	for key := range value {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	return keys
-}
-
-func endpointID(endpoint, id string) string { return strings.TrimRight(endpoint, "/") + "/" + id }

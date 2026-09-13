@@ -13,24 +13,6 @@ definition:
         type: int
         default: 1
         description: Fresh Candidate trials per selected Case Template.
-      candidate_preset_version_id:
-        type: str
-        description: Candidate preset head UUID observed by the caller; Judge Run verifies it against every resulting session.
-      candidate_preset_version:
-        type: int
-        description: Candidate preset head number recorded for audit.
-      judge_preset_version_id:
-        type: str
-        description: Judge preset head UUID reserved for this Evaluation Run.
-      judge_preset_version:
-        type: int
-        description: Judge preset head number recorded for audit.
-      candidate_model:
-        type: str
-        description: Candidate model frozen by the caller.
-      judge_model:
-        type: str
-        description: Judge model frozen by the caller.
   config:
     timeout: 7200
   actions:
@@ -98,19 +80,10 @@ definition:
           status: candidate_running
           case_ids: ${{ ACTIONS.selected_case_ids.result }}
           repetitions: ${{ TRIGGER.repetitions }}
-          candidate_run_execution_id: ${{ ENV.workflow.execution_id }}
-          candidate_preset_version_id: ${{ TRIGGER.candidate_preset_version_id }}
-          candidate_preset_version: ${{ TRIGGER.candidate_preset_version }}
-          candidate_model: ${{ TRIGGER.candidate_model }}
           judge_run_execution_id: null
-          judge_preset_version_id: ${{ TRIGGER.judge_preset_version_id }}
-          judge_preset_version: ${{ TRIGGER.judge_preset_version }}
-          judge_model: ${{ TRIGGER.judge_model }}
           rubric_id: ${{ ACTIONS.select_case_templates.result[0].rubric_id }}
           rubric_version: ${{ ACTIONS.select_case_templates.result[0].rubric_version }}
-          frozen_inputs: ${{ ACTIONS.select_case_templates.result }}
           trials: []
-          errors: []
           created_at: ${{ FN.utcnow(True) }}
           candidate_completed_at: null
           judged_at: null
@@ -190,11 +163,7 @@ definition:
           trial_number: ${{ var.item[0][1] }}
           status: completed
           candidate_session_id: ${{ var.item[2].session_id }}
-          candidate_preset_version_id: ${{ TRIGGER.candidate_preset_version_id }}
-          candidate_model: ${{ TRIGGER.candidate_model }}
-          case_template_sha256: ${{ var.item[0][0].case_template_sha256 }}
           submission: ${{ var.item[3] }}
-          submission_sha256: ${{ FN.hash_sha256(FN.serialize_json(var.item[3])) }}
           candidate_completed_at: ${{ FN.utcnow(True) }}
           oracle: ${{ var.item[0][0].oracle }}
           rubric: ${{ var.item[0][0].rubric }}
@@ -212,5 +181,4 @@ definition:
 
   returns:
     evaluation_run_id: ${{ ENV.workflow.execution_id }}
-    candidate_run_execution_id: ${{ ENV.workflow.execution_id }}
     trials: ${{ ACTIONS.build_trials.result }}

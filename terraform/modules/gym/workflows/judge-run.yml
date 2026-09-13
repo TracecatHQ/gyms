@@ -103,6 +103,7 @@ definition:
               'criterion_hard_gate': pair[0]['hard_gate'],
               'trial_hard_failed': item[2]['hard_failed'],
               'trial_score': item[2]['score'],
+              'judge_session_id': item[1]['session_id'],
               'reason': pair[1]['reason'],
               'evidence_refs': pair[1]['evidence_refs']
             }
@@ -121,19 +122,15 @@ definition:
       for_each: ${{ for var.score in ACTIONS.normalize_scores.result }}
       args:
         value:
-          score_key: ${{ FN.concat_strings(TRIGGER.evaluation_run_id, ":", var.score.trial.trial_id, ":", var.score.criterion_id) }}
           schema_version: 1
           gym_id: ${{ ACTIONS.load_evaluation_run.result.gym_id }}
           evaluation_run_id: ${{ TRIGGER.evaluation_run_id }}
           trial_id: ${{ var.score.trial.trial_id }}
           case_id: ${{ var.score.trial.case_id }}
           trial_number: ${{ var.score.trial.trial_number }}
-          candidate_run_execution_id: ${{ ACTIONS.load_evaluation_run.result.candidate_run_execution_id }}
-          candidate_preset_version_id: ${{ var.score.trial.candidate_preset_version_id }}
-          candidate_model: ${{ var.score.trial.candidate_model }}
+          candidate_session_id: ${{ var.score.trial.candidate_session_id }}
           judge_run_execution_id: ${{ ENV.workflow.execution_id }}
-          judge_preset_version_id: ${{ ACTIONS.load_evaluation_run.result.judge_preset_version_id }}
-          judge_model: ${{ ACTIONS.load_evaluation_run.result.judge_model }}
+          judge_session_id: ${{ var.score.judge_session_id }}
           rubric_id: ${{ ACTIONS.load_evaluation_run.result.rubric_id }}
           rubric_version: ${{ ACTIONS.load_evaluation_run.result.rubric_version }}
           criterion_id: ${{ var.score.criterion_id }}
@@ -145,8 +142,6 @@ definition:
           trial_score: ${{ var.score.trial_score }}
           reason: ${{ var.score.reason }}
           evidence_refs: ${{ var.score.evidence_refs }}
-          case_template_sha256: ${{ var.score.trial.case_template_sha256 }}
-          submission_sha256: ${{ var.score.trial.submission_sha256 }}
           candidate_completed_at: ${{ var.score.trial.candidate_completed_at }}
           judged_at: ${{ FN.utcnow(True) }}
 

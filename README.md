@@ -20,7 +20,7 @@ control runtime, copied Tracecat source tree, or per-gym provisioning plugin.
 | Oracle | Hidden expected facts or fixture outcomes | `oracle` in NDJSON and `case_templates` |
 | Rubric | Versioned list of scoring criteria | `evals/rubric.json` and `case_templates` |
 | Work Product | Candidate-authored Case state and comments | Tracecat Case |
-| Submission | Immutable Case-and-comments snapshot at Candidate completion | JSON plus SHA-256 recorded on the Trial |
+| Submission | Case-and-comments snapshot at Candidate completion | JSON recorded on the Trial |
 | Criterion Result | `met` or `missed`, with a reason and evidence references | One row in `evaluation_scores` |
 
 There is deliberately no “COT” object. Private model reasoning is not a graded
@@ -47,24 +47,24 @@ NNN/
 
 The shared module in `terraform/modules/gym` always provisions exactly three
 tables: `case_templates`, `evaluation_runs`, and `evaluation_scores`. It also
-provisions the workspace, presets, native YAML workflows, model bindings,
-Case metadata, MCP catalog integrations, and write-only secrets.
+provisions the workspace, presets, native YAML workflows, MCP catalog
+integrations, and write-only secrets.
 
 Tracecat itself is cloned at the exact public release in `TRACECAT_VERSION` into
 ignored `.cache/tracecat`; it is never vendored here. The repository-local Go
 provider in `terraform-provider-tracecat` talks only to Tracecat's public REST
-API. Workspace destruction is protected by Terraform `prevent_destroy`.
+API.
 
 ## Commands
 
 Copy `.env.example` to `.env`, replace every placeholder, and create an
 organization service-account API key in Tracecat with workspace administration
 scopes. On the pinned beta release, enable the `service_accounts` entitlement
-for the local organization's tier first; `.env.example` enables the documented
-`agent-presets` feature-to-entitlement migration for a fresh database. Configure
-credentials in Tracecat for the model providers named in `.env`; model secrets
-remain organization settings rather than gym state. Terraform 1.11+, Go,
-Docker, `just`, `jq`, `curl`, Git LFS, and Ruby are required.
+for the local organization's tier first. `just tracecat-up` reads Tracecat's
+defaults from the pinned release, then applies the short local `.env` overrides.
+Configure credentials in Tracecat for the model providers named in `.env`;
+model secrets remain organization settings rather than gym state. Terraform
+1.11+, Go, Docker, `just`, `jq`, `curl`, Git LFS, and Ruby are required.
 
 ```bash
 just tracecat-up
@@ -82,16 +82,15 @@ just export 001 RUN_ID=<evaluation-run-id>
 `Candidate Run` and `Judge Run` are asynchronous REST triggers. A Trial always
 uses a fresh Case and fresh agent session. Judge Run accepts only a completed,
 previously unjudged Evaluation Run, invokes a fresh Judge for every Trial, and
-writes immutable criterion rows. Tracecat snapshots the current preset head onto
-each agent session. Before triggering Judge Run, `just judge` verifies every
-Candidate session against the recorded version UUID and refuses to grade if the
-Judge head changed; do not run `terraform apply` concurrently with either run.
-A missed hard gate forces `trial_score` to 0.
+writes criterion rows. Tracecat records the preset version on each agent session;
+the gym records the actual Candidate and Judge session IDs rather than copying
+preset-head metadata before execution. A missed hard gate forces `trial_score`
+to 0.
 
 Exports are written to `NNN/results/<run-id>/scores.csv` with this fixed schema:
 
 ```text
-schema_version,gym_id,evaluation_run_id,trial_id,case_id,trial_number,candidate_run_execution_id,candidate_preset_version_id,candidate_model,judge_run_execution_id,judge_preset_version_id,judge_model,rubric_id,rubric_version,criterion_id,criterion_weight,criterion_result,criterion_points,criterion_hard_gate,trial_hard_failed,trial_score,reason,evidence_refs,case_template_sha256,submission_sha256,candidate_completed_at,judged_at
+schema_version,gym_id,evaluation_run_id,trial_id,case_id,trial_number,candidate_session_id,judge_run_execution_id,judge_session_id,rubric_id,rubric_version,criterion_id,criterion_weight,criterion_result,criterion_points,criterion_hard_gate,trial_hard_failed,trial_score,reason,evidence_refs,candidate_completed_at,judged_at
 ```
 
 `just check` validates all NDJSON/Rubric contracts, workflow YAML, Terraform

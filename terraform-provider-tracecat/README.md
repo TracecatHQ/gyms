@@ -2,8 +2,8 @@
 
 This repository-local provider provisions the Tracecat resources used by the
 gyms through the public REST API. It intentionally has a small surface:
-workspaces, native workflow YAML, agent presets, tables and rows, Case metadata,
-catalog MCP integrations, secrets, and model lookup.
+workspaces, native workflow YAML, agent presets, tables and rows, catalog MCP
+integrations, and secrets.
 
 Set `TRACECAT_API_URL` and `TRACECAT_API_KEY`, then run `just init`. The root
 Justfile builds and installs the provider under `.terraform.d/plugins` and

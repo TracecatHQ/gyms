@@ -1,7 +1,6 @@
 {
   "schema_version": 1,
   "workspace_name": "Gym 002 — BOTSv3 Alert Classification",
-  "mcp_integrations": [],
   "agent_presets": [
     {
       "name": "Candidate",
@@ -9,13 +8,7 @@
       "description": "Classifies one BOTSv3 alert using its exact DuckDB-readable evidence object and Case actions.",
       "instructions_file": "agent_presets/candidate.md",
       "model_role": "candidate",
-      "output_type": "str",
-      "actions": ["core.cases.create_comment","core.cases.get_case","core.cases.update_case","core.cases.add_case_tag","core.duckdb.execute_sql"],
-      "namespaces": [],
-      "tool_approvals": {},
-      "retries": 3,
-      "enable_thinking": true,
-      "enable_internet_access": false
+      "actions": ["core.cases.create_comment","core.cases.get_case","core.cases.update_case","core.cases.add_case_tag","core.duckdb.execute_sql"]
     },
     {
       "name": "Judge",
@@ -23,17 +16,8 @@
       "description": "Grades BOTSv3 determination and incident relevance against the hidden Oracle.",
       "instructions_file": "agent_presets/judge.md",
       "model_role": "judge",
-      "output_type": {"type":"object","additionalProperties":false,"required":["criteria"],"properties":{"criteria":{"type":"array","minItems":2,"maxItems":2,"items":{"type":"object","additionalProperties":false,"required":["criterion_id","result","reason","evidence_refs"],"properties":{"criterion_id":{"type":"string","enum":["determination","incident_relevance"]},"result":{"type":"string","enum":["met","missed"]},"reason":{"type":"string"},"evidence_refs":{"type":"array","items":{"type":"string"}}}}}}},
       "actions": [],
-      "namespaces": [],
-      "tool_approvals": {},
-      "retries": 1,
-      "enable_thinking": true,
-      "enable_internet_access": false
+      "retries": 1
     }
-  ],
-  "workflows": [],
-  "case_fields": [],
-  "case_dropdowns": [],
-  "case_tags": []
+  ]
 }

@@ -3,7 +3,6 @@ package tracecat
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -27,17 +26,11 @@ func Provider() *schema.Provider {
 		ResourcesMap: map[string]*schema.Resource{
 			"tracecat_workspace":       resourceWorkspace(),
 			"tracecat_workflow":        resourceWorkflow(),
-			"tracecat_agent_preset":    resourceJSON("/agent/presets", false),
+			"tracecat_agent_preset":    resourceJSON("/agent/presets"),
 			"tracecat_table":           resourceTable(),
 			"tracecat_table_row":       resourceTableRow(),
-			"tracecat_case_field":      resourceJSON("/case-fields", false),
-			"tracecat_case_dropdown":   resourceJSON("/case-dropdowns", false),
-			"tracecat_case_tag":        resourceJSON("/case-tags", false),
 			"tracecat_mcp_integration": resourceMCPIntegration(),
 			"tracecat_secret":          resourceSecret(),
-		},
-		DataSourcesMap: map[string]*schema.Resource{
-			"tracecat_model": dataSourceModel(),
 		},
 	}
 	p.ConfigureContextFunc = func(ctx context.Context, d *schema.ResourceData) (any, diag.Diagnostics) {
@@ -65,5 +58,3 @@ func workspaceSchema() *schema.Schema {
 		ForceNew: true,
 	}
 }
-
-func envOrEmpty(name string) string { return os.Getenv(name) }

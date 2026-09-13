@@ -11,7 +11,7 @@ import (
 
 func resourceWorkspace() *schema.Resource {
 	return &schema.Resource{
-		Description:   "A Tracecat workspace. Protect production gym workspaces with lifecycle.prevent_destroy.",
+		Description:   "A Tracecat workspace.",
 		CreateContext: workspaceCreate,
 		ReadContext:   workspaceRead,
 		UpdateContext: workspaceUpdate,

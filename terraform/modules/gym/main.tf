@@ -17,12 +17,8 @@ locals {
     for line in split("\n", trimspace(file("${var.config_dir}/../evals/cases.ndjson"))) : line
     if trimspace(line) != ""
   ]
-  cases = {
-    for line in local.case_lines : jsondecode(line).case_id => {
-      source = jsondecode(line)
-      hash   = sha256(line)
-    }
-  }
+  case_records = [for line in local.case_lines : jsondecode(line)]
+  cases        = { for record in local.case_records : record.case_id => record }
 
   judge_output_type = {
     type                 = "object"
@@ -65,9 +61,6 @@ locals {
   }
   workflows    = merge(local.standard_workflows, local.gym_workflows)
   integrations = { for integration in try(local.manifest.mcp_integrations, []) : integration.catalog_slug => integration }
-  case_fields  = { for field in try(local.manifest.case_fields, []) : field.name => field }
-  dropdowns    = { for dropdown in try(local.manifest.case_dropdowns, []) : dropdown.ref => dropdown }
-  case_tags    = { for tag in try(local.manifest.case_tags, []) : tag.name => tag }
   secrets      = { for secret in try(local.manifest.secrets, []) : secret.name => secret }
 
   table_columns = {
@@ -80,7 +73,6 @@ locals {
       { name = "rubric", type = "JSONB", nullable = false },
       { name = "rubric_id", type = "TEXT", nullable = false },
       { name = "rubric_version", type = "INTEGER", nullable = false },
-      { name = "case_template_sha256", type = "TEXT", nullable = false },
       { name = "enabled", type = "BOOLEAN", nullable = false }
     ]
     evaluation_runs = [
@@ -90,37 +82,24 @@ locals {
       { name = "status", type = "TEXT", nullable = false },
       { name = "case_ids", type = "JSONB", nullable = false },
       { name = "repetitions", type = "INTEGER", nullable = false },
-      { name = "candidate_run_execution_id", type = "TEXT", nullable = true },
-      { name = "candidate_preset_version_id", type = "TEXT", nullable = false },
-      { name = "candidate_preset_version", type = "INTEGER", nullable = false },
-      { name = "candidate_model", type = "TEXT", nullable = false },
       { name = "judge_run_execution_id", type = "TEXT", nullable = true },
-      { name = "judge_preset_version_id", type = "TEXT", nullable = false },
-      { name = "judge_preset_version", type = "INTEGER", nullable = false },
-      { name = "judge_model", type = "TEXT", nullable = false },
       { name = "rubric_id", type = "TEXT", nullable = false },
       { name = "rubric_version", type = "INTEGER", nullable = false },
-      { name = "frozen_inputs", type = "JSONB", nullable = false },
       { name = "trials", type = "JSONB", nullable = false },
-      { name = "errors", type = "JSONB", nullable = false },
       { name = "created_at", type = "TIMESTAMPTZ", nullable = false },
       { name = "candidate_completed_at", type = "TIMESTAMPTZ", nullable = true },
       { name = "judged_at", type = "TIMESTAMPTZ", nullable = true }
     ]
     evaluation_scores = [
-      { name = "score_key", type = "TEXT", nullable = false, is_index = true },
       { name = "schema_version", type = "INTEGER", nullable = false },
       { name = "gym_id", type = "TEXT", nullable = false },
-      { name = "evaluation_run_id", type = "TEXT", nullable = false },
+      { name = "evaluation_run_id", type = "TEXT", nullable = false, is_index = true },
       { name = "trial_id", type = "TEXT", nullable = false },
       { name = "case_id", type = "TEXT", nullable = false },
       { name = "trial_number", type = "INTEGER", nullable = false },
-      { name = "candidate_run_execution_id", type = "TEXT", nullable = false },
-      { name = "candidate_preset_version_id", type = "TEXT", nullable = false },
-      { name = "candidate_model", type = "TEXT", nullable = false },
+      { name = "candidate_session_id", type = "TEXT", nullable = false },
       { name = "judge_run_execution_id", type = "TEXT", nullable = false },
-      { name = "judge_preset_version_id", type = "TEXT", nullable = false },
-      { name = "judge_model", type = "TEXT", nullable = false },
+      { name = "judge_session_id", type = "TEXT", nullable = false },
       { name = "rubric_id", type = "TEXT", nullable = false },
       { name = "rubric_version", type = "INTEGER", nullable = false },
       { name = "criterion_id", type = "TEXT", nullable = false },
@@ -132,8 +111,6 @@ locals {
       { name = "trial_score", type = "NUMERIC", nullable = false },
       { name = "reason", type = "TEXT", nullable = false },
       { name = "evidence_refs", type = "JSONB", nullable = false },
-      { name = "case_template_sha256", type = "TEXT", nullable = false },
-      { name = "submission_sha256", type = "TEXT", nullable = false },
       { name = "candidate_completed_at", type = "TIMESTAMPTZ", nullable = false },
       { name = "judged_at", type = "TIMESTAMPTZ", nullable = false }
     ]
@@ -142,22 +119,6 @@ locals {
 
 resource "tracecat_workspace" "gym" {
   name = local.manifest.workspace_name
-
-  lifecycle {
-    prevent_destroy = true
-  }
-}
-
-data "tracecat_model" "candidate" {
-  workspace_id   = tracecat_workspace.gym.id
-  model_provider = var.candidate_model.provider
-  name           = var.candidate_model.name
-}
-
-data "tracecat_model" "judge" {
-  workspace_id   = tracecat_workspace.gym.id
-  model_provider = var.judge_model.provider
-  name           = var.judge_model.name
 }
 
 resource "tracecat_table" "platform" {
@@ -177,16 +138,15 @@ resource "tracecat_table_row" "case_template" {
   identity_value  = each.key
   upsert          = true
   data_json = jsonencode({
-    schema_version       = each.value.source.schema_version
-    gym_id               = var.gym_id
-    case_id              = each.key
-    case                 = each.value.source.case
-    oracle               = each.value.source.oracle
-    rubric               = local.rubric
-    rubric_id            = local.rubric.rubric_id
-    rubric_version       = local.rubric.rubric_version
-    case_template_sha256 = each.value.hash
-    enabled              = try(each.value.source.enabled, true)
+    schema_version = each.value.schema_version
+    gym_id         = var.gym_id
+    case_id        = each.key
+    case           = each.value.case
+    oracle         = each.value.oracle
+    rubric         = local.rubric
+    rubric_id      = local.rubric.rubric_id
+    rubric_version = local.rubric.rubric_version
+    enabled        = try(each.value.enabled, true)
   })
 }
 
@@ -200,14 +160,10 @@ resource "tracecat_agent_preset" "preset" {
       instructions     = file("${var.config_dir}/${each.value.instructions_file}")
       model_provider   = each.value.model_role == "candidate" ? var.candidate_model.provider : var.judge_model.provider
       model_name       = each.value.model_role == "candidate" ? var.candidate_model.name : var.judge_model.name
+      catalog_id       = null
       mcp_integrations = [for slug in try(each.value.mcp_catalog_slugs, []) : tracecat_mcp_integration.integration[slug].id]
-      output_type      = each.value.model_role == "judge" ? local.judge_output_type : each.value.output_type
-    },
-    (
-      each.value.model_role == "candidate" ? data.tracecat_model.candidate.catalog_id : data.tracecat_model.judge.catalog_id
-      ) != "" ? {
-      catalog_id = each.value.model_role == "candidate" ? data.tracecat_model.candidate.catalog_id : data.tracecat_model.judge.catalog_id
-    } : {}
+      output_type      = each.value.model_role == "judge" ? local.judge_output_type : null
+    }
   ))
 }
 
@@ -240,27 +196,6 @@ resource "tracecat_mcp_integration" "integration" {
   timeout                = try(each.value.timeout, 120)
   custom_headers_wo_json = contains(keys(var.mcp_credentials), each.key) ? jsonencode(var.mcp_credentials[each.key]) : null
   credentials_wo_version = try(each.value.credentials_version, 0)
-}
-
-resource "tracecat_case_field" "field" {
-  for_each = local.case_fields
-
-  workspace_id = tracecat_workspace.gym.id
-  config_json  = jsonencode(each.value)
-}
-
-resource "tracecat_case_dropdown" "dropdown" {
-  for_each = local.dropdowns
-
-  workspace_id = tracecat_workspace.gym.id
-  config_json  = jsonencode(each.value)
-}
-
-resource "tracecat_case_tag" "tag" {
-  for_each = local.case_tags
-
-  workspace_id = tracecat_workspace.gym.id
-  config_json  = jsonencode(each.value)
 }
 
 resource "tracecat_secret" "secret" {

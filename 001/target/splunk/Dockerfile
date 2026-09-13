@@ -10,7 +10,12 @@ USER root
 COPY --chown=splunk:splunk assets/dataset/conf/ /lab/conf/
 COPY --chown=splunk:splunk assets/dataset/logs/ /lab/logs/
 COPY --chown=splunk:splunk target/splunk/conf/ /lab/conf/
-COPY --chown=splunk:splunk assets/splunk-mcp-server_200.tgz /lab/assets/splunk-mcp-server_200.tgz
+COPY assets/splunk-mcp-server_200.tgz /tmp/splunk-mcp-server.tgz
+RUN mkdir /tmp/splunk-mcp-server /lab/assets \
+    && tar -xzf /tmp/splunk-mcp-server.tgz -C /tmp/splunk-mcp-server \
+    && sed -i '/"pattern": ".*(?/d' /tmp/splunk-mcp-server/Splunk_MCP_Server/default/builtin_tools.json \
+    && tar -czf /lab/assets/splunk-mcp-server_200.tgz -C /tmp/splunk-mcp-server Splunk_MCP_Server \
+    && chown -R splunk:splunk /lab/assets
 COPY --chown=splunk:splunk assets/dataset/README.md assets/dataset/LICENSE assets/dataset/LICENSE-DATA /usr/share/doc/gym-001/
 COPY --chmod=0755 target/splunk/entrypoint.sh /sbin/gym-001-entrypoint.sh
 COPY --chmod=0755 target/splunk/healthcheck.sh /opt/gym/healthcheck.sh

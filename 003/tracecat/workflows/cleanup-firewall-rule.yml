@@ -1,0 +1,21 @@
+version: 1
+definition:
+  title: Cleanup Firewall Rule
+  description: Error handler that removes Gym 003's ephemeral candidate firewall rule.
+  entrypoint:
+    ref: remove_candidate_rule
+  config:
+    timeout: 120
+  actions:
+    - ref: remove_candidate_rule
+      action: core.http_request
+      args:
+        url: http://bw-api:8888/configs/supplier.intake.test/modsec/gym003_candidate
+        method: DELETE
+        auth:
+          username: gym-admin
+          password: ${{ SECRETS.gym_003_waf.BUNKERWEB_API_TOKEN }}
+        ignore_status_codes: [404]
+
+  returns:
+    cleanup_status: ${{ ACTIONS.remove_candidate_rule.result.status_code }}

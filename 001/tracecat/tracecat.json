@@ -10,7 +10,10 @@
       "server_uri": "http://splunk:8089/services/mcp",
       "auth_type": "CUSTOM",
       "timeout": 120,
-      "credentials_version": 1
+      "credentials_version": 1,
+      "credentials_from_env": {
+        "Authorization": "SPLUNK_MCP_AUTHORIZATION"
+      }
     }
   ],
   "agent_presets": [

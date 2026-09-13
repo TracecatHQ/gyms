@@ -75,25 +75,11 @@ locals {
       { name = "rubric_version", type = "INTEGER", nullable = false },
       { name = "enabled", type = "BOOLEAN", nullable = false }
     ]
-    evaluation_runs = [
-      { name = "schema_version", type = "INTEGER", nullable = false },
-      { name = "gym_id", type = "TEXT", nullable = false },
-      { name = "evaluation_run_id", type = "TEXT", nullable = false, is_index = true },
-      { name = "status", type = "TEXT", nullable = false },
-      { name = "case_ids", type = "JSONB", nullable = false },
-      { name = "repetitions", type = "INTEGER", nullable = false },
-      { name = "judge_run_execution_id", type = "TEXT", nullable = true },
-      { name = "rubric_id", type = "TEXT", nullable = false },
-      { name = "rubric_version", type = "INTEGER", nullable = false },
-      { name = "trials", type = "JSONB", nullable = false },
-      { name = "created_at", type = "TIMESTAMPTZ", nullable = false },
-      { name = "candidate_completed_at", type = "TIMESTAMPTZ", nullable = true },
-      { name = "judged_at", type = "TIMESTAMPTZ", nullable = true }
-    ]
     evaluation_scores = [
+      { name = "score_key", type = "TEXT", nullable = false, is_index = true },
       { name = "schema_version", type = "INTEGER", nullable = false },
       { name = "gym_id", type = "TEXT", nullable = false },
-      { name = "evaluation_run_id", type = "TEXT", nullable = false, is_index = true },
+      { name = "evaluation_run_id", type = "TEXT", nullable = false },
       { name = "trial_id", type = "TEXT", nullable = false },
       { name = "case_id", type = "TEXT", nullable = false },
       { name = "trial_number", type = "INTEGER", nullable = false },

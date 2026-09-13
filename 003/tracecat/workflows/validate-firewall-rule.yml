@@ -2,6 +2,7 @@ version: 1
 definition:
   title: Validate Firewall Rule
   description: Judge-only helper that uses an ephemeral candidate-rule slot, replays hidden fixtures, and removes the rule.
+  error_handler: cleanup_firewall_rule
   entrypoint:
     ref: remove_previous_candidate_rule
     expects:

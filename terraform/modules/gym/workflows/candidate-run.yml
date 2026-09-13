@@ -1,7 +1,7 @@
 version: 1
 definition:
   title: Candidate Run
-  description: Run the Candidate preset once for every selected Case Template and repetition.
+  description: Run the Candidate preset once for every selected Case Template.
   entrypoint:
     ref: search_case_templates
     expects:
@@ -9,10 +9,6 @@ definition:
         type: list[str]
         default: []
         description: Optional stable Case Template IDs; empty selects every enabled template.
-      repetitions:
-        type: int
-        default: 1
-        description: Fresh Candidate trials per selected Case Template.
   config:
     timeout: 7200
   actions:
@@ -43,70 +39,35 @@ definition:
       args:
         value: ${{ ACTIONS.enabled_case_templates.result if FN.is_empty(TRIGGER.case_ids) else ACTIONS.filter_case_templates.result }}
 
-    - ref: expand_trials
-      action: core.transform.reshape
-      depends_on: [select_case_templates]
-      args:
-        value: ${{ FN.iter_product(ACTIONS.select_case_templates.result, FN.create_range(1, FN.add(TRIGGER.repetitions, 1))) }}
-
     - ref: require_trials
       action: core.require
-      depends_on: [select_case_templates, expand_trials]
+      depends_on: [select_case_templates]
       args:
         conditions:
-          - ${{ TRIGGER.repetitions > 0 }}
           - ${{ FN.length(ACTIONS.select_case_templates.result) > 0 }}
-          - ${{ FN.length(ACTIONS.expand_trials.result) > 0 }}
           - ${{ FN.is_empty(TRIGGER.case_ids) || FN.length(ACTIONS.select_case_templates.result) == FN.length(TRIGGER.case_ids) }}
         require_all: true
         raise_error: true
 
-    - ref: selected_case_ids
-      action: core.transform.map
-      depends_on: [require_trials]
-      args:
-        items: ${{ ACTIONS.select_case_templates.result }}
-        python_lambda: "lambda row: row['case_id']"
-
-    - ref: start_evaluation_run
-      action: core.table.insert_row
-      depends_on: [selected_case_ids]
-      args:
-        table: evaluation_runs
-        row_data:
-          schema_version: 1
-          gym_id: ${{ ACTIONS.select_case_templates.result[0].gym_id }}
-          evaluation_run_id: ${{ ENV.workflow.execution_id }}
-          status: candidate_running
-          case_ids: ${{ ACTIONS.selected_case_ids.result }}
-          repetitions: ${{ TRIGGER.repetitions }}
-          judge_run_execution_id: null
-          rubric_id: ${{ ACTIONS.select_case_templates.result[0].rubric_id }}
-          rubric_version: ${{ ACTIONS.select_case_templates.result[0].rubric_version }}
-          trials: []
-          created_at: ${{ FN.utcnow(True) }}
-          candidate_completed_at: null
-          judged_at: null
-
     - ref: create_trial_cases
       action: core.cases.create_case
-      depends_on: [require_trials, start_evaluation_run]
-      for_each: ${{ for var.trial in ACTIONS.expand_trials.result }}
+      depends_on: [require_trials]
+      for_each: ${{ for var.template in ACTIONS.select_case_templates.result }}
       args:
-        summary: ${{ var.trial[0].case.title }}
-        description: ${{ var.trial[0].case.description }}
-        priority: ${{ var.trial[0].case.priority }}
-        severity: ${{ var.trial[0].case.severity }}
+        summary: ${{ var.template.case.title }}
+        description: ${{ var.template.case.description }}
+        priority: ${{ var.template.case.priority }}
+        severity: ${{ var.template.case.severity }}
         status: new
-        fields: ${{ var.trial[0].case.fields }}
-        payload: ${{ var.trial[0].case.payload }}
-        tags: ${{ var.trial[0].case.tags }}
+        fields: ${{ var.template.case.fields }}
+        payload: ${{ var.template.case.payload }}
+        tags: ${{ var.template.case.tags }}
         create_missing_tags: true
 
     - ref: run_candidates
       action: ai.preset_agent
       depends_on: [create_trial_cases]
-      for_each: ${{ for var.item in FN.zip_iterables(ACTIONS.expand_trials.result, ACTIONS.create_trial_cases.result) }}
+      for_each: ${{ for var.item in FN.zip_iterables(ACTIONS.select_case_templates.result, ACTIONS.create_trial_cases.result) }}
       retry_policy:
         max_attempts: 1
         timeout: 3600
@@ -128,6 +89,27 @@ definition:
       args:
         case_id: ${{ var.item[0].id }}
         content: ${{ var.item[1].output }}
+
+    - ref: extract_candidate_tool_calls
+      action: core.transform.map
+      depends_on: [run_candidates]
+      for_each: ${{ for var.candidate in ACTIONS.run_candidates.result }}
+      args:
+        items: ${{ [] if var.candidate.message_history == None else var.candidate.message_history }}
+        python_lambda: >-
+          lambda message: [
+            {'tool_name': block.get('name'), 'input': block.get('input')}
+            for block in ((message.get('message') or {}).get('content') or [])
+            if (message.get('message') or {}).get('model')
+            and block.get('name', '').endswith('execute_sql')
+          ]
+
+    - ref: flatten_candidate_tool_calls
+      action: core.transform.reshape
+      depends_on: [extract_candidate_tool_calls]
+      for_each: ${{ for var.audit in ACTIONS.extract_candidate_tool_calls.result }}
+      args:
+        value: ${{ FN.flatten(var.audit) }}
 
     - ref: capture_submission_cases
       action: core.cases.get_case
@@ -154,31 +136,24 @@ definition:
 
     - ref: build_trials
       action: core.transform.reshape
-      depends_on: [build_submissions]
-      for_each: ${{ for var.item in FN.zip_iterables(ACTIONS.expand_trials.result, ACTIONS.create_trial_cases.result, ACTIONS.run_candidates.result, ACTIONS.build_submissions.result) }}
+      depends_on: [build_submissions, flatten_candidate_tool_calls]
+      for_each: ${{ for var.item in FN.zip_iterables(ACTIONS.select_case_templates.result, ACTIONS.create_trial_cases.result, ACTIONS.run_candidates.result, ACTIONS.build_submissions.result, ACTIONS.flatten_candidate_tool_calls.result) }}
       args:
         value:
           trial_id: ${{ var.item[1].id }}
-          case_id: ${{ var.item[0][0].case_id }}
-          trial_number: ${{ var.item[0][1] }}
+          case_id: ${{ var.item[0].case_id }}
+          trial_number: 1
           status: completed
           candidate_session_id: ${{ var.item[2].session_id }}
           submission: ${{ var.item[3] }}
+          tool_audit: ${{ var.item[4] }}
           candidate_completed_at: ${{ FN.utcnow(True) }}
-          oracle: ${{ var.item[0][0].oracle }}
-          rubric: ${{ var.item[0][0].rubric }}
-
-    - ref: complete_evaluation_run
-      action: core.table.update_row
-      depends_on: [build_trials]
-      args:
-        table: evaluation_runs
-        row_id: ${{ ACTIONS.start_evaluation_run.result.id }}
-        row_data:
-          status: candidate_completed
-          trials: ${{ ACTIONS.build_trials.result }}
-          candidate_completed_at: ${{ FN.utcnow(True) }}
+          oracle: ${{ var.item[0].oracle }}
+          rubric: ${{ var.item[0].rubric }}
 
   returns:
     evaluation_run_id: ${{ ENV.workflow.execution_id }}
+    gym_id: ${{ ACTIONS.select_case_templates.result[0].gym_id }}
+    rubric_id: ${{ ACTIONS.select_case_templates.result[0].rubric_id }}
+    rubric_version: ${{ ACTIONS.select_case_templates.result[0].rubric_version }}
     trials: ${{ ACTIONS.build_trials.result }}

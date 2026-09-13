@@ -9,6 +9,7 @@ default:
 
 provider:
     #!/usr/bin/env bash
+    set -euo pipefail
     os="$(go env GOOS)"
     arch="$(go env GOARCH)"
     destination="{{ root }}/.terraform.d/plugins/registry.terraform.io/tracecathq/tracecat/{{ provider_version }}/${os}_${arch}"
@@ -19,6 +20,7 @@ provider:
 # Build the local provider and initialize one gym, or every gym when omitted.
 init gym="": provider
     #!/usr/bin/env bash
+    set -euo pipefail
     if [[ -n "{{ gym }}" ]]; then
       gyms=("{{ gym }}")
     else
@@ -37,6 +39,7 @@ init gym="": provider
 # Cache and start the exact public Tracecat release.
 tracecat-up:
     #!/usr/bin/env bash
+    set -euo pipefail
     version="${TRACECAT_VERSION:?set TRACECAT_VERSION in .env}"
     checkout="{{ root }}/.cache/tracecat"
     if [[ ! -d "$checkout/.git" ]]; then
@@ -48,6 +51,7 @@ tracecat-up:
 
 tracecat-down:
     #!/usr/bin/env bash
+    set -euo pipefail
     checkout="{{ root }}/.cache/tracecat"
     test -f "$checkout/docker-compose.yml" || exit 0
     docker compose --project-directory "$checkout" --env-file "$checkout/.env.example" --env-file "{{ root }}/.env" -f "$checkout/docker-compose.yml" down
@@ -59,47 +63,51 @@ up gym:
 down gym:
     @docker compose --project-directory "{{ root }}/{{ gym }}" --env-file "{{ root }}/.env" -p "gym-{{ gym }}" -f "{{ root }}/{{ gym }}/compose.yml" down
 
-plan gym:
+_terraform gym command:
     #!/usr/bin/env bash
-    if [[ "{{ gym }}" = 003 ]]; then
-      export TF_VAR_secret_values="$(jq -cn --arg token "$BUNKERWEB_API_TOKEN" '{gym_003_waf:{BUNKERWEB_API_TOKEN:$token}}')"
-    fi
-    if [[ "{{ gym }}" = 001 ]]; then
-      export TF_VAR_mcp_credentials="$(jq -cn --arg authorization "$SPLUNK_MCP_AUTHORIZATION" '{"splunk-mcp":{Authorization:$authorization}}')"
-    fi
-    TF_VAR_candidate_model="$(jq -cn --arg provider "$CANDIDATE_MODEL_PROVIDER" --arg name "$CANDIDATE_MODEL_NAME" '{provider:$provider,name:$name}')" \
-    TF_VAR_judge_model="$(jq -cn --arg provider "$JUDGE_MODEL_PROVIDER" --arg name "$JUDGE_MODEL_NAME" '{provider:$provider,name:$name}')" \
-      terraform -chdir="{{ root }}/{{ gym }}/terraform" plan
+    set -euo pipefail
+    manifest="{{ root }}/{{ gym }}/tracecat/tracecat.json"
+    mcp_credentials="$(jq -c '
+      reduce (.mcp_integrations[]? | select(.credentials_from_env)) as $integration ({};
+        .[$integration.catalog_slug] = reduce ($integration.credentials_from_env | to_entries[]) as $credential ({};
+          .[$credential.key] = (env[$credential.value] // error("set " + $credential.value))))
+    ' "$manifest")"
+    secret_values="$(jq -c '
+      reduce (.secrets[]? | select(.keys_from_env)) as $secret ({};
+        .[$secret.name] = reduce ($secret.keys_from_env | to_entries[]) as $key ({};
+          .[$key.key] = (env[$key.value] // error("set " + $key.value))))
+    ' "$manifest")"
+    candidate_model="$(jq -cn --arg provider "$CANDIDATE_MODEL_PROVIDER" --arg name "$CANDIDATE_MODEL_NAME" '{provider:$provider,name:$name}')"
+    judge_model="$(jq -cn --arg provider "$JUDGE_MODEL_PROVIDER" --arg name "$JUDGE_MODEL_NAME" '{provider:$provider,name:$name}')"
+    export TF_VAR_mcp_credentials="$mcp_credentials"
+    export TF_VAR_secret_values="$secret_values"
+    export TF_VAR_candidate_model="$candidate_model"
+    export TF_VAR_judge_model="$judge_model"
+    terraform -chdir="{{ root }}/{{ gym }}/terraform" "{{ command }}"
+
+plan gym:
+    @just _terraform "{{ gym }}" plan
 
 apply gym:
-    #!/usr/bin/env bash
-    if [[ "{{ gym }}" = 003 ]]; then
-      export TF_VAR_secret_values="$(jq -cn --arg token "$BUNKERWEB_API_TOKEN" '{gym_003_waf:{BUNKERWEB_API_TOKEN:$token}}')"
-    fi
-    if [[ "{{ gym }}" = 001 ]]; then
-      export TF_VAR_mcp_credentials="$(jq -cn --arg authorization "$SPLUNK_MCP_AUTHORIZATION" '{"splunk-mcp":{Authorization:$authorization}}')"
-    fi
-    TF_VAR_candidate_model="$(jq -cn --arg provider "$CANDIDATE_MODEL_PROVIDER" --arg name "$CANDIDATE_MODEL_NAME" '{provider:$provider,name:$name}')" \
-    TF_VAR_judge_model="$(jq -cn --arg provider "$JUDGE_MODEL_PROVIDER" --arg name "$JUDGE_MODEL_NAME" '{provider:$provider,name:$name}')" \
-      terraform -chdir="{{ root }}/{{ gym }}/terraform" apply
+    @just _terraform "{{ gym }}" apply
 
-# Trigger Candidate Run asynchronously. Optional: CASE_IDS=a,b REPETITIONS=2.
-run gym CASE_IDS="" REPETITIONS="1":
+# Trigger Candidate Run asynchronously. Optional: CASE_IDS=a,b.
+run gym CASE_IDS="":
     #!/usr/bin/env bash
+    set -euo pipefail
     workspace_id="$(terraform -chdir="{{ root }}/{{ gym }}/terraform" output -raw workspace_id)"
     workflow_id="$(terraform -chdir="{{ root }}/{{ gym }}/terraform" output -json workflow_ids | jq -r .candidate_run)"
     case_ids_value="{{ CASE_IDS }}"
     case_ids_value="${case_ids_value#CASE_IDS=}"
-    repetitions_value="{{ REPETITIONS }}"
-    repetitions_value="${repetitions_value#REPETITIONS=}"
     case_ids="$(jq -cn --arg value "$case_ids_value" '$value | if length == 0 then [] else split(",") end')"
-    payload="$(jq -cn --arg workflow_id "$workflow_id" --argjson case_ids "$case_ids" --argjson repetitions "$repetitions_value" '{workflow_id:$workflow_id,inputs:{case_ids:$case_ids,repetitions:$repetitions}}')"
+    payload="$(jq -cn --arg workflow_id "$workflow_id" --argjson case_ids "$case_ids" '{workflow_id:$workflow_id,inputs:{case_ids:$case_ids}}')"
     response="$(curl -fsS -H "Authorization: Bearer $TRACECAT_API_KEY" -H 'Content-Type: application/json' -d "$payload" "$TRACECAT_API_URL/workspaces/$workspace_id/workflow-executions")"
     echo "$response" | jq '{evaluation_run_id:.wf_exec_id}'
 
 # Trigger Judge Run asynchronously for one Evaluation Run.
 judge gym RUN_ID:
     #!/usr/bin/env bash
+    set -euo pipefail
     workspace_id="$(terraform -chdir="{{ root }}/{{ gym }}/terraform" output -raw workspace_id)"
     workflow_id="$(terraform -chdir="{{ root }}/{{ gym }}/terraform" output -json workflow_ids | jq -r .judge_run)"
     run_id="{{ RUN_ID }}"
@@ -110,22 +118,27 @@ judge gym RUN_ID:
 
 status gym RUN_ID:
     #!/usr/bin/env bash
+    set -euo pipefail
     workspace_id="$(terraform -chdir="{{ root }}/{{ gym }}/terraform" output -raw workspace_id)"
-    table_id="$(terraform -chdir="{{ root }}/{{ gym }}/terraform" output -json table_ids | jq -r .evaluation_runs)"
     run_id="{{ RUN_ID }}"
     run_id="${run_id#RUN_ID=}"
-    curl -fsS -H "Authorization: Bearer $TRACECAT_API_KEY" "$TRACECAT_API_URL/workspaces/$workspace_id/tables/$table_id/rows?limit=1000" | jq --arg run_id "$run_id" '.items[] | select(.evaluation_run_id == $run_id)'
+    workflow_id="${run_id%%/*}"
+    execution_id="${run_id#*/}"
+    test "$workflow_id" != "$execution_id" || { echo "RUN_ID must be a Tracecat workflow execution ID" >&2; exit 2; }
+    curl -fsS -H "Authorization: Bearer $TRACECAT_API_KEY" "$TRACECAT_API_URL/workspaces/$workspace_id/workflows/$workflow_id/executions/$execution_id" | jq '{id,status,start_time,close_time}'
 
 # Export criterion rows to NNN/results/<run-id>/scores.csv.
 export gym RUN_ID:
     #!/usr/bin/env bash
+    set -euo pipefail
     workspace_id="$(terraform -chdir="{{ root }}/{{ gym }}/terraform" output -raw workspace_id)"
     table_id="$(terraform -chdir="{{ root }}/{{ gym }}/terraform" output -json table_ids | jq -r .evaluation_scores)"
     run_id="{{ RUN_ID }}"
     run_id="${run_id#RUN_ID=}"
     destination="{{ root }}/{{ gym }}/results/$run_id/scores.csv"
     rows_file="$(mktemp)"
-    trap 'rm -f "$rows_file"' EXIT
+    csv_file="$(mktemp)"
+    trap 'rm -f "$rows_file" "$csv_file"' EXIT
     cursor=""
     while true; do
       query=(--get --data-urlencode "limit=1000")
@@ -137,14 +150,20 @@ export gym RUN_ID:
       [[ "$(jq -r '.has_more' <<<"$response")" = true ]] || break
       cursor="$(jq -er '.next_cursor' <<<"$response")"
     done
-    mkdir -p "$(dirname "$destination")"
+    if ! jq -se --arg run_id "$run_id" 'any(.evaluation_run_id == $run_id)' "$rows_file" >/dev/null; then
+      echo "No completed Judge Run scores found for $run_id" >&2
+      exit 2
+    fi
     jq -sr --arg run_id "$run_id" '
       ["schema_version","gym_id","evaluation_run_id","trial_id","case_id","trial_number","candidate_session_id","judge_run_execution_id","judge_session_id","rubric_id","rubric_version","criterion_id","criterion_weight","criterion_result","criterion_points","criterion_hard_gate","trial_hard_failed","trial_score","reason","evidence_refs","candidate_completed_at","judged_at"],
-      ((map(select(.evaluation_run_id == $run_id)) | sort_by(.case_id, .trial_number, .criterion_id))[] | [.schema_version,.gym_id,.evaluation_run_id,.trial_id,.case_id,.trial_number,.candidate_session_id,.judge_run_execution_id,.judge_session_id,.rubric_id,.rubric_version,.criterion_id,.criterion_weight,.criterion_result,.criterion_points,.criterion_hard_gate,.trial_hard_failed,.trial_score,.reason,(.evidence_refs|tojson),.candidate_completed_at,.judged_at]) | @csv' "$rows_file" > "$destination"
+      ((map(select(.evaluation_run_id == $run_id)) | sort_by(.case_id, .trial_number, .criterion_id))[] | [.schema_version,.gym_id,.evaluation_run_id,.trial_id,.case_id,.trial_number,.candidate_session_id,.judge_run_execution_id,.judge_session_id,.rubric_id,.rubric_version,.criterion_id,.criterion_weight,.criterion_result,.criterion_points,.criterion_hard_gate,.trial_hard_failed,.trial_score,.reason,(.evidence_refs|tojson),.candidate_completed_at,.judged_at]) | @csv' "$rows_file" > "$csv_file"
+    mkdir -p "$(dirname "$destination")"
+    mv "$csv_file" "$destination"
     echo "$destination"
 
 check:
     #!/usr/bin/env bash
+    set -euo pipefail
     found=0
     for gym_dir in "{{ root }}"/[0-9][0-9][0-9]; do
       [[ -d "$gym_dir/terraform" ]] || continue

@@ -1,0 +1,21 @@
+002/tracecat/agent_presets/judge.md
+  s_644e0236e3110b::t_f71b17d06407f7 4-14
+002/evals/rubric.json
+  s_644e0236e3110b::t_f71b17d06407f7 11,18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "f8ffcf195e6e5ab6adcdec5274d06c58c1146702",
+  "prompts": {},
+  "sessions": {
+    "s_644e0236e3110b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09b87-9b6d-7393-a77c-33195bead7cd",
+        "model": "gpt-daybreak-blue-latest"
+      },
+      "human_author": "Chris Lo <46541035+topher-lo@users.noreply.github.com>"
+    }
+  }
+}

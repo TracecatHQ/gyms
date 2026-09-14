@@ -173,9 +173,6 @@ resource "tracecat_workflow" "workflow" {
   filename     = each.value.file
   alias        = each.key
   yaml         = file(each.value.path)
-  definition_json = jsonencode(
-    yamldecode(file(each.value.path)).definition
-  )
 
   depends_on = [
     tracecat_agent_preset.preset,

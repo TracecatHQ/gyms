@@ -7,37 +7,43 @@ definition:
     expects:
       evaluation_run_id:
         type: str
-        description: Candidate Run execution ID containing the immutable Trials.
+        description: Candidate Run execution ID for the persisted immutable Trials.
   config:
     timeout: 7200
   actions:
     - ref: load_candidate_run
-      action: core.workflow.get_status
+      action: core.table.lookup
       args:
-        wf_exec_id: ${{ TRIGGER.evaluation_run_id }}
-        include_events: false
+        table: evaluation_runs
+        column: evaluation_run_id
+        value: ${{ TRIGGER.evaluation_run_id }}
 
     - ref: require_completed_candidate_run
       action: core.require
       depends_on: [load_candidate_run]
       args:
-        conditions:
-          - ${{ ACTIONS.load_candidate_run.result.status == "COMPLETED" }}
-          - ${{ ACTIONS.load_candidate_run.result.result != None }}
-          - ${{ ACTIONS.load_candidate_run.result.result.evaluation_run_id == TRIGGER.evaluation_run_id }}
-          - ${{ FN.length(ACTIONS.load_candidate_run.result.result.trials) > 0 }}
-        require_all: true
+        conditions: ${{ ACTIONS.load_candidate_run.result != None }}
         raise_error: true
 
     - ref: candidate_run
       action: core.transform.reshape
       depends_on: [require_completed_candidate_run]
       args:
-        value: ${{ ACTIONS.load_candidate_run.result.result }}
+        value: ${{ ACTIONS.load_candidate_run.result.run }}
+
+    - ref: require_valid_candidate_run
+      action: core.require
+      depends_on: [candidate_run]
+      args:
+        conditions:
+          - ${{ ACTIONS.candidate_run.result.evaluation_run_id == TRIGGER.evaluation_run_id }}
+          - ${{ FN.length(ACTIONS.candidate_run.result.trials) > 0 }}
+        require_all: true
+        raise_error: true
 
     - ref: run_judges
       action: ai.preset_agent
-      depends_on: [candidate_run]
+      depends_on: [require_valid_candidate_run]
       for_each: ${{ for var.trial in ACTIONS.candidate_run.result.trials }}
       retry_policy:
         max_attempts: 2

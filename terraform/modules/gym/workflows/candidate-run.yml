@@ -98,10 +98,20 @@ definition:
         items: ${{ [] if var.candidate.message_history == None else var.candidate.message_history }}
         python_lambda: >-
           lambda message: [
-            {'tool_name': block.get('name'), 'input': block.get('input')}
-            for block in ((message.get('message') or {}).get('content') or [])
-            if (message.get('message') or {}).get('model')
-            and block.get('name', '').endswith('execute_sql')
+            {
+              'event': 'call',
+              'tool_call_id': block.get('id'),
+              'tool_name': block.get('name'),
+              'input': block.get('input')
+            } if block.get('type') == 'tool_use' else {
+              'event': 'result',
+              'tool_call_id': block.get('tool_use_id'),
+              'success': not bool(block.get('is_error', False))
+            }
+            for block in (
+              (jsonpath('$.message.content[?(@.type == "tool_use")]', message) or [])
+              + (jsonpath('$.message.content[?(@.type == "tool_result")]', message) or [])
+            )
           ]
 
     - ref: flatten_candidate_tool_calls
@@ -151,9 +161,26 @@ definition:
           oracle: ${{ var.item[0].oracle }}
           rubric: ${{ var.item[0].rubric }}
 
-  returns:
-    evaluation_run_id: ${{ ENV.workflow.execution_id }}
-    gym_id: ${{ ACTIONS.select_case_templates.result[0].gym_id }}
-    rubric_id: ${{ ACTIONS.select_case_templates.result[0].rubric_id }}
-    rubric_version: ${{ ACTIONS.select_case_templates.result[0].rubric_version }}
-    trials: ${{ ACTIONS.build_trials.result }}
+    - ref: build_evaluation_run
+      action: core.transform.reshape
+      depends_on: [build_trials]
+      args:
+        value:
+          schema_version: 1
+          evaluation_run_id: ${{ ENV.workflow.execution_id }}
+          gym_id: ${{ ACTIONS.select_case_templates.result[0].gym_id }}
+          rubric_id: ${{ ACTIONS.select_case_templates.result[0].rubric_id }}
+          rubric_version: ${{ ACTIONS.select_case_templates.result[0].rubric_version }}
+          trials: ${{ ACTIONS.build_trials.result }}
+
+    - ref: persist_evaluation_run
+      action: core.table.insert_row
+      depends_on: [build_evaluation_run]
+      args:
+        table: evaluation_runs
+        row_data:
+          evaluation_run_id: ${{ ENV.workflow.execution_id }}
+          run: ${{ ACTIONS.build_evaluation_run.result }}
+        upsert: true
+
+  returns: ${{ ACTIONS.build_evaluation_run.result }}

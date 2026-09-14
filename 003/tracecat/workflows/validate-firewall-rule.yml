@@ -24,7 +24,7 @@ definition:
           service: supplier.intake.test
           type: modsec
           name: gym003_candidate
-          data: '${{ FN.concat_strings("# Gym 003 verifier owner: ", ENV.workflow.execution_id, "\n", TRIGGER.ruleset) }}'
+          data: '${{ FN.concat("# Gym 003 verifier owner: ", ENV.workflow.execution_id, "\n", TRIGGER.ruleset) }}'
           is_draft: false
 
     - ref: activate_candidate_rule
@@ -54,19 +54,19 @@ definition:
       depends_on: [malicious_fixtures]
       for_each: ${{ for var.fixture in ACTIONS.malicious_fixtures.result }}
       args:
-        url: ${{ FN.concat_strings("http://bunkerweb:8080", var.fixture.path) }}
+        url: ${{ FN.concat("http://bunkerweb:8080", var.fixture.path) }}
         method: ${{ var.fixture.method }}
         headers:
           Host: supplier.intake.test
           Content-Type: ${{ var.fixture.content_type }}
         content: '{"data":{},"files":{"field-0":{"filepath":"/home/node/.n8n/config","originalFilename":"supplier.bin","mimetype":"application/octet-stream","size":64}}}'
-        ignore_status_codes: ${{ FN.create_range(400, 600) }}
+        ignore_status_codes: ${{ FN.range(400, 600) }}
 
     - ref: format_malicious_results
       action: core.transform.map
       depends_on: [replay_malicious_fixtures]
       args:
-        items: ${{ FN.zip_iterables(ACTIONS.malicious_fixtures.result, ACTIONS.replay_malicious_fixtures.result) }}
+        items: ${{ FN.zip(ACTIONS.malicious_fixtures.result, ACTIONS.replay_malicious_fixtures.result) }}
         python_lambda: "lambda item: {'fixture_id': item[0]['id'], 'status_code': item[1]['status_code']}"
 
     - ref: benign_fixtures
@@ -85,19 +85,19 @@ definition:
       depends_on: [benign_fixtures]
       for_each: ${{ for var.fixture in ACTIONS.benign_fixtures.result }}
       args:
-        url: ${{ FN.concat_strings("http://bunkerweb:8080", var.fixture.path) }}
+        url: ${{ FN.concat("http://bunkerweb:8080", var.fixture.path) }}
         method: ${{ var.fixture.method }}
         headers:
           Host: supplier.intake.test
           Content-Type: ${{ var.fixture.content_type }}
         content: ${{ var.fixture.body }}
-        ignore_status_codes: ${{ FN.create_range(400, 600) }}
+        ignore_status_codes: ${{ FN.range(400, 600) }}
 
     - ref: format_benign_results
       action: core.transform.map
       depends_on: [replay_benign_fixtures]
       args:
-        items: ${{ FN.zip_iterables(ACTIONS.benign_fixtures.result, ACTIONS.replay_benign_fixtures.result) }}
+        items: ${{ FN.zip(ACTIONS.benign_fixtures.result, ACTIONS.replay_benign_fixtures.result) }}
         python_lambda: >-
           lambda item: {
             'fixture_id': item[0]['id'],

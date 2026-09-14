@@ -67,7 +67,7 @@ definition:
     - ref: run_candidates
       action: ai.preset_agent
       depends_on: [create_trial_cases]
-      for_each: ${{ for var.item in FN.zip_iterables(ACTIONS.select_case_templates.result, ACTIONS.create_trial_cases.result) }}
+      for_each: ${{ for var.item in FN.zip(ACTIONS.select_case_templates.result, ACTIONS.create_trial_cases.result) }}
       retry_policy:
         max_attempts: 1
         timeout: 3600
@@ -85,7 +85,7 @@ definition:
     - ref: save_candidate_returns
       action: core.cases.create_comment
       depends_on: [run_candidates]
-      for_each: ${{ for var.item in FN.zip_iterables(ACTIONS.create_trial_cases.result, ACTIONS.run_candidates.result) }}
+      for_each: ${{ for var.item in FN.zip(ACTIONS.create_trial_cases.result, ACTIONS.run_candidates.result) }}
       args:
         case_id: ${{ var.item[0].id }}
         content: ${{ var.item[1].output }}
@@ -138,7 +138,7 @@ definition:
     - ref: build_submissions
       action: core.transform.reshape
       depends_on: [capture_submission_cases, capture_submission_comments]
-      for_each: ${{ for var.item in FN.zip_iterables(ACTIONS.capture_submission_cases.result, ACTIONS.capture_submission_comments.result) }}
+      for_each: ${{ for var.item in FN.zip(ACTIONS.capture_submission_cases.result, ACTIONS.capture_submission_comments.result) }}
       args:
         value:
           case: ${{ var.item[0] }}
@@ -147,7 +147,7 @@ definition:
     - ref: build_trials
       action: core.transform.reshape
       depends_on: [build_submissions, flatten_candidate_tool_calls]
-      for_each: ${{ for var.item in FN.zip_iterables(ACTIONS.select_case_templates.result, ACTIONS.create_trial_cases.result, ACTIONS.run_candidates.result, ACTIONS.build_submissions.result, ACTIONS.flatten_candidate_tool_calls.result) }}
+      for_each: ${{ for var.item in FN.zip(ACTIONS.select_case_templates.result, ACTIONS.create_trial_cases.result, ACTIONS.run_candidates.result, ACTIONS.build_submissions.result, ACTIONS.flatten_candidate_tool_calls.result) }}
       args:
         value:
           trial_id: ${{ var.item[1].id }}

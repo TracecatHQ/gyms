@@ -77,23 +77,23 @@ definition:
     - ref: map_trial_points
       action: core.transform.map
       depends_on: [require_valid_judge_results]
-      for_each: ${{ for var.item in FN.zip_iterables(ACTIONS.candidate_run.result.trials, ACTIONS.run_judges.result) }}
+      for_each: ${{ for var.item in FN.zip(ACTIONS.candidate_run.result.trials, ACTIONS.run_judges.result) }}
       args:
-        items: ${{ FN.zip_iterables(var.item[1].output.criteria, var.item[0].rubric.criteria) }}
+        items: ${{ FN.zip(var.item[1].output.criteria, var.item[0].rubric.criteria) }}
         python_lambda: "lambda x: x[1]['weight'] if x[0]['result'] == 'met' else 0"
 
     - ref: map_trial_hard_failures
       action: core.transform.map
       depends_on: [require_valid_judge_results]
-      for_each: ${{ for var.item in FN.zip_iterables(ACTIONS.candidate_run.result.trials, ACTIONS.run_judges.result) }}
+      for_each: ${{ for var.item in FN.zip(ACTIONS.candidate_run.result.trials, ACTIONS.run_judges.result) }}
       args:
-        items: ${{ FN.zip_iterables(var.item[1].output.criteria, var.item[0].rubric.criteria) }}
+        items: ${{ FN.zip(var.item[1].output.criteria, var.item[0].rubric.criteria) }}
         python_lambda: "lambda x: bool(x[1]['hard_gate'] and x[0]['result'] == 'missed')"
 
     - ref: compute_trial_totals
       action: core.transform.reshape
       depends_on: [map_trial_points, map_trial_hard_failures]
-      for_each: ${{ for var.item in FN.zip_iterables(ACTIONS.candidate_run.result.trials, ACTIONS.map_trial_points.result, ACTIONS.map_trial_hard_failures.result) }}
+      for_each: ${{ for var.item in FN.zip(ACTIONS.candidate_run.result.trials, ACTIONS.map_trial_points.result, ACTIONS.map_trial_hard_failures.result) }}
       args:
         value:
           trial_id: ${{ var.item[0].trial_id }}
@@ -104,7 +104,7 @@ definition:
       action: core.transform.map
       depends_on: [compute_trial_totals]
       args:
-        items: ${{ FN.zip_iterables(ACTIONS.candidate_run.result.trials, ACTIONS.run_judges.result, ACTIONS.compute_trial_totals.result) }}
+        items: ${{ FN.zip(ACTIONS.candidate_run.result.trials, ACTIONS.run_judges.result, ACTIONS.compute_trial_totals.result) }}
         python_lambda: >-
           lambda item: [
             {
@@ -135,7 +135,7 @@ definition:
       for_each: ${{ for var.score in ACTIONS.normalize_scores.result }}
       args:
         value:
-          score_key: ${{ FN.concat_strings(TRIGGER.evaluation_run_id, ":", var.score.trial.trial_id, ":", var.score.criterion_id) }}
+          score_key: ${{ FN.concat(TRIGGER.evaluation_run_id, ":", var.score.trial.trial_id, ":", var.score.criterion_id) }}
           schema_version: 1
           gym_id: ${{ ACTIONS.candidate_run.result.gym_id }}
           evaluation_run_id: ${{ TRIGGER.evaluation_run_id }}

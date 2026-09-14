@@ -1,10 +1,10 @@
 version: 1
 definition:
   title: Validate Firewall Rule
-  description: Judge-only helper that uses an ephemeral candidate-rule slot, replays hidden fixtures, and removes the rule.
+  description: Judge-only helper that exclusively owns an ephemeral candidate-rule slot, replays hidden fixtures, and removes the rule.
   error_handler: cleanup_firewall_rule
   entrypoint:
-    ref: remove_previous_candidate_rule
+    ref: apply_candidate_rule
     expects:
       ruleset:
         type: str
@@ -12,19 +12,8 @@ definition:
   config:
     timeout: 600
   actions:
-    - ref: remove_previous_candidate_rule
-      action: core.http_request
-      args:
-        url: http://bw-api:8888/configs/supplier.intake.test/modsec/gym003_candidate
-        method: DELETE
-        auth:
-          username: gym-admin
-          password: ${{ SECRETS.gym_003_waf.BUNKERWEB_API_TOKEN }}
-        ignore_status_codes: [404]
-
     - ref: apply_candidate_rule
       action: core.http_request
-      depends_on: [remove_previous_candidate_rule]
       args:
         url: http://bw-api:8888/configs
         method: POST
@@ -35,13 +24,23 @@ definition:
           service: supplier.intake.test
           type: modsec
           name: gym003_candidate
-          data: ${{ TRIGGER.ruleset }}
+          data: '${{ FN.concat_strings("# Gym 003 verifier owner: ", ENV.workflow.execution_id, "\n", TRIGGER.ruleset) }}'
           is_draft: false
-        ignore_status_codes: [400, 409, 422, 500]
+
+    - ref: activate_candidate_rule
+      action: core.http_request
+      depends_on: [apply_candidate_rule]
+      args:
+        url: http://bw-api:8888/instances/reload?test=false
+        method: POST
+        auth:
+          username: gym-admin
+          password: ${{ SECRETS.gym_003_waf.BUNKERWEB_API_TOKEN }}
+        ignore_status_codes: [502]
 
     - ref: malicious_fixtures
       action: core.transform.reshape
-      depends_on: [apply_candidate_rule]
+      depends_on: [activate_candidate_rule]
       args:
         value:
           - {id: blocks-json-canonical, method: POST, path: /form/supplier-intake, content_type: application/json}
@@ -53,7 +52,6 @@ definition:
     - ref: replay_malicious_fixtures
       action: core.http_request
       depends_on: [malicious_fixtures]
-      start_delay: 30
       for_each: ${{ for var.fixture in ACTIONS.malicious_fixtures.result }}
       args:
         url: ${{ FN.concat_strings("http://bunkerweb:8080", var.fixture.path) }}
@@ -62,7 +60,7 @@ definition:
           Host: supplier.intake.test
           Content-Type: ${{ var.fixture.content_type }}
         content: '{"data":{},"files":{"field-0":{"filepath":"/home/node/.n8n/config","originalFilename":"supplier.bin","mimetype":"application/octet-stream","size":64}}}'
-        ignore_status_codes: [400, 401, 403, 404, 405, 406, 415, 422, 429, 500, 502, 503, 504]
+        ignore_status_codes: ${{ FN.create_range(400, 600) }}
 
     - ref: format_malicious_results
       action: core.transform.map
@@ -73,19 +71,18 @@ definition:
 
     - ref: benign_fixtures
       action: core.transform.reshape
-      depends_on: [apply_candidate_rule]
+      depends_on: [activate_candidate_rule]
       args:
         value:
-          - {id: allows-multipart-canonical, method: POST, path: /form/supplier-intake, content_type: "multipart/form-data; boundary=Gym003Boundary", body: "--Gym003Boundary\r\nContent-Disposition: form-data; name=field-0; filename=supplier.txt\r\nContent-Type: text/plain\r\n\r\napproved\r\n--Gym003Boundary--\r\n"}
-          - {id: allows-multipart-case-variant, method: POST, path: /form/supplier-intake, content_type: "Multipart/Form-Data; boundary=Gym003Boundary", body: "--Gym003Boundary\r\nContent-Disposition: form-data; name=field-0; filename=supplier.txt\r\nContent-Type: text/plain\r\n\r\napproved\r\n--Gym003Boundary--\r\n"}
-          - {id: allows-order-update-json, method: POST, path: /webhook/order-update, content_type: application/json, body: '{"order_id":"gym-003-order-1001","status":"accepted"}'}
-          - {id: allows-health, method: GET, path: /healthz, content_type: null, body: null}
-          - {id: allows-unrelated-form-json, method: POST, path: /form/other, content_type: application/json, body: '{}'}
+          - {id: allows-multipart-canonical, method: POST, path: /form/supplier-intake, content_type: "multipart/form-data; boundary=Gym003Boundary", body: "--Gym003Boundary\r\nContent-Disposition: form-data; name=field-0; filename=supplier.txt\r\nContent-Type: text/plain\r\n\r\napproved\r\n--Gym003Boundary--\r\n", expected_status: 200, response_marker: approved}
+          - {id: allows-multipart-case-variant, method: POST, path: /form/supplier-intake, content_type: "Multipart/Form-Data; boundary=Gym003Boundary", body: "--Gym003Boundary\r\nContent-Disposition: form-data; name=field-0; filename=supplier.txt\r\nContent-Type: text/plain\r\n\r\napproved\r\n--Gym003Boundary--\r\n", expected_status: 200, response_marker: approved}
+          - {id: allows-order-update-json, method: POST, path: /webhook/order-update, content_type: application/json, body: '{"order_id":"gym-003-order-1001","status":"accepted"}', expected_status: 200, response_marker: gym-003-order-1001}
+          - {id: allows-health, method: GET, path: /healthz, content_type: null, body: null, expected_status: 200, response_marker: ok}
+          - {id: allows-form-page, method: GET, path: /form/supplier-intake, content_type: null, body: null, expected_status: 200, response_marker: Supplier document intake}
 
     - ref: replay_benign_fixtures
       action: core.http_request
       depends_on: [benign_fixtures]
-      start_delay: 30
       for_each: ${{ for var.fixture in ACTIONS.benign_fixtures.result }}
       args:
         url: ${{ FN.concat_strings("http://bunkerweb:8080", var.fixture.path) }}
@@ -94,14 +91,20 @@ definition:
           Host: supplier.intake.test
           Content-Type: ${{ var.fixture.content_type }}
         content: ${{ var.fixture.body }}
-        ignore_status_codes: [400, 401, 403, 404, 405, 406, 415, 422, 429, 500, 502, 503, 504]
+        ignore_status_codes: ${{ FN.create_range(400, 600) }}
 
     - ref: format_benign_results
       action: core.transform.map
       depends_on: [replay_benign_fixtures]
       args:
         items: ${{ FN.zip_iterables(ACTIONS.benign_fixtures.result, ACTIONS.replay_benign_fixtures.result) }}
-        python_lambda: "lambda item: {'fixture_id': item[0]['id'], 'status_code': item[1]['status_code']}"
+        python_lambda: >-
+          lambda item: {
+            'fixture_id': item[0]['id'],
+            'status_code': item[1]['status_code'],
+            'upstream_confirmed': item[1]['status_code'] == item[0]['expected_status']
+              and item[0]['response_marker'].lower() in str(item[1].get('data')).lower()
+          }
 
     - ref: remove_candidate_rule
       action: core.http_request
@@ -114,10 +117,22 @@ definition:
           password: ${{ SECRETS.gym_003_waf.BUNKERWEB_API_TOKEN }}
         ignore_status_codes: [404]
 
+    - ref: deactivate_candidate_rule
+      action: core.http_request
+      depends_on: [remove_candidate_rule]
+      args:
+        url: http://bw-api:8888/instances/reload?test=false
+        method: POST
+        auth:
+          username: gym-admin
+          password: ${{ SECRETS.gym_003_waf.BUNKERWEB_API_TOKEN }}
+
   returns:
     schema_version: 1
     apply_status: ${{ ACTIONS.apply_candidate_rule.result.status_code }}
+    activation_status: ${{ ACTIONS.activate_candidate_rule.result.status_code }}
     malicious_results: ${{ ACTIONS.format_malicious_results.result }}
     benign_results: ${{ ACTIONS.format_benign_results.result }}
-    cleanup_status: ${{ ACTIONS.remove_candidate_rule.result.status_code }}
+    remove_status: ${{ ACTIONS.remove_candidate_rule.result.status_code }}
+    cleanup_status: ${{ ACTIONS.deactivate_candidate_rule.result.status_code }}
     infrastructure_error: false

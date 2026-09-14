@@ -1,14 +1,40 @@
 version: 1
 definition:
   title: Cleanup Firewall Rule
-  description: Error handler that removes Gym 003's ephemeral candidate firewall rule.
+  description: Error handler that removes only the failed execution's candidate firewall rule.
   entrypoint:
-    ref: remove_candidate_rule
+    ref: get_candidate_rule
   config:
     timeout: 120
   actions:
+    - ref: get_candidate_rule
+      action: core.http_request
+      args:
+        url: http://bw-api:8888/configs/supplier.intake.test/modsec/gym003_candidate?with_data=true
+        method: GET
+        auth:
+          username: gym-admin
+          password: ${{ SECRETS.gym_003_waf.BUNKERWEB_API_TOKEN }}
+        ignore_status_codes: [404]
+
+    - ref: owns_candidate_rule
+      action: core.transform.map
+      depends_on: [get_candidate_rule]
+      args:
+        items:
+          - response: ${{ ACTIONS.get_candidate_rule.result }}
+            owner: ${{ TRIGGER.orig_wf_exec_id }}
+        python_lambda: >-
+          lambda item: (
+            item['response']['status_code'] == 200
+            and ('# Gym 003 verifier owner: ' + item['owner'])
+            in str((((item['response'].get('data') or {}).get('config') or {}).get('data') or ''))
+          )
+
     - ref: remove_candidate_rule
       action: core.http_request
+      depends_on: [owns_candidate_rule]
+      run_if: ${{ ACTIONS.owns_candidate_rule.result[0] }}
       args:
         url: http://bw-api:8888/configs/supplier.intake.test/modsec/gym003_candidate
         method: DELETE
@@ -17,5 +43,25 @@ definition:
           password: ${{ SECRETS.gym_003_waf.BUNKERWEB_API_TOKEN }}
         ignore_status_codes: [404]
 
+    - ref: should_reload
+      action: core.transform.reshape
+      depends_on: [owns_candidate_rule]
+      args:
+        value: ${{ ACTIONS.owns_candidate_rule.result[0] || ACTIONS.get_candidate_rule.result.status_code == 404 }}
+
+    - ref: deactivate_candidate_rule
+      action: core.http_request
+      depends_on: [remove_candidate_rule, should_reload]
+      join_strategy: any
+      run_if: ${{ ACTIONS.should_reload.result }}
+      args:
+        url: http://bw-api:8888/instances/reload?test=false
+        method: POST
+        auth:
+          username: gym-admin
+          password: ${{ SECRETS.gym_003_waf.BUNKERWEB_API_TOKEN }}
+
   returns:
-    cleanup_status: ${{ ACTIONS.remove_candidate_rule.result.status_code }}
+    owned_rule: ${{ ACTIONS.owns_candidate_rule.result[0] }}
+    remove_status: ${{ ACTIONS.remove_candidate_rule.result.status_code if ACTIONS.owns_candidate_rule.result[0] else None }}
+    cleanup_status: ${{ ACTIONS.deactivate_candidate_rule.result.status_code if ACTIONS.should_reload.result else None }}

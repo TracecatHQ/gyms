@@ -73,6 +73,10 @@ gym must not require another CLI command or a gym-specific Just recipe.
 {"schema_version":1,"case_id":"stable-case-id","case":{"title":"Candidate-visible title","description":"Candidate-visible question","priority":"medium","severity":"medium","tags":[],"fields":{},"dropdowns":{},"payload":{}},"oracle":{"criteria":{"criterion-id":{"expected":"hidden expected result"}}}}
 ```
 
+Keep each gym to at most 200 Case Templates, Tracecat's maximum table page size.
+Split a larger suite into multiple gyms instead of adding pagination machinery
+to the standard Candidate Run.
+
 Terraform stores the Case Template, Oracle, and Rubric in the Tracecat
 `case_templates` table. Candidate Run creates the Trial Case from `case` only;
 the Candidate preset has no table access. After the submission cutoff, Judge

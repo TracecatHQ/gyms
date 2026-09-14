@@ -141,7 +141,7 @@ export gym RUN_ID:
     trap 'rm -f "$rows_file" "$csv_file"' EXIT
     cursor=""
     while true; do
-      query=(--get --data-urlencode "limit=1000")
+      query=(--get --data-urlencode "limit=200")
       if [[ -n "$cursor" ]]; then
         query+=(--data-urlencode "cursor=$cursor")
       fi
@@ -175,7 +175,7 @@ check:
       ' "{{ root }}/$gym/tracecat/tracecat.json" >/dev/null
       jq -e . "{{ root }}/$gym/evals/rubric.json" >/dev/null
       jq -cs --slurpfile rubric "{{ root }}/$gym/evals/rubric.json" '
-        (length > 0) and
+        (length > 0 and length <= 200) and
         ($rubric[0].schema_version == 1) and
         (($rubric[0].rubric_id | type) == "string") and
         (($rubric[0].rubric_version | type) == "number") and

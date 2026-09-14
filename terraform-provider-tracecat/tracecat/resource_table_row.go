@@ -62,7 +62,7 @@ func resolveTableRowID(ctx context.Context, c *Client, d *schema.ResourceData) e
 	var out struct {
 		Items []map[string]any `json:"items"`
 	}
-	path := rowPath(d) + "?limit=1000&order_by=" + url.QueryEscape(d.Get("identity_column").(string)) + "&sort=asc"
+	path := rowPath(d) + "?limit=200&order_by=" + url.QueryEscape(d.Get("identity_column").(string)) + "&sort=asc"
 	_, err := c.JSON(ctx, http.MethodGet, path, d.Get("workspace_id").(string), nil, &out)
 	if err != nil {
 		return err

@@ -16,7 +16,7 @@ definition:
       action: core.table.search_rows
       args:
         table: case_templates
-        limit: 1000
+        limit: 200
 
     - ref: enabled_case_templates
       action: core.transform.filter

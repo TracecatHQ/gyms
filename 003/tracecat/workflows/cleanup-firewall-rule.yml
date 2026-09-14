@@ -31,10 +31,16 @@ definition:
             in str((((item['response'].get('data') or {}).get('config') or {}).get('data') or ''))
           )
 
+    - ref: should_cleanup
+      action: core.transform.reshape
+      depends_on: [owns_candidate_rule]
+      args:
+        value: ${{ ACTIONS.owns_candidate_rule.result[0] || ACTIONS.get_candidate_rule.result.status_code == 404 }}
+
     - ref: remove_candidate_rule
       action: core.http_request
-      depends_on: [owns_candidate_rule]
-      run_if: ${{ ACTIONS.owns_candidate_rule.result[0] }}
+      depends_on: [should_cleanup]
+      run_if: ${{ ACTIONS.should_cleanup.result }}
       args:
         url: http://bw-api:8888/configs/supplier.intake.test/modsec/gym003_candidate
         method: DELETE
@@ -43,17 +49,10 @@ definition:
           password: ${{ SECRETS.gym_003_waf.BUNKERWEB_API_TOKEN }}
         ignore_status_codes: [404]
 
-    - ref: should_reload
-      action: core.transform.reshape
-      depends_on: [owns_candidate_rule]
-      args:
-        value: ${{ ACTIONS.owns_candidate_rule.result[0] || ACTIONS.get_candidate_rule.result.status_code == 404 }}
-
     - ref: deactivate_candidate_rule
       action: core.http_request
-      depends_on: [remove_candidate_rule, should_reload]
-      join_strategy: any
-      run_if: ${{ ACTIONS.should_reload.result }}
+      depends_on: [remove_candidate_rule]
+      run_if: ${{ ACTIONS.should_cleanup.result }}
       args:
         url: http://bw-api:8888/instances/reload?test=false
         method: POST
@@ -64,4 +63,4 @@ definition:
   returns:
     owned_rule: ${{ ACTIONS.owns_candidate_rule.result[0] }}
     remove_status: ${{ ACTIONS.remove_candidate_rule.result.status_code if ACTIONS.owns_candidate_rule.result[0] else None }}
-    cleanup_status: ${{ ACTIONS.deactivate_candidate_rule.result.status_code if ACTIONS.should_reload.result else None }}
+    cleanup_status: ${{ ACTIONS.deactivate_candidate_rule.result.status_code if ACTIONS.should_cleanup.result else None }}

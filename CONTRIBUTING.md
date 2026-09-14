@@ -164,6 +164,11 @@ variable names in the object that consumes them:
 Terraform receives these values through ephemeral, sensitive variables; the
 manifest stores only environment variable names.
 
+Managed workflow YAML is source-owned: edit it locally and apply Terraform.
+Do not commit workflow changes from the Tracecat canvas; the API normalizes
+committed definitions, so this minimal provider intentionally does not compare
+exported canvas state with source YAML.
+
 ## Results contract
 
 The shared module writes `case_templates`, durable `evaluation_runs`, and

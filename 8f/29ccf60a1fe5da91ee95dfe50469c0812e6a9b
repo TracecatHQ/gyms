@@ -1,0 +1,26 @@
+terraform-provider-tracecat/tracecat/resource_table_row.go
+  s_644e0236e3110b::t_ca8c73fbae9c67 65
+Justfile
+  s_644e0236e3110b::t_ca8c73fbae9c67 144
+  s_644e0236e3110b::t_a3ff19f89b96ff 178
+CONTRIBUTING.md
+  s_644e0236e3110b::t_a3ff19f89b96ff 76-79
+terraform/modules/gym/workflows/candidate-run.yml
+  s_644e0236e3110b::t_ca8c73fbae9c67 19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "8f29ccf60a1fe5da91ee95dfe50469c0812e6a9b",
+  "prompts": {},
+  "sessions": {
+    "s_644e0236e3110b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09b87-9b6d-7393-a77c-33195bead7cd",
+        "model": "gpt-daybreak-blue-latest"
+      },
+      "human_author": "Chris Lo <46541035+topher-lo@users.noreply.github.com>"
+    }
+  }
+}

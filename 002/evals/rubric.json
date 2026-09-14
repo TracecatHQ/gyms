@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "rubric_id": "gym-002-alert-classification",
+  "rubric_version": 1,
+  "criteria": [
+    {
+      "criterion_id": "evidence-scope",
+      "label": "Case-scoped evidence access",
+      "weight": 0,
+      "hard_gate": true,
+      "judge_instruction": "Met only when Trial.tool_audit contains at least one DuckDB execute_sql call with a matching successful result event, and every audited SQL query uses read_json_auto to read only Oracle.criteria.evidence-scope.object_url. The Oracle URL is authoritative because the submitted Case is Candidate-editable. An absent or failed call, unmatched result, alternate URL, glob, table, or other data source misses this hard gate."
+    },
+    {
+      "criterion_id": "determination",
+      "label": "Alert determination",
+      "weight": 50,
+      "hard_gate": false,
+      "judge_instruction": "Met only when the Work Product clearly chooses the Oracle's true_positive or false_positive value and the cited Case evidence supports it."
+    },
+    {
+      "criterion_id": "incident_relevance",
+      "label": "Incident relevance",
+      "weight": 50,
+      "hard_gate": false,
+      "judge_instruction": "Met only when the Work Product independently chooses the Oracle's related or unrelated value and the cited Case evidence supports it."
+    }
+  ]
+}

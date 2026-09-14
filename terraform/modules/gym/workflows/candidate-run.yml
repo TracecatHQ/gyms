@@ -1,0 +1,186 @@
+version: 1
+definition:
+  title: Candidate Run
+  description: Run the Candidate preset once for every selected Case Template.
+  entrypoint:
+    ref: search_case_templates
+    expects:
+      case_ids:
+        type: list[str]
+        default: []
+        description: Optional stable Case Template IDs; empty selects every enabled template.
+  config:
+    timeout: 7200
+  actions:
+    - ref: search_case_templates
+      action: core.table.search_rows
+      args:
+        table: case_templates
+        limit: 200
+
+    - ref: enabled_case_templates
+      action: core.transform.filter
+      depends_on: [search_case_templates]
+      args:
+        items: ${{ ACTIONS.search_case_templates.result }}
+        python_lambda: "lambda row: row.get('enabled') is True"
+
+    - ref: filter_case_templates
+      action: core.transform.is_in
+      depends_on: [enabled_case_templates]
+      args:
+        items: ${{ ACTIONS.enabled_case_templates.result }}
+        collection: ${{ TRIGGER.case_ids }}
+        python_lambda: "lambda row: row.get('case_id')"
+
+    - ref: select_case_templates
+      action: core.transform.reshape
+      depends_on: [enabled_case_templates, filter_case_templates]
+      args:
+        value: ${{ ACTIONS.enabled_case_templates.result if FN.is_empty(TRIGGER.case_ids) else ACTIONS.filter_case_templates.result }}
+
+    - ref: require_trials
+      action: core.require
+      depends_on: [select_case_templates]
+      args:
+        conditions:
+          - ${{ FN.length(ACTIONS.select_case_templates.result) > 0 }}
+          - ${{ FN.is_empty(TRIGGER.case_ids) || FN.length(ACTIONS.select_case_templates.result) == FN.length(TRIGGER.case_ids) }}
+        require_all: true
+        raise_error: true
+
+    - ref: create_trial_cases
+      action: core.cases.create_case
+      depends_on: [require_trials]
+      for_each: ${{ for var.template in ACTIONS.select_case_templates.result }}
+      args:
+        summary: ${{ var.template.case.title }}
+        description: ${{ var.template.case.description }}
+        priority: ${{ var.template.case.priority }}
+        severity: ${{ var.template.case.severity }}
+        status: new
+        fields: ${{ var.template.case.fields }}
+        payload: ${{ var.template.case.payload }}
+        tags: ${{ var.template.case.tags }}
+        create_missing_tags: true
+
+    - ref: run_candidates
+      action: ai.preset_agent
+      depends_on: [create_trial_cases]
+      for_each: ${{ for var.item in FN.zip(ACTIONS.select_case_templates.result, ACTIONS.create_trial_cases.result) }}
+      retry_policy:
+        max_attempts: 1
+        timeout: 3600
+      args:
+        preset: candidate
+        user_prompt: >-
+          Investigate Tracecat Case ${{ var.item[1].id }}. The Case is the complete
+          unit of work. Put your visible analysis, evidence, timeline, decision,
+          and final answer in the Case description, tags, or comments. Do not
+          reveal hidden evaluation material. Your final return will also be
+          saved as a Case comment at the submission cutoff.
+        max_tool_calls: 24
+        max_requests: 64
+
+    - ref: save_candidate_returns
+      action: core.cases.create_comment
+      depends_on: [run_candidates]
+      for_each: ${{ for var.item in FN.zip(ACTIONS.create_trial_cases.result, ACTIONS.run_candidates.result) }}
+      args:
+        case_id: ${{ var.item[0].id }}
+        content: ${{ var.item[1].output }}
+
+    - ref: extract_candidate_tool_calls
+      action: core.transform.map
+      depends_on: [run_candidates]
+      for_each: ${{ for var.candidate in ACTIONS.run_candidates.result }}
+      args:
+        items: ${{ [] if var.candidate.message_history == None else var.candidate.message_history }}
+        python_lambda: >-
+          lambda message: [
+            {
+              'event': 'call',
+              'tool_call_id': block.get('id'),
+              'tool_name': block.get('name'),
+              'input': block.get('input')
+            } if block.get('type') == 'tool_use' else {
+              'event': 'result',
+              'tool_call_id': block.get('tool_use_id'),
+              'success': not bool(block.get('is_error', False))
+            }
+            for block in (
+              (jsonpath('$.message.content[?(@.type == "tool_use")]', message) or [])
+              + (jsonpath('$.message.content[?(@.type == "tool_result")]', message) or [])
+            )
+          ]
+
+    - ref: flatten_candidate_tool_calls
+      action: core.transform.reshape
+      depends_on: [extract_candidate_tool_calls]
+      for_each: ${{ for var.audit in ACTIONS.extract_candidate_tool_calls.result }}
+      args:
+        value: ${{ FN.flatten(var.audit) }}
+
+    - ref: capture_submission_cases
+      action: core.cases.get_case
+      depends_on: [save_candidate_returns]
+      for_each: ${{ for var.case in ACTIONS.create_trial_cases.result }}
+      args:
+        case_id: ${{ var.case.id }}
+
+    - ref: capture_submission_comments
+      action: core.cases.list_comments
+      depends_on: [save_candidate_returns]
+      for_each: ${{ for var.case in ACTIONS.create_trial_cases.result }}
+      args:
+        case_id: ${{ var.case.id }}
+
+    - ref: build_submissions
+      action: core.transform.reshape
+      depends_on: [capture_submission_cases, capture_submission_comments]
+      for_each: ${{ for var.item in FN.zip(ACTIONS.capture_submission_cases.result, ACTIONS.capture_submission_comments.result) }}
+      args:
+        value:
+          case: ${{ var.item[0] }}
+          comments: ${{ var.item[1] }}
+
+    - ref: build_trials
+      action: core.transform.reshape
+      depends_on: [build_submissions, flatten_candidate_tool_calls]
+      for_each: ${{ for var.item in FN.zip(ACTIONS.select_case_templates.result, ACTIONS.create_trial_cases.result, ACTIONS.run_candidates.result, ACTIONS.build_submissions.result, ACTIONS.flatten_candidate_tool_calls.result) }}
+      args:
+        value:
+          trial_id: ${{ var.item[1].id }}
+          case_id: ${{ var.item[0].case_id }}
+          trial_number: 1
+          status: completed
+          candidate_session_id: ${{ var.item[2].session_id }}
+          submission: ${{ var.item[3] }}
+          tool_audit: ${{ var.item[4] }}
+          candidate_completed_at: ${{ FN.utcnow(True) }}
+          oracle: ${{ var.item[0].oracle }}
+          rubric: ${{ var.item[0].rubric }}
+
+    - ref: build_evaluation_run
+      action: core.transform.reshape
+      depends_on: [build_trials]
+      args:
+        value:
+          schema_version: 1
+          evaluation_run_id: ${{ ENV.workflow.execution_id }}
+          gym_id: ${{ ACTIONS.select_case_templates.result[0].gym_id }}
+          rubric_id: ${{ ACTIONS.select_case_templates.result[0].rubric_id }}
+          rubric_version: ${{ ACTIONS.select_case_templates.result[0].rubric_version }}
+          trials: ${{ ACTIONS.build_trials.result }}
+
+    - ref: persist_evaluation_run
+      action: core.table.insert_row
+      depends_on: [build_evaluation_run]
+      args:
+        table: evaluation_runs
+        row_data:
+          evaluation_run_id: ${{ ENV.workflow.execution_id }}
+          run: ${{ ACTIONS.build_evaluation_run.result }}
+        upsert: true
+
+  returns: ${{ ACTIONS.build_evaluation_run.result }}

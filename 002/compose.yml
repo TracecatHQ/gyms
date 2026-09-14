@@ -1,0 +1,56 @@
+services:
+  botsv3-data:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    command: server /data --console-address :9001
+    restart: unless-stopped
+    networks: [tracecat]
+    environment:
+      MINIO_ROOT_USER: ${BOTSV3_ACCESS_KEY:-botsv3}
+      MINIO_ROOT_PASSWORD: ${BOTSV3_SECRET_KEY:?set BOTSV3_SECRET_KEY}
+    volumes: [botsv3-data:/data]
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  botsv3-extract:
+    image: busybox:1.37.0@sha256:9db7b59979c38555a39def84a31fb98b5296952f9e3afd4f6f11f05b07adfab0
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - >-
+        rm -rf /staging/botsv3;
+        unzip -q /archive/botsv3.zip -d /staging
+    volumes:
+      - ./assets/botsv3-20260904T130332Z-1-001.zip:/archive/botsv3.zip:ro
+      - botsv3-stage:/staging
+    restart: "no"
+
+  botsv3-init:
+    image: quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - >-
+        mc alias set source http://botsv3-data:9000 "$${BOTSV3_ACCESS_KEY}" "$${BOTSV3_SECRET_KEY}";
+        mc mb --ignore-existing source/botsv3;
+        mc mirror --overwrite /staging/botsv3 source/botsv3;
+        mc anonymous set download source/botsv3
+    networks: [tracecat]
+    environment:
+      BOTSV3_ACCESS_KEY: ${BOTSV3_ACCESS_KEY:-botsv3}
+      BOTSV3_SECRET_KEY: ${BOTSV3_SECRET_KEY:?set BOTSV3_SECRET_KEY}
+    volumes:
+      - botsv3-stage:/staging:ro
+    depends_on:
+      botsv3-data: {condition: service_healthy}
+      botsv3-extract: {condition: service_completed_successfully}
+    restart: "no"
+
+volumes:
+  botsv3-data:
+  botsv3-stage:
+
+networks:
+  tracecat:
+    external: true
+    name: tracecat_core

@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "workspace_name": "Gym 003 — Vulnerability Firewall Mitigation",
+  "secrets": [
+    {
+      "name": "gym_003_waf",
+      "description": "BunkerWeb management credentials used only by the Judge helper workflow.",
+      "environment": "default",
+      "version": 1,
+      "keys_from_env": {
+        "BUNKERWEB_API_TOKEN": "BUNKERWEB_API_TOKEN"
+      }
+    }
+  ],
+  "agent_presets": [
+    {
+      "name": "Candidate",
+      "slug": "candidate",
+      "description": "Produces a reviewable ModSecurity mitigation from one vulnerability-report Case.",
+      "instructions_file": "agent_presets/candidate.md",
+      "actions": ["core.cases.create_comment","core.cases.get_case","core.cases.update_case"]
+    },
+    {
+      "name": "Judge",
+      "slug": "judge",
+      "description": "Uses the controlled firewall helper and grades hidden malicious and benign fixtures.",
+      "instructions_file": "agent_presets/judge.md",
+      "actions": ["core.workflow.execute"],
+      "retries": 1
+    }
+  ],
+  "workflows": [
+    {"alias":"validate_firewall_rule","file":"workflows/validate-firewall-rule.yml"},
+    {"alias":"cleanup_firewall_rule","file":"workflows/cleanup-firewall-rule.yml"}
+  ]
+}

@@ -1,0 +1,142 @@
+services:
+  n8n-init:
+    image: n8nio/n8n:1.65.0@sha256:b1b1c1597a17a71a6906ab1fda0c760747ade1c02c4e7154880f84f7338992ce
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - >-
+        n8n import:workflow --input=/fixtures/supplier-intake.json;
+        n8n import:workflow --input=/fixtures/order-update.json;
+        n8n update:workflow --all --active=true
+    environment: &n8n-environment
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?set N8N_ENCRYPTION_KEY}
+      N8N_HOST: supplier.intake.test
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: http
+      N8N_SECURE_COOKIE: "false"
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+      N8N_TEMPLATES_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+      N8N_USER_MANAGEMENT_DISABLED: "true"
+      GENERIC_TIMEZONE: UTC
+      TZ: UTC
+    volumes:
+      - n8n-data:/home/node/.n8n
+      - ./target/n8n:/fixtures:ro
+    restart: "no"
+
+  n8n:
+    image: n8nio/n8n:1.65.0@sha256:b1b1c1597a17a71a6906ab1fda0c760747ade1c02c4e7154880f84f7338992ce
+    restart: unless-stopped
+    networks: [application]
+    environment: *n8n-environment
+    volumes: [n8n-data:/home/node/.n8n]
+    depends_on:
+      n8n-init: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5678/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 20s
+
+  bunkerweb:
+    image: bunkerity/bunkerweb:1.6.14@sha256:2026544f5b8e10e3db52c018cb583193d273fc8ca9e25a5f5c21ef0b5f833586
+    restart: unless-stopped
+    networks: [application, tracecat, management]
+    ports:
+      - "127.0.0.1:${GYM_003_WAF_PORT:-38081}:8080"
+    environment:
+      API_WHITELIST_IP: "127.0.0.0/8 172.16.0.0/12"
+    depends_on:
+      n8n: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null --header='Host: supplier.intake.test' http://127.0.0.1:8080/healthz || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 40
+      start_period: 30s
+
+  bw-db:
+    image: mariadb:11.8.3@sha256:ae6119716edac6998ae85508431b3d2e666530ddf4e94c61a10710caec9b0f71
+    command: ["--max-allowed-packet=67108864"]
+    restart: unless-stopped
+    networks: [waf-database]
+    environment:
+      MARIADB_RANDOM_ROOT_PASSWORD: "yes"
+      MARIADB_DATABASE: bunkerweb
+      MARIADB_USER: bunkerweb
+      MARIADB_PASSWORD: ${BUNKERWEB_DB_PASSWORD:?set BUNKERWEB_DB_PASSWORD}
+    volumes: [waf-data:/var/lib/mysql]
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  bw-scheduler:
+    image: bunkerity/bunkerweb-scheduler:1.6.14@sha256:0b68b1fe27977d713804a1460f7fd713db49e90385e19dc7c0baf14ea3b06060
+    restart: unless-stopped
+    networks: [management, waf-database]
+    environment:
+      DATABASE_URI: mariadb+pymysql://bunkerweb:${BUNKERWEB_DB_PASSWORD:?set BUNKERWEB_DB_PASSWORD}@bw-db:3306/bunkerweb
+      BUNKERWEB_INSTANCES: bunkerweb
+      API_WHITELIST_IP: "127.0.0.0/8 172.16.0.0/12"
+      SERVER_NAME: supplier.intake.test
+      MULTISITE: "yes"
+      SERVE_FILES: "no"
+      DISABLE_DEFAULT_SERVER: "yes"
+      AUTO_LETS_ENCRYPT: "no"
+      USE_BUNKERNET: "no"
+      USE_BLACKLIST: "no"
+      USE_WHITELIST: "no"
+      USE_GREYLIST: "no"
+      USE_DNSBL: "no"
+      SEND_ANONYMOUS_REPORT: "no"
+      CHECK_UPDATES: "no"
+      supplier.intake.test_USE_REVERSE_PROXY: "yes"
+      supplier.intake.test_REVERSE_PROXY_URL: /
+      supplier.intake.test_REVERSE_PROXY_HOST: http://n8n:5678
+      supplier.intake.test_USE_MODSECURITY: "yes"
+      supplier.intake.test_USE_MODSECURITY_CRS: "no"
+      supplier.intake.test_USE_BAD_BEHAVIOR: "no"
+      supplier.intake.test_USE_LIMIT_REQ: "no"
+      supplier.intake.test_ALLOWED_METHODS: GET|POST|HEAD|OPTIONS|PUT|PATCH|DELETE
+      supplier.intake.test_MODSECURITY_SEC_RULE_ENGINE: "On"
+      supplier.intake.test_SECURITY_MODE: block
+    volumes: [waf-storage:/data]
+    depends_on:
+      bw-db: {condition: service_healthy}
+      bunkerweb: {condition: service_started}
+
+  bw-api:
+    image: bunkerity/bunkerweb-api:1.6.14@sha256:dafde8bd366f1d01514a4e669221c3dc152acb9a19fb5d923f953d69b63fda47
+    restart: unless-stopped
+    networks: [management, waf-database, tracecat]
+    environment:
+      DATABASE_URI: mariadb+pymysql://bunkerweb:${BUNKERWEB_DB_PASSWORD:?set BUNKERWEB_DB_PASSWORD}@bw-db:3306/bunkerweb
+      API_USERNAME: gym-admin
+      API_PASSWORD: ${BUNKERWEB_API_TOKEN:?set BUNKERWEB_API_TOKEN}
+      API_WHITELIST_IPS: "127.0.0.0/8 172.16.0.0/12"
+      API_LISTEN_ADDR: 0.0.0.0
+      API_LISTEN_PORT: "8888"
+      MAX_WORKERS: "1"
+      API_RATE_LIMIT_ENABLED: "no"
+    depends_on:
+      bw-db: {condition: service_healthy}
+
+volumes:
+  n8n-data:
+  waf-data:
+  waf-storage:
+
+networks:
+  application:
+    internal: true
+  management:
+    internal: true
+  waf-database:
+    internal: true
+  tracecat:
+    external: true
+    name: tracecat_core

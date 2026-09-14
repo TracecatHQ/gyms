@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "workspace_name": "Gym 002 — BOTSv3 Alert Classification",
+  "agent_presets": [
+    {
+      "name": "Candidate",
+      "slug": "candidate",
+      "description": "Classifies one BOTSv3 alert using its exact DuckDB-readable evidence object and Case actions.",
+      "instructions_file": "agent_presets/candidate.md",
+      "actions": ["core.cases.create_comment","core.cases.get_case","core.cases.update_case","core.cases.add_case_tag","core.duckdb.execute_sql"]
+    },
+    {
+      "name": "Judge",
+      "slug": "judge",
+      "description": "Grades BOTSv3 determination and incident relevance against the hidden Oracle.",
+      "instructions_file": "agent_presets/judge.md",
+      "actions": [],
+      "retries": 1
+    }
+  ]
+}

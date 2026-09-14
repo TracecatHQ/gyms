@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "rubric_id": "gym-003-firewall-rule",
+  "rubric_version": 1,
+  "criteria": [
+    {"criterion_id":"deployable-ruleset","label":"Valid, deployable, healthy, and safely cleaned up","weight":0,"hard_gate":true,"judge_instruction":"Use Validate Firewall Rule. Met only when apply_status is 201, activation_verified and cleanup_verified are true, remove_status is 200, and every benign fixture is upstream-confirmed. Failure while waiting for the verifier sentinel after an accepted Candidate config is a Candidate activation failure and misses this gate. A pre-existing candidate-slot conflict, initial target-health failure, or cleanup failure is a Judge error, not a Candidate score."},
+    {"criterion_id":"blocks-json-canonical","label":"Blocks canonical JSON exploit request","weight":10,"hard_gate":false,"judge_instruction":"Use the matching malicious fixture result from Validate Firewall Rule."},
+    {"criterion_id":"blocks-json-case-variant","label":"Blocks JSON media-type case variant","weight":10,"hard_gate":false,"judge_instruction":"Use the matching malicious fixture result from Validate Firewall Rule."},
+    {"criterion_id":"blocks-json-charset","label":"Blocks JSON media type with charset","weight":10,"hard_gate":false,"judge_instruction":"Use the matching malicious fixture result from Validate Firewall Rule."},
+    {"criterion_id":"blocks-json-query-route","label":"Blocks query-string route variant","weight":10,"hard_gate":false,"judge_instruction":"Use the matching malicious fixture result from Validate Firewall Rule."},
+    {"criterion_id":"blocks-json-encoded-route","label":"Blocks percent-encoded route variant","weight":10,"hard_gate":false,"judge_instruction":"Use the matching malicious fixture result from Validate Firewall Rule."},
+    {"criterion_id":"allows-multipart-canonical","label":"Allows canonical multipart supplier upload","weight":10,"hard_gate":false,"judge_instruction":"Met only when the matching benign fixture has upstream_confirmed true."},
+    {"criterion_id":"allows-multipart-case-variant","label":"Allows multipart media-type case variant","weight":10,"hard_gate":false,"judge_instruction":"Met only when the matching benign fixture has upstream_confirmed true."},
+    {"criterion_id":"allows-order-update-json","label":"Allows independent JSON order updates","weight":10,"hard_gate":false,"judge_instruction":"Met only when the matching benign fixture has upstream_confirmed true."},
+    {"criterion_id":"allows-health","label":"Allows health monitoring","weight":10,"hard_gate":false,"judge_instruction":"Met only when the matching benign fixture has upstream_confirmed true."},
+    {"criterion_id":"allows-form-page","label":"Allows the supplier intake form page","weight":10,"hard_gate":false,"judge_instruction":"Met only when the matching benign fixture has upstream_confirmed true."}
+  ]
+}

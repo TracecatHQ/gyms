@@ -1,0 +1,81 @@
+002/terraform/main.tf
+  s_1595b92ef72a57::t_4adad5fe94e63f 29-31,37-39
+001/target/splunk/Dockerfile
+  s_1595b92ef72a57::t_4adad5fe94e63f 3-4,6,19-21,23,26
+terraform/modules/lab/outputs.tf
+  s_1595b92ef72a57::t_4adad5fe94e63f 1-11
+002/tracecat/tracecat.json
+  s_1595b92ef72a57::t_4adad5fe94e63f 3
+README.md
+  s_1595b92ef72a57::t_4adad5fe94e63f 1,5,54,56,62
+002/README.md
+  s_1595b92ef72a57::t_4adad5fe94e63f 1,26
+003/tracecat/workflows/cleanup-firewall-rule.yml
+  s_1595b92ef72a57::t_4adad5fe94e63f 13,16-17,30,45,48-49,57,61,71,75
+terraform/modules/lab/workflows/candidate-run.yml
+  s_1595b92ef72a57::t_4adad5fe94e63f 1-186
+001/tracecat/tracecat.json
+  s_1595b92ef72a57::t_4adad5fe94e63f 3,8-9,23,31
+Justfile
+  s_1595b92ef72a57::t_4adad5fe94e63f 20-21,24-25,27,30,33-34,59-61,63-64,66,69,86,88-89,91-92,95,98-99,108,111-112,119,122,131,134-135,138,158-159,168-169,171,175-177,189,191,195
+003/tracecat/tracecat.json
+  s_1595b92ef72a57::t_4adad5fe94e63f 3,6
+terraform/modules/lab/variables.tf
+  s_1595b92ef72a57::t_4adad5fe94e63f 1-37
+001/evals/rubric.json
+  s_1595b92ef72a57::t_4adad5fe94e63f 3
+003/compose.yml
+  s_1595b92ef72a57::t_4adad5fe94e63f 48,118
+003/target/n8n/supplier-intake.json
+  s_1595b92ef72a57::t_4adad5fe94e63f 2-3
+terraform/modules/lab/workflows/judge-run.yml
+  s_1595b92ef72a57::t_4adad5fe94e63f 1-173
+003/README.md
+  s_1595b92ef72a57::t_4adad5fe94e63f 1,22
+templates/lab-readme.md
+  s_1595b92ef72a57::t_4adad5fe94e63f 1-41
+001/terraform/main.tf
+  s_1595b92ef72a57::t_4adad5fe94e63f 35-37,44-46
+003/tracecat/workflows/validate-firewall-rule.yml
+  s_1595b92ef72a57::t_4adad5fe94e63f 27,30-31,48-49,53-54,61,65,106-108,142,145-146,153,157
+003/target/n8n/order-update.json
+  s_1595b92ef72a57::t_4adad5fe94e63f 2-3
+CONTRIBUTING.md
+  s_1595b92ef72a57::t_4adad5fe94e63f 1,3,5,12,46,48,50,53,59-61,63,66,76-77,95,100,121,127,152,162-163,185,188,193,221
+001/README.md
+  s_1595b92ef72a57::t_4adad5fe94e63f 1,21
+001/target/splunk/healthcheck.sh
+  s_1595b92ef72a57::t_4adad5fe94e63f 6
+003/terraform/main.tf
+  s_1595b92ef72a57::t_4adad5fe94e63f 35-37,44-46
+terraform-provider-tracecat/README.md
+  s_1595b92ef72a57::t_4adad5fe94e63f 4
+002/evals/rubric.json
+  s_1595b92ef72a57::t_4adad5fe94e63f 3
+001/compose.yml
+  s_1595b92ef72a57::t_4adad5fe94e63f 6,16,23,25
+.env.example
+  s_1595b92ef72a57::t_4adad5fe94e63f 1,35,40,44,48
+001/target/splunk/entrypoint.sh
+  s_1595b92ef72a57::t_4adad5fe94e63f 12
+003/evals/rubric.json
+  s_1595b92ef72a57::t_4adad5fe94e63f 3
+terraform/modules/lab/main.tf
+  s_1595b92ef72a57::t_4adad5fe94e63f 1-209
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "fd4435787c8ad71fea2b86ba8063b00dc7a9745b",
+  "prompts": {},
+  "sessions": {
+    "s_1595b92ef72a57": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e92b4271-1614-4f0c-a947-5b7be4e13bf9",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Chris Lo <46541035+topher-lo@users.noreply.github.com>"
+    }
+  }
+}

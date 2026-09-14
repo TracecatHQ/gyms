@@ -1,0 +1,30 @@
+CONTRIBUTING.md
+  s_644e0236e3110b::t_c0e55d3770f287 76-82
+  s_644e0236e3110b::t_dd20617f073ba4 83-86,169-173
+002/README.md
+  s_644e0236e3110b::t_5783878572602b 18-19
+  s_644e0236e3110b::t_d98eb0b581b8c9 16,20-22
+  s_644e0236e3110b::t_49f6778b1e5e6f 17
+003/README.md
+  s_644e0236e3110b::t_a5ab0a518a47f9 26-28
+README.md
+  s_644e0236e3110b::t_49f6778b1e5e6f 11
+  s_644e0236e3110b::t_9a0b86df5e648d 50-52
+  s_644e0236e3110b::t_d98eb0b581b8c9 59
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "2296d598657c5c717e414991a7d8132465548247",
+  "prompts": {},
+  "sessions": {
+    "s_644e0236e3110b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09b87-9b6d-7393-a77c-33195bead7cd",
+        "model": "gpt-daybreak-blue-latest"
+      },
+      "human_author": null
+    }
+  }
+}

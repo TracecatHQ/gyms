@@ -1,0 +1,34 @@
+terraform-provider-tracecat/tracecat/resource_workflow.go
+  s_644e0236e3110b::t_ffa6b6ee11ffbf 18,28-29,59-64,90-101,105-127
+  s_644e0236e3110b::t_25ed3d38bef060 128
+terraform-provider-tracecat/tracecat/resource_workflow_test.go
+  s_644e0236e3110b::t_777e758dab9afe 1-78
+terraform/modules/gym/main.tf
+  s_644e0236e3110b::t_86af7fe8f20f75 154-157,164-166
+  s_644e0236e3110b::t_107a0a617685a2 158-163
+  s_644e0236e3110b::t_9a0b86df5e648d 78-81
+  s_644e0236e3110b::t_4cfcdec06bf063 112-118
+terraform-provider-tracecat/tracecat/client_test.go
+  s_644e0236e3110b::t_86af7fe8f20f75 49,51,54-55
+  s_644e0236e3110b::t_3c9a485c10303e 56
+terraform-provider-tracecat/tracecat/resource_json.go
+  s_644e0236e3110b::t_86af7fe8f20f75 42-43
+Justfile
+  s_644e0236e3110b::t_86af7fe8f20f75 172-175
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "bb059187b8fa6d026ad979fb8fb9c0f6b397c03c",
+  "prompts": {},
+  "sessions": {
+    "s_644e0236e3110b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09b87-9b6d-7393-a77c-33195bead7cd",
+        "model": "gpt-daybreak-blue-latest"
+      },
+      "human_author": "Chris Lo <46541035+topher-lo@users.noreply.github.com>"
+    }
+  }
+}

@@ -139,4 +139,4 @@ networks:
     internal: true
   tracecat:
     external: true
-    name: tracecat-labs_core
+    name: labs_core

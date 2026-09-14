@@ -47,14 +47,14 @@ tracecat-up:
       git clone --depth 1 --branch "$version" https://github.com/TracecatHQ/tracecat.git "$checkout"
     fi
     test "$(git -C "$checkout" describe --tags --exact-match)" = "$version" || { echo "Cached Tracecat checkout does not match $version; remove .cache/tracecat to change versions." >&2; exit 2; }
-    docker compose --project-directory "$checkout" --env-file "$checkout/.env.example" --env-file "{{ root }}/.env" -f "$checkout/docker-compose.yml" up -d
+    docker compose --project-directory "$checkout" -p labs --env-file "$checkout/.env.example" --env-file "{{ root }}/.env" -f "$checkout/docker-compose.yml" up -d
 
 tracecat-down:
     #!/usr/bin/env bash
     set -euo pipefail
     checkout="{{ root }}/.cache/tracecat"
     test -f "$checkout/docker-compose.yml" || exit 0
-    docker compose --project-directory "$checkout" --env-file "$checkout/.env.example" --env-file "{{ root }}/.env" -f "$checkout/docker-compose.yml" down
+    docker compose --project-directory "$checkout" -p labs --env-file "$checkout/.env.example" --env-file "{{ root }}/.env" -f "$checkout/docker-compose.yml" down
 
 # Start a lab's target services. Tracecat must already be running.
 up lab:

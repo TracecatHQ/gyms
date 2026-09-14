@@ -137,7 +137,7 @@ definition:
         value:
           score_key: ${{ FN.concat(TRIGGER.evaluation_run_id, ":", var.score.trial.trial_id, ":", var.score.criterion_id) }}
           schema_version: 1
-          gym_id: ${{ ACTIONS.candidate_run.result.gym_id }}
+          lab_id: ${{ ACTIONS.candidate_run.result.lab_id }}
           evaluation_run_id: ${{ TRIGGER.evaluation_run_id }}
           trial_id: ${{ var.score.trial.trial_id }}
           case_id: ${{ var.score.trial.case_id }}

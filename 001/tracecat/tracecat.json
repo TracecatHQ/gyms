@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
-  "workspace_name": "Gym 001 — The Bigger Interview",
+  "workspace_name": "Lab 001 — The Bigger Interview",
   "mcp_integrations": [
     {
       "catalog_slug": "splunk-mcp",
       "connection_option_id": "encrypted-token",
-      "name": "Splunk — Gym 001",
-      "description": "Official Splunk MCP Server backed by the Gym 001 dataset.",
+      "name": "Splunk — Lab 001",
+      "description": "Official Splunk MCP Server backed by the Lab 001 dataset.",
       "server_uri": "http://splunk:8089/services/mcp",
       "auth_type": "CUSTOM",
       "timeout": 120,
@@ -20,7 +20,7 @@
     {
       "name": "Candidate",
       "slug": "candidate",
-      "description": "Investigates one Gym 001 alert using only Case actions and the attached Splunk MCP integration.",
+      "description": "Investigates one Lab 001 alert using only Case actions and the attached Splunk MCP integration.",
       "instructions_file": "agent_presets/candidate.md",
       "actions": ["core.cases.create_comment","core.cases.get_case","core.cases.update_case","core.cases.add_case_tag"],
       "mcp_catalog_slugs": ["splunk-mcp"]
@@ -28,7 +28,7 @@
     {
       "name": "Judge",
       "slug": "judge",
-      "description": "Grades a frozen Gym 001 Case Work Product against the hidden Oracle and Rubric.",
+      "description": "Grades a frozen Lab 001 Case Work Product against the hidden Oracle and Rubric.",
       "instructions_file": "agent_presets/judge.md",
       "actions": [],
       "retries": 1

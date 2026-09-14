@@ -1,15 +1,15 @@
-# Contributing a gym
+# Contributing a lab
 
-Every gym uses the shared Tracecat evaluation loop. A gym contributes Case
+Every lab uses the shared Tracecat evaluation loop. A lab contributes Case
 Templates, a Rubric, two agent presets, and only the target-specific services or
-Judge helpers it needs. Do not add a gym CLI, provisioning plugin, copied
+Judge helpers it needs. Do not add a lab CLI, provisioning plugin, copied
 Tracecat checkout, or Python control runtime.
 
 ## Naming
 
 | Item | Convention |
 |---|---|
-| Gym directory | Next zero-padded number: `NNN/` |
+| Lab directory | Next zero-padded number: `NNN/` |
 | Candidate preset | Name `Candidate`, slug `candidate` |
 | Judge preset | Name `Judge`, slug `judge` |
 | Standard workflows | `Candidate Run` / `candidate_run` and `Judge Run` / `judge_run` |
@@ -43,27 +43,27 @@ NNN/
 └── terraform/main.tf           # shared module invocation
 ```
 
-Use only `README.md` for gym documentation. Put source attribution next to the
+Use only `README.md` for lab documentation. Put source attribution next to the
 asset it describes or in the README; do not add `IMPLEMENTATION.md` or a
-gym-level `PROVENANCE.md`.
+lab-level `PROVENANCE.md`.
 
-## Create a gym
+## Create a lab
 
 1. Choose the next `NNN` directory and copy
-   [`templates/gym-readme.md`](templates/gym-readme.md) to `NNN/README.md`.
+   [`templates/lab-readme.md`](templates/lab-readme.md) to `NNN/README.md`.
 2. Add Case Templates and the Rubric under `NNN/evals/`.
 3. Add Candidate and Judge instructions under `NNN/tracecat/agent_presets/`.
 4. Add the minimal `tracecat.json` manifest. Omit empty optional sections.
 5. Add only the target services to `compose.yml`. Add a Judge helper workflow
    only when deterministic scoring needs to exercise the target.
-6. Copy the closest existing `terraform/main.tf`, change `gym_id`, and retain
-   only the credential variables the gym uses.
-7. Add target variables to the root `.env.example`; do not create a per-gym
+6. Copy the closest existing `terraform/main.tf`, change `lab_id`, and retain
+   only the credential variables the lab uses.
+7. Add target variables to the root `.env.example`; do not create a per-lab
    environment file.
-8. Add the gym to the root README table and run `just check`.
+8. Add the lab to the root README table and run `just check`.
 
 The root Justfile discovers directories matching `NNN/` automatically. Adding a
-gym must not require another CLI command or a gym-specific Just recipe.
+lab must not require another CLI command or a lab-specific Just recipe.
 
 ## Case Template contract
 
@@ -73,8 +73,8 @@ gym must not require another CLI command or a gym-specific Just recipe.
 {"schema_version":1,"case_id":"stable-case-id","case":{"title":"Candidate-visible title","description":"Candidate-visible question","priority":"medium","severity":"medium","tags":[],"fields":{},"dropdowns":{},"payload":{}},"oracle":{"criteria":{"criterion-id":{"expected":"hidden expected result"}}}}
 ```
 
-Keep each gym to at most 200 Case Templates, Tracecat's maximum table page size.
-Split a larger suite into multiple gyms instead of adding pagination machinery
+Keep each lab to at most 200 Case Templates, Tracecat's maximum table page size.
+Split a larger suite into multiple labs instead of adding pagination machinery
 to the standard Candidate Run.
 
 Terraform stores the Case Template, Oracle, and Rubric in the Tracecat
@@ -92,12 +92,12 @@ reasoning.
 ## Rubric contract
 
 `evals/rubric.json` is the single scoring contract for every Case Template in a
-gym:
+lab:
 
 ```json
 {
   "schema_version": 1,
-  "rubric_id": "gym-NNN-purpose",
+  "rubric_id": "lab-NNN-purpose",
   "rubric_version": 1,
   "criteria": [
     {
@@ -118,13 +118,13 @@ score to 0 when missed. The Judge returns every criterion exactly once as
 ## Tracecat manifest contract
 
 The shared module creates the workspace tables and the two standard workflows.
-The gym manifest declares the two presets and only its optional integrations,
+The lab manifest declares the two presets and only its optional integrations,
 secrets, and helper workflows:
 
 ```json
 {
   "schema_version": 1,
-  "workspace_name": "Gym NNN — Title",
+  "workspace_name": "Lab NNN — Title",
   "agent_presets": [
     {
       "name": "Candidate",
@@ -149,7 +149,7 @@ Candidate presets must not have table access. Judge presets receive hidden
 material through Judge Run; grant them only the helper action they require.
 
 Optional credential mappings keep the generic `just plan` and `just apply`
-wrappers free of gym-specific branches. Map Tracecat field names to root `.env`
+wrappers free of lab-specific branches. Map Tracecat field names to root `.env`
 variable names in the object that consumes them:
 
 ```json
@@ -159,8 +159,8 @@ variable names in the object that consumes them:
     "credentials_from_env": {"Authorization": "EXAMPLE_MCP_AUTHORIZATION"}
   }],
   "secrets": [{
-    "name": "gym_NNN_target",
-    "keys_from_env": {"API_TOKEN": "GYM_NNN_API_TOKEN"}
+    "name": "lab_NNN_target",
+    "keys_from_env": {"API_TOKEN": "LAB_NNN_API_TOKEN"}
   }]
 }
 ```
@@ -182,15 +182,15 @@ Judge Run reads that native Tracecat table. `just export NNN RUN_ID=...` writes
 this fixed CSV schema:
 
 ```text
-schema_version,gym_id,evaluation_run_id,trial_id,case_id,trial_number,candidate_session_id,judge_run_execution_id,judge_session_id,rubric_id,rubric_version,criterion_id,criterion_weight,criterion_result,criterion_points,criterion_hard_gate,trial_hard_failed,trial_score,reason,evidence_refs,candidate_completed_at,judged_at
+schema_version,lab_id,evaluation_run_id,trial_id,case_id,trial_number,candidate_session_id,judge_run_execution_id,judge_session_id,rubric_id,rubric_version,criterion_id,criterion_weight,criterion_result,criterion_points,criterion_hard_gate,trial_hard_failed,trial_score,reason,evidence_refs,candidate_completed_at,judged_at
 ```
 
-Do not add gym-specific score columns. Put gym-specific detail in criterion IDs,
+Do not add lab-specific score columns. Put lab-specific detail in criterion IDs,
 reasons, and evidence references.
 
 ## README contract
 
-Every gym README follows [`templates/gym-readme.md`](templates/gym-readme.md)
+Every lab README follows [`templates/lab-readme.md`](templates/lab-readme.md)
 with exactly these sections:
 
 1. Task
@@ -218,7 +218,7 @@ just status NNN RUN_ID=<judge-run-id>
 just export NNN RUN_ID=<candidate-run-id>
 ```
 
-A gym is ready when Terraform can plan it, Candidate Run creates fresh Trial
+A lab is ready when Terraform can plan it, Candidate Run creates fresh Trial
 Cases and returns immutable Trials, Judge Run scores every Trial, the CSV
 exports with the shared schema, and `just check` passes. Repeated measurements
 are separate Candidate Runs, not repetitions inside one run.

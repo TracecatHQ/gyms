@@ -1,5 +1,5 @@
 output "workspace_id" {
-  value = tracecat_workspace.gym.id
+  value = tracecat_workspace.lab.id
 }
 
 output "workflow_ids" {

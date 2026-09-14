@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "workspace_name": "Gym 003 — Vulnerability Firewall Mitigation",
+  "workspace_name": "Lab 003 — Vulnerability Firewall Mitigation",
   "secrets": [
     {
-      "name": "gym_003_waf",
+      "name": "lab_003_waf",
       "description": "BunkerWeb management credentials used only by the Judge helper workflow.",
       "environment": "default",
       "version": 1,

@@ -1,6 +1,6 @@
 {
-  "id": "gym003supplier01",
-  "name": "Gym 003 / Supplier intake",
+  "id": "lab003supplier01",
+  "name": "Lab 003 / Supplier intake",
   "nodes": [
     {
       "parameters": {"path":"supplier-intake","formTitle":"Supplier document intake","formDescription":"Upload one supplier document for processing.","formFields":{"values":[{"fieldLabel":"Supplier Document","fieldType":"file","multipleFiles":false,"requiredField":true}]},"responseMode":"responseNode","options":{"appendAttribution":false,"buttonLabel":"Submit document"}},

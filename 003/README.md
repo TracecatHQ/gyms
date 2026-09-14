@@ -1,4 +1,4 @@
-# Gym 003 — Vulnerability Firewall Mitigation
+# Lab 003 — Vulnerability Firewall Mitigation
 
 Turn one n8n vulnerability report into a deployable ModSecurity ruleset.
 
@@ -19,7 +19,7 @@ A target or helper failure fails the evaluation instead of creating a score.
 
 ## Target
 
-Gym 003 starts pinned n8n and BunkerWeb services. The helper workflow owns the
+Lab 003 starts pinned n8n and BunkerWeb services. The helper workflow owns the
 executable malicious and benign fixtures; `evals/cases.ndjson` stores only their
 expected outcomes. Set `N8N_ENCRYPTION_KEY`, `BUNKERWEB_DB_PASSWORD`, and
 `BUNKERWEB_API_TOKEN` in the root `.env`. Tracecat polls a verifier-owned

@@ -1,7 +1,7 @@
 # Tracecat Terraform provider
 
 This repository-local provider provisions the Tracecat resources used by the
-gyms through the public REST API. It intentionally has a small surface:
+labs through the public REST API. It intentionally has a small surface:
 workspaces, native workflow YAML, agent presets, tables and rows, catalog MCP
 integrations, and secrets.
 

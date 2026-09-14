@@ -3,7 +3,7 @@ set -euo pipefail
 
 /sbin/checkstate.sh
 
-license_file=/run/gym-assets/Splunk.License
+license_file=/run/lab-assets/Splunk.License
 test -r "$license_file"
 
 expiration_tag="$(grep -Eo '<expiration_time>[0-9]+</expiration_time>' "$license_file" | head -n 1)"

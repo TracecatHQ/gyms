@@ -17,21 +17,21 @@ provider:
     cd "{{ root }}/terraform-provider-tracecat"
     GOCACHE="{{ root }}/.cache/go-build" go build -o "$destination/terraform-provider-tracecat_v{{ provider_version }}" .
 
-# Build the local provider and initialize one gym, or every gym when omitted.
-init gym="": provider
+# Build the local provider and initialize one lab, or every lab when omitted.
+init lab="": provider
     #!/usr/bin/env bash
     set -euo pipefail
-    if [[ -n "{{ gym }}" ]]; then
-      gyms=("{{ gym }}")
+    if [[ -n "{{ lab }}" ]]; then
+      labs=("{{ lab }}")
     else
-      gyms=()
+      labs=()
       for terraform_dir in "{{ root }}"/[0-9][0-9][0-9]/terraform; do
         [[ -d "$terraform_dir" ]] || continue
-        gyms+=("$(basename "$(dirname "$terraform_dir")")")
+        labs+=("$(basename "$(dirname "$terraform_dir")")")
       done
     fi
-    for current in "${gyms[@]}"; do
-      test -d "{{ root }}/$current/terraform" || { echo "Unknown gym: $current" >&2; exit 2; }
+    for current in "${labs[@]}"; do
+      test -d "{{ root }}/$current/terraform" || { echo "Unknown lab: $current" >&2; exit 2; }
       rm -f "{{ root }}/$current/terraform/.terraform.lock.hcl"
       terraform -chdir="{{ root }}/$current/terraform" init -upgrade -plugin-dir="{{ root }}/.terraform.d/plugins"
     done
@@ -56,17 +56,17 @@ tracecat-down:
     test -f "$checkout/docker-compose.yml" || exit 0
     docker compose --project-directory "$checkout" --env-file "$checkout/.env.example" --env-file "{{ root }}/.env" -f "$checkout/docker-compose.yml" down
 
-# Start a gym's target services. Tracecat must already be running.
-up gym:
-    @docker compose --project-directory "{{ root }}/{{ gym }}" --env-file "{{ root }}/.env" -p "gym-{{ gym }}" -f "{{ root }}/{{ gym }}/compose.yml" up -d
+# Start a lab's target services. Tracecat must already be running.
+up lab:
+    @docker compose --project-directory "{{ root }}/{{ lab }}" --env-file "{{ root }}/.env" -p "lab-{{ lab }}" -f "{{ root }}/{{ lab }}/compose.yml" up -d
 
-down gym:
-    @docker compose --project-directory "{{ root }}/{{ gym }}" --env-file "{{ root }}/.env" -p "gym-{{ gym }}" -f "{{ root }}/{{ gym }}/compose.yml" down
+down lab:
+    @docker compose --project-directory "{{ root }}/{{ lab }}" --env-file "{{ root }}/.env" -p "lab-{{ lab }}" -f "{{ root }}/{{ lab }}/compose.yml" down
 
-_terraform gym command:
+_terraform lab command:
     #!/usr/bin/env bash
     set -euo pipefail
-    manifest="{{ root }}/{{ gym }}/tracecat/tracecat.json"
+    manifest="{{ root }}/{{ lab }}/tracecat/tracecat.json"
     mcp_credentials="$(jq -c '
       reduce (.mcp_integrations[]? | select(.credentials_from_env)) as $integration ({};
         .[$integration.catalog_slug] = reduce ($integration.credentials_from_env | to_entries[]) as $credential ({};
@@ -83,20 +83,20 @@ _terraform gym command:
     export TF_VAR_secret_values="$secret_values"
     export TF_VAR_candidate_model="$candidate_model"
     export TF_VAR_judge_model="$judge_model"
-    terraform -chdir="{{ root }}/{{ gym }}/terraform" "{{ command }}"
+    terraform -chdir="{{ root }}/{{ lab }}/terraform" "{{ command }}"
 
-plan gym:
-    @just _terraform "{{ gym }}" plan
+plan lab:
+    @just _terraform "{{ lab }}" plan
 
-apply gym:
-    @just _terraform "{{ gym }}" apply
+apply lab:
+    @just _terraform "{{ lab }}" apply
 
 # Trigger Candidate Run asynchronously. Optional: CASE_IDS=a,b.
-run gym CASE_IDS="":
+run lab CASE_IDS="":
     #!/usr/bin/env bash
     set -euo pipefail
-    workspace_id="$(terraform -chdir="{{ root }}/{{ gym }}/terraform" output -raw workspace_id)"
-    workflow_id="$(terraform -chdir="{{ root }}/{{ gym }}/terraform" output -json workflow_ids | jq -r .candidate_run)"
+    workspace_id="$(terraform -chdir="{{ root }}/{{ lab }}/terraform" output -raw workspace_id)"
+    workflow_id="$(terraform -chdir="{{ root }}/{{ lab }}/terraform" output -json workflow_ids | jq -r .candidate_run)"
     case_ids_value="{{ CASE_IDS }}"
     case_ids_value="${case_ids_value#CASE_IDS=}"
     case_ids="$(jq -cn --arg value "$case_ids_value" '$value | if length == 0 then [] else split(",") end')"
@@ -105,21 +105,21 @@ run gym CASE_IDS="":
     echo "$response" | jq '{evaluation_run_id:.wf_exec_id}'
 
 # Trigger Judge Run asynchronously for one Evaluation Run.
-judge gym RUN_ID:
+judge lab RUN_ID:
     #!/usr/bin/env bash
     set -euo pipefail
-    workspace_id="$(terraform -chdir="{{ root }}/{{ gym }}/terraform" output -raw workspace_id)"
-    workflow_id="$(terraform -chdir="{{ root }}/{{ gym }}/terraform" output -json workflow_ids | jq -r .judge_run)"
+    workspace_id="$(terraform -chdir="{{ root }}/{{ lab }}/terraform" output -raw workspace_id)"
+    workflow_id="$(terraform -chdir="{{ root }}/{{ lab }}/terraform" output -json workflow_ids | jq -r .judge_run)"
     run_id="{{ RUN_ID }}"
     run_id="${run_id#RUN_ID=}"
     payload="$(jq -cn --arg workflow_id "$workflow_id" --arg run_id "$run_id" '{workflow_id:$workflow_id,inputs:{evaluation_run_id:$run_id}}')"
     response="$(curl -fsS -H "Authorization: Bearer $TRACECAT_API_KEY" -H 'Content-Type: application/json' -d "$payload" "$TRACECAT_API_URL/workspaces/$workspace_id/workflow-executions")"
     echo "$response" | jq --arg run_id "$run_id" '{evaluation_run_id:$run_id,judge_run_execution_id:.wf_exec_id}'
 
-status gym RUN_ID:
+status lab RUN_ID:
     #!/usr/bin/env bash
     set -euo pipefail
-    workspace_id="$(terraform -chdir="{{ root }}/{{ gym }}/terraform" output -raw workspace_id)"
+    workspace_id="$(terraform -chdir="{{ root }}/{{ lab }}/terraform" output -raw workspace_id)"
     run_id="{{ RUN_ID }}"
     run_id="${run_id#RUN_ID=}"
     workflow_id="${run_id%%/*}"
@@ -128,14 +128,14 @@ status gym RUN_ID:
     curl -fsS -H "Authorization: Bearer $TRACECAT_API_KEY" "$TRACECAT_API_URL/workspaces/$workspace_id/workflows/$workflow_id/executions/$execution_id" | jq '{id,status,start_time,close_time}'
 
 # Export criterion rows to NNN/results/<run-id>/scores.csv.
-export gym RUN_ID:
+export lab RUN_ID:
     #!/usr/bin/env bash
     set -euo pipefail
-    workspace_id="$(terraform -chdir="{{ root }}/{{ gym }}/terraform" output -raw workspace_id)"
-    table_id="$(terraform -chdir="{{ root }}/{{ gym }}/terraform" output -json table_ids | jq -r .evaluation_scores)"
+    workspace_id="$(terraform -chdir="{{ root }}/{{ lab }}/terraform" output -raw workspace_id)"
+    table_id="$(terraform -chdir="{{ root }}/{{ lab }}/terraform" output -json table_ids | jq -r .evaluation_scores)"
     run_id="{{ RUN_ID }}"
     run_id="${run_id#RUN_ID=}"
-    destination="{{ root }}/{{ gym }}/results/$run_id/scores.csv"
+    destination="{{ root }}/{{ lab }}/results/$run_id/scores.csv"
     rows_file="$(mktemp)"
     csv_file="$(mktemp)"
     trap 'rm -f "$rows_file" "$csv_file"' EXIT
@@ -155,8 +155,8 @@ export gym RUN_ID:
       exit 2
     fi
     jq -sr --arg run_id "$run_id" '
-      ["schema_version","gym_id","evaluation_run_id","trial_id","case_id","trial_number","candidate_session_id","judge_run_execution_id","judge_session_id","rubric_id","rubric_version","criterion_id","criterion_weight","criterion_result","criterion_points","criterion_hard_gate","trial_hard_failed","trial_score","reason","evidence_refs","candidate_completed_at","judged_at"],
-      ((map(select(.evaluation_run_id == $run_id)) | sort_by(.case_id, .trial_number, .criterion_id))[] | [.schema_version,.gym_id,.evaluation_run_id,.trial_id,.case_id,.trial_number,.candidate_session_id,.judge_run_execution_id,.judge_session_id,.rubric_id,.rubric_version,.criterion_id,.criterion_weight,.criterion_result,.criterion_points,.criterion_hard_gate,.trial_hard_failed,.trial_score,.reason,(.evidence_refs|tojson),.candidate_completed_at,.judged_at]) | @csv' "$rows_file" > "$csv_file"
+      ["schema_version","lab_id","evaluation_run_id","trial_id","case_id","trial_number","candidate_session_id","judge_run_execution_id","judge_session_id","rubric_id","rubric_version","criterion_id","criterion_weight","criterion_result","criterion_points","criterion_hard_gate","trial_hard_failed","trial_score","reason","evidence_refs","candidate_completed_at","judged_at"],
+      ((map(select(.evaluation_run_id == $run_id)) | sort_by(.case_id, .trial_number, .criterion_id))[] | [.schema_version,.lab_id,.evaluation_run_id,.trial_id,.case_id,.trial_number,.candidate_session_id,.judge_run_execution_id,.judge_session_id,.rubric_id,.rubric_version,.criterion_id,.criterion_weight,.criterion_result,.criterion_points,.criterion_hard_gate,.trial_hard_failed,.trial_score,.reason,(.evidence_refs|tojson),.candidate_completed_at,.judged_at]) | @csv' "$rows_file" > "$csv_file"
     mkdir -p "$(dirname "$destination")"
     mv "$csv_file" "$destination"
     echo "$destination"
@@ -165,16 +165,16 @@ check:
     #!/usr/bin/env bash
     set -euo pipefail
     found=0
-    for gym_dir in "{{ root }}"/[0-9][0-9][0-9]; do
-      [[ -d "$gym_dir/terraform" ]] || continue
+    for lab_dir in "{{ root }}"/[0-9][0-9][0-9]; do
+      [[ -d "$lab_dir/terraform" ]] || continue
       found=1
-      gym="$(basename "$gym_dir")"
+      lab="$(basename "$lab_dir")"
       jq -e '
         .schema_version == 1 and
         ([.agent_presets[].slug] | sort) == ["candidate", "judge"]
-      ' "{{ root }}/$gym/tracecat/tracecat.json" >/dev/null
-      jq -e . "{{ root }}/$gym/evals/rubric.json" >/dev/null
-      jq -cs --slurpfile rubric "{{ root }}/$gym/evals/rubric.json" '
+      ' "{{ root }}/$lab/tracecat/tracecat.json" >/dev/null
+      jq -e . "{{ root }}/$lab/evals/rubric.json" >/dev/null
+      jq -cs --slurpfile rubric "{{ root }}/$lab/evals/rubric.json" '
         (length > 0 and length <= 200) and
         ($rubric[0].schema_version == 1) and
         (($rubric[0].rubric_id | type) == "string") and
@@ -186,13 +186,13 @@ check:
         (all($rubric[0].criteria[]; (.criterion_id | type) == "string" and (.weight | type) == "number" and .weight >= 0 and (.hard_gate | type) == "boolean")) and
         (($rubric[0].criteria | map(select(.hard_gate == false) | .weight) | add) == 100) and
         (all($rubric[0].criteria[]; if .hard_gate then .weight == 0 else true end))
-      ' "{{ root }}/$gym/evals/cases.ndjson" >/dev/null
+      ' "{{ root }}/$lab/evals/cases.ndjson" >/dev/null
       for heading in "Task" "Scoring" "Target" "Agent access" "Run"; do
-        grep -Fxq "## $heading" "{{ root }}/$gym/README.md"
+        grep -Fxq "## $heading" "{{ root }}/$lab/README.md"
       done
     done
     test "$found" = 1
-    ruby -e 'require "yaml"; ARGV.flat_map { |pattern| Dir[pattern] }.each { |path| YAML.load_file(path) }' "{{ root }}/terraform/modules/gym/workflows/*.yml" "{{ root }}/[0-9][0-9][0-9]/tracecat/workflows/*.yml"
+    ruby -e 'require "yaml"; ARGV.flat_map { |pattern| Dir[pattern] }.each { |path| YAML.load_file(path) }' "{{ root }}/terraform/modules/lab/workflows/*.yml" "{{ root }}/[0-9][0-9][0-9]/tracecat/workflows/*.yml"
     terraform fmt -check -recursive "{{ root }}"
     cd "{{ root }}/terraform-provider-tracecat"
     GOCACHE="{{ root }}/.cache/go-build" go test ./...

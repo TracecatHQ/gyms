@@ -23,7 +23,9 @@ Gym 003 starts pinned n8n and BunkerWeb services. The helper workflow owns the
 executable malicious and benign fixtures; `evals/cases.ndjson` stores only their
 expected outcomes. Set `N8N_ENCRYPTION_KEY`, `BUNKERWEB_DB_PASSWORD`, and
 `BUNKERWEB_API_TOKEN` in the root `.env`. Tracecat runs the cleanup helper as
-the validation workflow's error handler if normal cleanup is not reached.
+the validation workflow's error handler if normal cleanup is not reached. The
+named BunkerWeb config is an exclusive slot, so overlapping Judge Runs fail
+instead of mixing Candidate rules.
 
 ## Agent access
 

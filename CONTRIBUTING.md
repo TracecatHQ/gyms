@@ -73,12 +73,17 @@ gym must not require another CLI command or a gym-specific Just recipe.
 {"schema_version":1,"case_id":"stable-case-id","case":{"title":"Candidate-visible title","description":"Candidate-visible question","priority":"medium","severity":"medium","tags":[],"fields":{},"dropdowns":{},"payload":{}},"oracle":{"criteria":{"criterion-id":{"expected":"hidden expected result"}}}}
 ```
 
-The Candidate receives only `case`. Judge Run receives the captured Submission,
-`oracle`, and the Rubric. Every Oracle criterion key must match one Rubric
-criterion ID. Keep executable verifier fixtures in the helper workflow and only
-their expected outcomes in the Oracle. Candidate Run may also attach
-platform-captured tool inputs to the Trial as `tool_audit`; this is verifier
-metadata, not private model reasoning.
+Terraform stores the Case Template, Oracle, and Rubric in the Tracecat
+`case_templates` table. Candidate Run creates the Trial Case from `case` only;
+the Candidate preset has no table access. After the submission cutoff, Judge
+Run combines the frozen Submission with `oracle` and the Rubric. Every Oracle
+criterion key must match one Rubric criterion ID. Keep executable verifier
+fixtures in the helper workflow and only their expected outcomes in the Oracle.
+Candidate Run may also attach
+platform-captured call and result events to the Trial as `tool_audit`. Events
+are joined by `tool_call_id`; call events contain tool names and inputs, while
+result events record success. This is verifier metadata, not private model
+reasoning.
 
 ## Rubric contract
 
@@ -122,7 +127,6 @@ secrets, and helper workflows:
       "slug": "candidate",
       "description": "Candidate task.",
       "instructions_file": "agent_presets/candidate.md",
-      "model_role": "candidate",
       "actions": ["core.cases.get_case", "core.cases.update_case"]
     },
     {
@@ -130,7 +134,6 @@ secrets, and helper workflows:
       "slug": "judge",
       "description": "Grades the captured Work Product.",
       "instructions_file": "agent_presets/judge.md",
-      "model_role": "judge",
       "actions": [],
       "retries": 1
     }
@@ -163,10 +166,11 @@ manifest stores only environment variable names.
 
 ## Results contract
 
-The shared module writes `case_templates` and `evaluation_scores`. The
-Candidate Run's native Tracecat execution result is the Evaluation Run record;
-Judge Run reads it with `core.workflow.get_status`. `just export NNN RUN_ID=...`
-writes this fixed CSV schema:
+The shared module writes `case_templates`, durable `evaluation_runs`, and
+`evaluation_scores`. The Candidate Run execution ID is the Evaluation Run ID;
+Candidate Run persists its immutable Trial snapshot in `evaluation_runs`, and
+Judge Run reads that native Tracecat table. `just export NNN RUN_ID=...` writes
+this fixed CSV schema:
 
 ```text
 schema_version,gym_id,evaluation_run_id,trial_id,case_id,trial_number,candidate_session_id,judge_run_execution_id,judge_session_id,rubric_id,rubric_version,criterion_id,criterion_weight,criterion_result,criterion_points,criterion_hard_gate,trial_hard_failed,trial_score,reason,evidence_refs,candidate_completed_at,judged_at

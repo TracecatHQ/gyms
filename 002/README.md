@@ -13,11 +13,13 @@ decisions, with Case-scoped evidence:
 
 ## Scoring
 
-Determination is worth 50 points and incident relevance is worth 50 points.
-Both criteria require Tracecat's captured tool audit to show that every DuckDB
-query read only the Case's exact evidence object; missing or out-of-scope access
-scores zero. Formatting, embeddings, entities, memory, and private reasoning
-are not scored.
+Case-scoped evidence access is a hard gate: Tracecat's captured tool audit must
+show at least one successful DuckDB query, and every audited query must read
+only the immutable evidence object named by the hidden Oracle. Missing, failed,
+or out-of-scope access scores zero.
+Determination is then worth 50 points and incident relevance is worth 50
+points. Formatting, embeddings, entities, memory, and private reasoning are not
+scored.
 
 ## Target
 

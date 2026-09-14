@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "rubric_id": "gym-001-incident-investigation",
+  "rubric_id": "lab-001-incident-investigation",
   "rubric_version": 1,
   "criteria": [
     {"criterion_id":"true-positive-disposition","label":"Disposition is True Positive","weight":0,"hard_gate":true,"judge_instruction":"Met only if the Work Product unambiguously concludes true positive."},

@@ -26,14 +26,14 @@ variable "judge_model" {
   }
 }
 
-module "gym" {
-  source          = "../../terraform/modules/gym"
-  gym_id          = "002"
+module "lab" {
+  source          = "../../terraform/modules/lab"
+  lab_id          = "002"
   config_dir      = "${path.module}/../tracecat"
   candidate_model = var.candidate_model
   judge_model     = var.judge_model
 }
 
-output "workspace_id" { value = module.gym.workspace_id }
-output "workflow_ids" { value = module.gym.workflow_ids }
-output "table_ids" { value = module.gym.table_ids }
+output "workspace_id" { value = module.lab.workspace_id }
+output "workflow_ids" { value = module.lab.workflow_ids }
+output "table_ids" { value = module.lab.table_ids }

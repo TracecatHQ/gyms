@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "workspace_name": "Gym 002 — BOTSv3 Alert Classification",
+  "workspace_name": "Lab 002 — BOTSv3 Alert Classification",
   "agent_presets": [
     {
       "name": "Candidate",

@@ -56,17 +56,17 @@ locals {
     candidate_run = { alias = "candidate_run", file = "candidate-run.yml", path = "${path.module}/workflows/candidate-run.yml" }
     judge_run     = { alias = "judge_run", file = "judge-run.yml", path = "${path.module}/workflows/judge-run.yml" }
   }
-  gym_workflows = {
+  lab_workflows = {
     for workflow in try(local.manifest.workflows, []) : workflow.alias => merge(workflow, { path = "${var.config_dir}/${workflow.file}" })
   }
-  workflows    = merge(local.standard_workflows, local.gym_workflows)
+  workflows    = merge(local.standard_workflows, local.lab_workflows)
   integrations = { for integration in try(local.manifest.mcp_integrations, []) : integration.catalog_slug => integration }
   secrets      = { for secret in try(local.manifest.secrets, []) : secret.name => secret }
 
   table_columns = {
     case_templates = [
       { name = "schema_version", type = "INTEGER", nullable = false },
-      { name = "gym_id", type = "TEXT", nullable = false },
+      { name = "lab_id", type = "TEXT", nullable = false },
       { name = "case_id", type = "TEXT", nullable = false, is_index = true },
       { name = "case", type = "JSONB", nullable = false },
       { name = "oracle", type = "JSONB", nullable = false },
@@ -82,7 +82,7 @@ locals {
     evaluation_scores = [
       { name = "score_key", type = "TEXT", nullable = false, is_index = true },
       { name = "schema_version", type = "INTEGER", nullable = false },
-      { name = "gym_id", type = "TEXT", nullable = false },
+      { name = "lab_id", type = "TEXT", nullable = false },
       { name = "evaluation_run_id", type = "TEXT", nullable = false },
       { name = "trial_id", type = "TEXT", nullable = false },
       { name = "case_id", type = "TEXT", nullable = false },
@@ -107,7 +107,7 @@ locals {
   }
 }
 
-resource "tracecat_workspace" "gym" {
+resource "tracecat_workspace" "lab" {
   name = local.manifest.workspace_name
 
   lifecycle {
@@ -121,7 +121,7 @@ resource "tracecat_workspace" "gym" {
 resource "tracecat_table" "platform" {
   for_each = local.table_columns
 
-  workspace_id = tracecat_workspace.gym.id
+  workspace_id = tracecat_workspace.lab.id
   name         = each.key
   columns_json = jsonencode(each.value)
 }
@@ -129,14 +129,14 @@ resource "tracecat_table" "platform" {
 resource "tracecat_table_row" "case_template" {
   for_each = local.cases
 
-  workspace_id    = tracecat_workspace.gym.id
+  workspace_id    = tracecat_workspace.lab.id
   table_id        = tracecat_table.platform["case_templates"].id
   identity_column = "case_id"
   identity_value  = each.key
   upsert          = true
   data_json = jsonencode({
     schema_version = each.value.schema_version
-    gym_id         = var.gym_id
+    lab_id         = var.lab_id
     case_id        = each.key
     case           = each.value.case
     oracle         = each.value.oracle
@@ -150,7 +150,7 @@ resource "tracecat_table_row" "case_template" {
 resource "tracecat_agent_preset" "preset" {
   for_each = local.presets
 
-  workspace_id = tracecat_workspace.gym.id
+  workspace_id = tracecat_workspace.lab.id
   config_json = jsonencode({
     for key, value in merge(
       { for key, value in each.value : key => value if !contains(["instructions_file", "mcp_catalog_slugs"], key) },
@@ -169,7 +169,7 @@ resource "tracecat_agent_preset" "preset" {
 resource "tracecat_workflow" "workflow" {
   for_each = local.workflows
 
-  workspace_id = tracecat_workspace.gym.id
+  workspace_id = tracecat_workspace.lab.id
   filename     = each.value.file
   alias        = each.key
   yaml         = file(each.value.path)
@@ -185,7 +185,7 @@ resource "tracecat_workflow" "workflow" {
 resource "tracecat_mcp_integration" "integration" {
   for_each = local.integrations
 
-  workspace_id           = tracecat_workspace.gym.id
+  workspace_id           = tracecat_workspace.lab.id
   catalog_slug           = each.value.catalog_slug
   connection_option_id   = try(each.value.connection_option_id, null)
   name                   = try(each.value.name, null)
@@ -200,7 +200,7 @@ resource "tracecat_mcp_integration" "integration" {
 resource "tracecat_secret" "secret" {
   for_each = local.secrets
 
-  workspace_id    = tracecat_workspace.gym.id
+  workspace_id    = tracecat_workspace.lab.id
   name            = each.key
   description     = try(each.value.description, null)
   environment     = try(each.value.environment, "default")

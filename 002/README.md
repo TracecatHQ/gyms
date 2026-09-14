@@ -1,4 +1,4 @@
-# Gym 002 — BOTSv3 Alert Classification
+# Lab 002 — BOTSv3 Alert Classification
 
 Classify 20 BOTSv3 alerts using exact, bounded evidence objects.
 
@@ -23,7 +23,7 @@ scored.
 
 ## Target
 
-Gym 002 starts a MinIO evidence target and seeds it from the pinned archive in
+Lab 002 starts a MinIO evidence target and seeds it from the pinned archive in
 `assets/`. Set `BOTSV3_ACCESS_KEY` and `BOTSV3_SECRET_KEY` in the root `.env`.
 
 ## Agent access

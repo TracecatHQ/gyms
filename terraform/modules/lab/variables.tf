@@ -1,4 +1,4 @@
-variable "gym_id" {
+variable "lab_id" {
   type = string
 }
 

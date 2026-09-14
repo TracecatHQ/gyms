@@ -1,4 +1,4 @@
-# Gym NNN — Title
+# Lab NNN — Title
 
 One sentence describing the Candidate's outcome.
 

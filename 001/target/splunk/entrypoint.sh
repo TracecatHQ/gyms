@@ -9,7 +9,7 @@ shopt -s nullglob
 SPLUNK_HOME="${SPLUNK_HOME:-/opt/splunk}"
 ETC_LOCAL="${SPLUNK_HOME}/etc/system/local"
 LAB_CONF="/lab/conf"
-LAB_NAME="${LAB_NAME:-gym-001}"
+LAB_NAME="${LAB_NAME:-lab-001}"
 
 # docker-splunk becomes the `splunk` user through sudo, which intentionally
 # scrubs the container environment. Splunk's own launcher reads this file, so

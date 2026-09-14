@@ -1,4 +1,4 @@
-# Gym 001 — The Bigger Interview
+# Lab 001 — The Bigger Interview
 
 Investigate one EventBridge `DeleteRule` alert against the `investigation`
 Splunk index.
@@ -18,7 +18,7 @@ Candidate cutoff.
 
 ## Target
 
-Gym 001 builds a Splunk target from `target/splunk/` and the pinned dataset in
+Lab 001 builds a Splunk target from `target/splunk/` and the pinned dataset in
 `assets/dataset/`. Supply `assets/Splunk.License` and initialize submodules
 before starting it.
 

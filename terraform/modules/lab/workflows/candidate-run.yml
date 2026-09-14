@@ -168,7 +168,7 @@ definition:
         value:
           schema_version: 1
           evaluation_run_id: ${{ ENV.workflow.execution_id }}
-          gym_id: ${{ ACTIONS.select_case_templates.result[0].gym_id }}
+          lab_id: ${{ ACTIONS.select_case_templates.result[0].lab_id }}
           rubric_id: ${{ ACTIONS.select_case_templates.result[0].rubric_id }}
           rubric_version: ${{ ACTIONS.select_case_templates.result[0].rubric_version }}
           trials: ${{ ACTIONS.build_trials.result }}

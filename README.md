@@ -1,8 +1,8 @@
-# Tracecat gyms
+# Tracecat labs
 
 Security-agent evaluations provisioned as Tracecat configuration. Terraform
 owns Tracecat resources, Docker Compose owns only scenario targets, and `just`
-provides thin lifecycle and REST wrappers. The repository has no gym CLI,
+provides thin lifecycle and REST wrappers. The repository has no lab CLI,
 Python control runtime, or copied Tracecat source tree.
 
 Each evaluation follows the same path:
@@ -51,15 +51,15 @@ then wait for Judge Run before exporting. Completed Candidate Runs are retained
 in the Tracecat `evaluation_runs` table for later judging. Results are written
 to `NNN/results/<candidate-run-id>/scores.csv`.
 
-## Gyms
+## Labs
 
-| Gym | Candidate task | Score |
+| Lab | Candidate task | Score |
 |---|---|---|
 | [001](001/) | Investigate one EventBridge alert and write an evidence-backed incident timeline | True-positive hard gate plus 16 weighted findings |
 | [002](002/) | Classify 20 BOTSv3 alerts from bounded evidence objects | Exact-evidence hard gate; determination 50; incident relevance 50 |
 | [003](003/) | Turn a vulnerability report into a deployable ModSecurity ruleset | Deployability hard gate; five malicious and five benign fixtures |
 
-## Adding a gym
+## Adding a lab
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for naming, required files, evaluation
 contracts, the README template, and the validation checklist.

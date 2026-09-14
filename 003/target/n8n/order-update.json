@@ -1,6 +1,6 @@
 {
-  "id": "gym003orderupd01",
-  "name": "Gym 003 / Order update",
+  "id": "lab003orderupd01",
+  "name": "Lab 003 / Order update",
   "nodes": [
     {
       "parameters": {"httpMethod":"POST","path":"order-update","responseMode":"responseNode","options":{}},

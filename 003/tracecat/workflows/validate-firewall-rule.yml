@@ -24,11 +24,11 @@ definition:
       action: core.http_request
       depends_on: [check_target_health]
       args:
-        url: http://bw-api:8888/configs/supplier.intake.test/modsec/gym003_candidate
+        url: http://bw-api:8888/configs/supplier.intake.test/modsec/lab003_candidate
         method: GET
         auth:
-          username: gym-admin
-          password: ${{ SECRETS.gym_003_waf.BUNKERWEB_API_TOKEN }}
+          username: lab-admin
+          password: ${{ SECRETS.lab_003_waf.BUNKERWEB_API_TOKEN }}
         ignore_status_codes: [404]
 
     - ref: require_empty_candidate_slot
@@ -45,24 +45,24 @@ definition:
         url: http://bw-api:8888/configs
         method: POST
         auth:
-          username: gym-admin
-          password: ${{ SECRETS.gym_003_waf.BUNKERWEB_API_TOKEN }}
+          username: lab-admin
+          password: ${{ SECRETS.lab_003_waf.BUNKERWEB_API_TOKEN }}
         payload:
           service: supplier.intake.test
           type: modsec
-          name: gym003_candidate
-          data: '${{ FN.concat("# Gym 003 verifier owner: ", ENV.workflow.execution_id, "\nSecRule REQUEST_HEADERS:X-Gym-003-Activation \"@streq ", ENV.workflow.execution_id, "\" \"id:1000003,phase:1,deny,status:418,nolog\"\n", TRIGGER.ruleset) }}'
+          name: lab003_candidate
+          data: '${{ FN.concat("# Lab 003 verifier owner: ", ENV.workflow.execution_id, "\nSecRule REQUEST_HEADERS:X-Lab-003-Activation \"@streq ", ENV.workflow.execution_id, "\" \"id:1000003,phase:1,deny,status:418,nolog\"\n", TRIGGER.ruleset) }}'
           is_draft: false
 
     - ref: wait_for_activation
       action: core.http_poll
       depends_on: [apply_candidate_rule]
       args:
-        url: http://bunkerweb:8080/__gym_003_activation
+        url: http://bunkerweb:8080/__lab_003_activation
         method: GET
         headers:
           Host: supplier.intake.test
-          X-Gym-003-Activation: ${{ ENV.workflow.execution_id }}
+          X-Lab-003-Activation: ${{ ENV.workflow.execution_id }}
         poll_condition: "lambda response: response['status_code'] == 418"
         poll_interval: 1
         poll_max_attempts: 60
@@ -103,9 +103,9 @@ definition:
       depends_on: [wait_for_activation]
       args:
         value:
-          - {id: allows-multipart-canonical, method: POST, path: /form/supplier-intake, content_type: "multipart/form-data; boundary=Gym003Boundary", body: "--Gym003Boundary\r\nContent-Disposition: form-data; name=field-0; filename=supplier.txt\r\nContent-Type: text/plain\r\n\r\napproved\r\n--Gym003Boundary--\r\n", expected_status: 200, response_marker: approved}
-          - {id: allows-multipart-case-variant, method: POST, path: /form/supplier-intake, content_type: "Multipart/Form-Data; boundary=Gym003Boundary", body: "--Gym003Boundary\r\nContent-Disposition: form-data; name=field-0; filename=supplier.txt\r\nContent-Type: text/plain\r\n\r\napproved\r\n--Gym003Boundary--\r\n", expected_status: 200, response_marker: approved}
-          - {id: allows-order-update-json, method: POST, path: /webhook/order-update, content_type: application/json, body: '{"order_id":"gym-003-order-1001","status":"accepted"}', expected_status: 200, response_marker: gym-003-order-1001}
+          - {id: allows-multipart-canonical, method: POST, path: /form/supplier-intake, content_type: "multipart/form-data; boundary=Lab003Boundary", body: "--Lab003Boundary\r\nContent-Disposition: form-data; name=field-0; filename=supplier.txt\r\nContent-Type: text/plain\r\n\r\napproved\r\n--Lab003Boundary--\r\n", expected_status: 200, response_marker: approved}
+          - {id: allows-multipart-case-variant, method: POST, path: /form/supplier-intake, content_type: "Multipart/Form-Data; boundary=Lab003Boundary", body: "--Lab003Boundary\r\nContent-Disposition: form-data; name=field-0; filename=supplier.txt\r\nContent-Type: text/plain\r\n\r\napproved\r\n--Lab003Boundary--\r\n", expected_status: 200, response_marker: approved}
+          - {id: allows-order-update-json, method: POST, path: /webhook/order-update, content_type: application/json, body: '{"order_id":"lab-003-order-1001","status":"accepted"}', expected_status: 200, response_marker: lab-003-order-1001}
           - {id: allows-health, method: GET, path: /healthz, content_type: null, body: null, expected_status: 200, response_marker: ok}
           - {id: allows-form-page, method: GET, path: /form/supplier-intake, content_type: null, body: null, expected_status: 200, response_marker: Supplier document intake}
 
@@ -139,22 +139,22 @@ definition:
       action: core.http_request
       depends_on: [format_malicious_results, format_benign_results]
       args:
-        url: http://bw-api:8888/configs/supplier.intake.test/modsec/gym003_candidate
+        url: http://bw-api:8888/configs/supplier.intake.test/modsec/lab003_candidate
         method: DELETE
         auth:
-          username: gym-admin
-          password: ${{ SECRETS.gym_003_waf.BUNKERWEB_API_TOKEN }}
+          username: lab-admin
+          password: ${{ SECRETS.lab_003_waf.BUNKERWEB_API_TOKEN }}
         ignore_status_codes: [404]
 
     - ref: wait_for_cleanup
       action: core.http_poll
       depends_on: [remove_candidate_rule]
       args:
-        url: http://bunkerweb:8080/__gym_003_activation
+        url: http://bunkerweb:8080/__lab_003_activation
         method: GET
         headers:
           Host: supplier.intake.test
-          X-Gym-003-Activation: ${{ ENV.workflow.execution_id }}
+          X-Lab-003-Activation: ${{ ENV.workflow.execution_id }}
         poll_condition: "lambda response: response['status_code'] != 418"
         poll_interval: 1
         poll_max_attempts: 60

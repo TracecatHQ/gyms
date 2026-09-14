@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: target/splunk/Dockerfile
-    image: tracecat-gym-001-splunk:local
+    image: tracecat-lab-001-splunk:local
     platform: linux/amd64
     restart: unless-stopped
     networks: [tracecat]
@@ -13,16 +13,16 @@ services:
       SPLUNK_PASSWORD: ${SPLUNK_ADMIN_PASSWORD:?set SPLUNK_ADMIN_PASSWORD}
       SPLUNK_START_ARGS: --accept-license
       SPLUNK_GENERAL_TERMS: --accept-sgt-current-at-splunk-com
-      SPLUNK_LICENSE_URI: /run/gym-assets/Splunk.License
+      SPLUNK_LICENSE_URI: /run/lab-assets/Splunk.License
       SPLUNK_APPS_URL: /lab/assets/splunk-mcp-server_200.tgz
       SPLUNKD_SSL_ENABLE: "false"
       SPLUNK_SKIP_PREINSTALL_CPU_CHECKS_CORRUPTING_DATA_IF_UNSUPPORTED: "1"
     volumes:
       - splunk-etc:/opt/splunk/etc
       - splunk-var:/opt/splunk/var
-      - ./assets/Splunk.License:/run/gym-assets/Splunk.License:ro
+      - ./assets/Splunk.License:/run/lab-assets/Splunk.License:ro
     healthcheck:
-      test: ["CMD", "/opt/gym/healthcheck.sh"]
+      test: ["CMD", "/opt/lab/healthcheck.sh"]
       interval: 10s
       timeout: 10s
       retries: 60

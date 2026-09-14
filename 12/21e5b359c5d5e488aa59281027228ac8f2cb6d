@@ -1,0 +1,38 @@
+003/tracecat/workflows/validate-firewall-rule.yml
+  s_644e0236e3110b::t_7fd1e571b42481 27
+  s_644e0236e3110b::t_79c1f85ccb0a8b 63,77-81,94,101-107
+  s_644e0236e3110b::t_62a170978a9531 30-31,34-39,43,74,120-129,133,136-137
+  s_644e0236e3110b::t_cafe2b869c3354 4,7,29,32-33
+003/tracecat/workflows/cleanup-firewall-rule.yml
+  s_644e0236e3110b::t_62a170978a9531 52-53,57-62,66
+  s_644e0236e3110b::t_68a055ff62bdf1 46-51,54-56,67
+  s_644e0236e3110b::t_efc3a4de7098ce 28-29,31-32
+  s_644e0236e3110b::t_2e6ab2d13aed62 21,24-27,30,37,65
+  s_644e0236e3110b::t_cafe2b869c3354 4,6,10-20,22-23,33,36
+  s_644e0236e3110b::t_3cb23dca0a5743 63
+003/evals/cases.ndjson
+  s_644e0236e3110b::t_79c1f85ccb0a8b 1
+003/evals/rubric.json
+  s_644e0236e3110b::t_85272603f8cd55 12-16
+  s_644e0236e3110b::t_62a170978a9531 6
+003/tracecat/agent_presets/judge.md
+  s_644e0236e3110b::t_62a170978a9531 9-10
+  s_644e0236e3110b::t_e0150d5795f9e4 11-12
+  s_644e0236e3110b::t_76ca3f8dd1b8af 13-17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "1221e5b359c5d5e488aa59281027228ac8f2cb6d",
+  "prompts": {},
+  "sessions": {
+    "s_644e0236e3110b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09b87-9b6d-7393-a77c-33195bead7cd",
+        "model": "gpt-daybreak-blue-latest"
+      },
+      "human_author": null
+    }
+  }
+}

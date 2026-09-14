@@ -35,4 +35,4 @@ volumes:
 networks:
   tracecat:
     external: true
-    name: tracecat_core
+    name: tracecat-labs_core

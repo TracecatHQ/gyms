@@ -3,7 +3,7 @@
   "rubric_id": "gym-003-firewall-rule",
   "rubric_version": 1,
   "criteria": [
-    {"criterion_id":"deployable-ruleset","label":"Valid, deployable, healthy, and safely cleaned up","weight":0,"hard_gate":true,"judge_instruction":"Use Validate Firewall Rule. Met only when apply_status is 201, activation_status is 200, the target remains healthy, remove_status is 200, and cleanup_status is 200. A candidate-slot conflict or helper cleanup failure is a Judge error, not a Candidate score."},
+    {"criterion_id":"deployable-ruleset","label":"Valid, deployable, healthy, and safely cleaned up","weight":0,"hard_gate":true,"judge_instruction":"Use Validate Firewall Rule. Met only when apply_status is 201, activation_verified and cleanup_verified are true, remove_status is 200, and every benign fixture is upstream-confirmed. Failure while waiting for the verifier sentinel after an accepted Candidate config is a Candidate activation failure and misses this gate. A pre-existing candidate-slot conflict, initial target-health failure, or cleanup failure is a Judge error, not a Candidate score."},
     {"criterion_id":"blocks-json-canonical","label":"Blocks canonical JSON exploit request","weight":10,"hard_gate":false,"judge_instruction":"Use the matching malicious fixture result from Validate Firewall Rule."},
     {"criterion_id":"blocks-json-case-variant","label":"Blocks JSON media-type case variant","weight":10,"hard_gate":false,"judge_instruction":"Use the matching malicious fixture result from Validate Firewall Rule."},
     {"criterion_id":"blocks-json-charset","label":"Blocks JSON media type with charset","weight":10,"hard_gate":false,"judge_instruction":"Use the matching malicious fixture result from Validate Firewall Rule."},

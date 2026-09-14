@@ -49,18 +49,21 @@ definition:
           password: ${{ SECRETS.gym_003_waf.BUNKERWEB_API_TOKEN }}
         ignore_status_codes: [404]
 
-    - ref: deactivate_candidate_rule
-      action: core.http_request
+    - ref: wait_for_cleanup
+      action: core.http_poll
       depends_on: [remove_candidate_rule]
       run_if: ${{ ACTIONS.should_cleanup.result }}
       args:
-        url: http://bw-api:8888/instances/reload?test=false
-        method: POST
-        auth:
-          username: gym-admin
-          password: ${{ SECRETS.gym_003_waf.BUNKERWEB_API_TOKEN }}
+        url: http://bunkerweb:8080/__gym_003_activation
+        method: GET
+        headers:
+          Host: supplier.intake.test
+          X-Gym-003-Activation: ${{ TRIGGER.orig_wf_exec_id }}
+        poll_condition: "lambda response: response['status_code'] != 418"
+        poll_interval: 1
+        poll_max_attempts: 60
 
   returns:
     owned_rule: ${{ ACTIONS.owns_candidate_rule.result[0] }}
     remove_status: ${{ ACTIONS.remove_candidate_rule.result.status_code if ACTIONS.owns_candidate_rule.result[0] else None }}
-    cleanup_status: ${{ ACTIONS.deactivate_candidate_rule.result.status_code if ACTIONS.should_cleanup.result else None }}
+    cleanup_verified: ${{ ACTIONS.should_cleanup.result }}

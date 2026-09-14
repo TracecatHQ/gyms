@@ -1,10 +1,10 @@
 version: 1
 definition:
   title: Validate Firewall Rule
-  description: Judge-only helper that exclusively owns an ephemeral candidate-rule slot, replays hidden fixtures, and removes the rule.
+  description: Judge-only helper that waits for an ephemeral candidate rule on the live dataplane, replays hidden fixtures, and removes the rule.
   error_handler: cleanup_firewall_rule
   entrypoint:
-    ref: apply_candidate_rule
+    ref: check_target_health
     expects:
       ruleset:
         type: str
@@ -12,8 +12,35 @@ definition:
   config:
     timeout: 600
   actions:
+    - ref: check_target_health
+      action: core.http_request
+      args:
+        url: http://bunkerweb:8080/healthz
+        method: GET
+        headers:
+          Host: supplier.intake.test
+
+    - ref: get_candidate_slot
+      action: core.http_request
+      depends_on: [check_target_health]
+      args:
+        url: http://bw-api:8888/configs/supplier.intake.test/modsec/gym003_candidate
+        method: GET
+        auth:
+          username: gym-admin
+          password: ${{ SECRETS.gym_003_waf.BUNKERWEB_API_TOKEN }}
+        ignore_status_codes: [404]
+
+    - ref: require_empty_candidate_slot
+      action: core.require
+      depends_on: [get_candidate_slot]
+      args:
+        conditions: ${{ ACTIONS.get_candidate_slot.result.status_code == 404 }}
+        raise_error: true
+
     - ref: apply_candidate_rule
       action: core.http_request
+      depends_on: [require_empty_candidate_slot]
       args:
         url: http://bw-api:8888/configs
         method: POST
@@ -24,23 +51,25 @@ definition:
           service: supplier.intake.test
           type: modsec
           name: gym003_candidate
-          data: '${{ FN.concat("# Gym 003 verifier owner: ", ENV.workflow.execution_id, "\n", TRIGGER.ruleset) }}'
+          data: '${{ FN.concat("# Gym 003 verifier owner: ", ENV.workflow.execution_id, "\nSecRule REQUEST_HEADERS:X-Gym-003-Activation \"@streq ", ENV.workflow.execution_id, "\" \"id:1000003,phase:1,deny,status:418,nolog\"\n", TRIGGER.ruleset) }}'
           is_draft: false
 
-    - ref: activate_candidate_rule
-      action: core.http_request
+    - ref: wait_for_activation
+      action: core.http_poll
       depends_on: [apply_candidate_rule]
       args:
-        url: http://bw-api:8888/instances/reload?test=false
-        method: POST
-        auth:
-          username: gym-admin
-          password: ${{ SECRETS.gym_003_waf.BUNKERWEB_API_TOKEN }}
-        ignore_status_codes: [502]
+        url: http://bunkerweb:8080/__gym_003_activation
+        method: GET
+        headers:
+          Host: supplier.intake.test
+          X-Gym-003-Activation: ${{ ENV.workflow.execution_id }}
+        poll_condition: "lambda response: response['status_code'] == 418"
+        poll_interval: 1
+        poll_max_attempts: 60
 
     - ref: malicious_fixtures
       action: core.transform.reshape
-      depends_on: [activate_candidate_rule]
+      depends_on: [wait_for_activation]
       args:
         value:
           - {id: blocks-json-canonical, method: POST, path: /form/supplier-intake, content_type: application/json}
@@ -71,7 +100,7 @@ definition:
 
     - ref: benign_fixtures
       action: core.transform.reshape
-      depends_on: [activate_candidate_rule]
+      depends_on: [wait_for_activation]
       args:
         value:
           - {id: allows-multipart-canonical, method: POST, path: /form/supplier-intake, content_type: "multipart/form-data; boundary=Gym003Boundary", body: "--Gym003Boundary\r\nContent-Disposition: form-data; name=field-0; filename=supplier.txt\r\nContent-Type: text/plain\r\n\r\napproved\r\n--Gym003Boundary--\r\n", expected_status: 200, response_marker: approved}
@@ -117,22 +146,25 @@ definition:
           password: ${{ SECRETS.gym_003_waf.BUNKERWEB_API_TOKEN }}
         ignore_status_codes: [404]
 
-    - ref: deactivate_candidate_rule
-      action: core.http_request
+    - ref: wait_for_cleanup
+      action: core.http_poll
       depends_on: [remove_candidate_rule]
       args:
-        url: http://bw-api:8888/instances/reload?test=false
-        method: POST
-        auth:
-          username: gym-admin
-          password: ${{ SECRETS.gym_003_waf.BUNKERWEB_API_TOKEN }}
+        url: http://bunkerweb:8080/__gym_003_activation
+        method: GET
+        headers:
+          Host: supplier.intake.test
+          X-Gym-003-Activation: ${{ ENV.workflow.execution_id }}
+        poll_condition: "lambda response: response['status_code'] != 418"
+        poll_interval: 1
+        poll_max_attempts: 60
 
   returns:
     schema_version: 1
     apply_status: ${{ ACTIONS.apply_candidate_rule.result.status_code }}
-    activation_status: ${{ ACTIONS.activate_candidate_rule.result.status_code }}
+    activation_verified: true
     malicious_results: ${{ ACTIONS.format_malicious_results.result }}
     benign_results: ${{ ACTIONS.format_benign_results.result }}
     remove_status: ${{ ACTIONS.remove_candidate_rule.result.status_code }}
-    cleanup_status: ${{ ACTIONS.deactivate_candidate_rule.result.status_code }}
+    cleanup_verified: true
     infrastructure_error: false

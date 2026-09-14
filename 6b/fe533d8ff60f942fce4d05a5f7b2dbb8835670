@@ -1,0 +1,25 @@
+terraform/modules/gym/workflows/candidate-run.yml
+  s_644e0236e3110b::t_c06de770bd1858 70,88,141,150
+003/tracecat/workflows/validate-firewall-rule.yml
+  s_644e0236e3110b::t_78b0636fe0d7e0 27,57,63,88,94
+  s_644e0236e3110b::t_c06de770bd1858 69,100
+terraform/modules/gym/workflows/judge-run.yml
+  s_644e0236e3110b::t_c06de770bd1858 80,82,88,90,96,107
+  s_644e0236e3110b::t_78b0636fe0d7e0 138
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "6bfe533d8ff60f942fce4d05a5f7b2dbb8835670",
+  "prompts": {},
+  "sessions": {
+    "s_644e0236e3110b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09b87-9b6d-7393-a77c-33195bead7cd",
+        "model": "gpt-daybreak-blue-latest"
+      },
+      "human_author": "Chris Lo <46541035+topher-lo@users.noreply.github.com>"
+    }
+  }
+}

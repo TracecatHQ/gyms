@@ -1,0 +1,21 @@
+terraform-provider-tracecat/go.mod
+  s_81ef4461d891fb::t_99840950c67698 3,37-42,44-46
+terraform-provider-tracecat/go.sum
+  s_81ef4461d891fb::t_5adfc9053d3af0 8-9,16-17,105-116,120-121,126-127,131-132,145-146,153-154,158-159,162-163,167-170,173-174
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "59360d96f316c93d7ffc45b371f5c2452377e4d7",
+  "prompts": {},
+  "sessions": {
+    "s_81ef4461d891fb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ff0a7231-64ce-44f8-ae83-be4bb065dcab",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Chris Lo <46541035+topher-lo@users.noreply.github.com>"
+    }
+  }
+}

@@ -1,0 +1,21 @@
+terraform-provider-tracecat/tracecat/resource_workflow.go
+  s_644e0236e3110b::t_42f0d8df202a9e 21-28,87-88
+terraform-provider-tracecat/tracecat/resource_workflow_test.go
+  s_644e0236e3110b::t_42f0d8df202a9e 13,18-22,31,49,52-53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "74b57cb334d5d0f070865774a776c18daa9a9943",
+  "prompts": {},
+  "sessions": {
+    "s_644e0236e3110b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09b87-9b6d-7393-a77c-33195bead7cd",
+        "model": "gpt-daybreak-blue-latest"
+      },
+      "human_author": "Chris Lo <46541035+topher-lo@users.noreply.github.com>"
+    }
+  }
+}

@@ -22,7 +22,6 @@
       "slug": "candidate",
       "description": "Investigates one Gym 001 alert using only Case actions and the attached Splunk MCP integration.",
       "instructions_file": "agent_presets/candidate.md",
-      "model_role": "candidate",
       "actions": ["core.cases.create_comment","core.cases.get_case","core.cases.update_case","core.cases.add_case_tag"],
       "mcp_catalog_slugs": ["splunk-mcp"]
     },
@@ -31,7 +30,6 @@
       "slug": "judge",
       "description": "Grades a frozen Gym 001 Case Work Product against the hidden Oracle and Rubric.",
       "instructions_file": "agent_presets/judge.md",
-      "model_role": "judge",
       "actions": [],
       "retries": 1
     }

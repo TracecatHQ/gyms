@@ -17,7 +17,6 @@ func resourceJSON(endpoint string) *schema.Resource {
 		ReadContext:   jsonRead(endpoint),
 		UpdateContext: jsonUpdate(endpoint),
 		DeleteContext: jsonDelete(endpoint),
-		Importer:      &schema.ResourceImporter{StateContext: schema.ImportStatePassthroughContext},
 		Schema: map[string]*schema.Schema{
 			"workspace_id": workspaceSchema(),
 			"config_json": {
@@ -39,11 +38,9 @@ func decodeObject(raw string) (map[string]any, error) {
 
 func canonicalSubset(remote, desired map[string]any) map[string]any {
 	out := make(map[string]any, len(desired))
-	for key, desiredValue := range desired {
-		if remoteValue, ok := remote[key]; ok {
+	for key := range desired {
+		if remoteValue, exists := remote[key]; exists {
 			out[key] = remoteValue
-		} else {
-			out[key] = desiredValue
 		}
 	}
 	return out

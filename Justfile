@@ -169,7 +169,10 @@ check:
       [[ -d "$gym_dir/terraform" ]] || continue
       found=1
       gym="$(basename "$gym_dir")"
-      jq -e . "{{ root }}/$gym/tracecat/tracecat.json" >/dev/null
+      jq -e '
+        .schema_version == 1 and
+        ([.agent_presets[].slug] | sort) == ["candidate", "judge"]
+      ' "{{ root }}/$gym/tracecat/tracecat.json" >/dev/null
       jq -e . "{{ root }}/$gym/evals/rubric.json" >/dev/null
       jq -cs --slurpfile rubric "{{ root }}/$gym/evals/rubric.json" '
         (length > 0) and

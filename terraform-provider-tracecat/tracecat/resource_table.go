@@ -16,7 +16,6 @@ func resourceTable() *schema.Resource {
 		ReadContext:   tableRead,
 		UpdateContext: tableUpdate,
 		DeleteContext: tableDelete,
-		Importer:      &schema.ResourceImporter{StateContext: schema.ImportStatePassthroughContext},
 		Schema: map[string]*schema.Schema{
 			"workspace_id": workspaceSchema(),
 			"name":         {Type: schema.TypeString, Required: true},

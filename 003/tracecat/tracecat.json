@@ -18,7 +18,6 @@
       "slug": "candidate",
       "description": "Produces a reviewable ModSecurity mitigation from one vulnerability-report Case.",
       "instructions_file": "agent_presets/candidate.md",
-      "model_role": "candidate",
       "actions": ["core.cases.create_comment","core.cases.get_case","core.cases.update_case"]
     },
     {
@@ -26,7 +25,6 @@
       "slug": "judge",
       "description": "Uses the controlled firewall helper and grades hidden malicious and benign fixtures.",
       "instructions_file": "agent_presets/judge.md",
-      "model_role": "judge",
       "actions": ["core.workflow.execute"],
       "retries": 1
     }

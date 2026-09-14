@@ -46,10 +46,13 @@ func TestClientSetsWorkspaceAndAuthorization(t *testing.T) {
 func TestCanonicalSubsetDetectsManagedDrift(t *testing.T) {
 	t.Parallel()
 	remote := map[string]any{"name": "changed", "server_field": true}
-	desired := map[string]any{"name": "wanted", "description": "kept"}
+	desired := map[string]any{"name": "wanted", "description": "deleted remotely"}
 	got := canonicalSubset(remote, desired)
-	if got["name"] != "changed" || got["description"] != "kept" {
+	if got["name"] != "changed" {
 		t.Fatalf("unexpected subset: %#v", got)
+	}
+	if _, exists := got["description"]; exists {
+		t.Fatalf("missing remote key was copied from desired state: %#v", got)
 	}
 }
 

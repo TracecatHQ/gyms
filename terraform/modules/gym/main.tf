@@ -75,6 +75,10 @@ locals {
       { name = "rubric_version", type = "INTEGER", nullable = false },
       { name = "enabled", type = "BOOLEAN", nullable = false }
     ]
+    evaluation_runs = [
+      { name = "evaluation_run_id", type = "TEXT", nullable = false, is_index = true },
+      { name = "run", type = "JSONB", nullable = false }
+    ]
     evaluation_scores = [
       { name = "score_key", type = "TEXT", nullable = false, is_index = true },
       { name = "schema_version", type = "INTEGER", nullable = false },
@@ -105,6 +109,13 @@ locals {
 
 resource "tracecat_workspace" "gym" {
   name = local.manifest.workspace_name
+
+  lifecycle {
+    precondition {
+      condition     = length(local.manifest.agent_presets) == 2 && toset(keys(local.presets)) == toset(["candidate", "judge"])
+      error_message = "tracecat.json must define exactly the candidate and judge presets."
+    }
+  }
 }
 
 resource "tracecat_table" "platform" {
@@ -140,17 +151,19 @@ resource "tracecat_agent_preset" "preset" {
   for_each = local.presets
 
   workspace_id = tracecat_workspace.gym.id
-  config_json = jsonencode(merge(
-    { for key, value in each.value : key => value if !contains(["instructions_file", "model_role", "mcp_catalog_slugs"], key) },
-    {
-      instructions     = file("${var.config_dir}/${each.value.instructions_file}")
-      model_provider   = each.value.model_role == "candidate" ? var.candidate_model.provider : var.judge_model.provider
-      model_name       = each.value.model_role == "candidate" ? var.candidate_model.name : var.judge_model.name
-      catalog_id       = null
-      mcp_integrations = [for slug in try(each.value.mcp_catalog_slugs, []) : tracecat_mcp_integration.integration[slug].id]
-      output_type      = each.value.model_role == "judge" ? local.judge_output_type : null
-    }
-  ))
+  config_json = jsonencode({
+    for key, value in merge(
+      { for key, value in each.value : key => value if !contains(["instructions_file", "mcp_catalog_slugs"], key) },
+      {
+        instructions     = file("${var.config_dir}/${each.value.instructions_file}")
+        model_provider   = each.key == "candidate" ? var.candidate_model.provider : var.judge_model.provider
+        model_name       = each.key == "candidate" ? var.candidate_model.name : var.judge_model.name
+        catalog_id       = null
+        mcp_integrations = [for slug in try(each.value.mcp_catalog_slugs, []) : tracecat_mcp_integration.integration[slug].id]
+        output_type      = each.key == "judge" ? local.judge_output_type : null
+      }
+    ) : key => value if value != null
+  })
 }
 
 resource "tracecat_workflow" "workflow" {
@@ -160,6 +173,9 @@ resource "tracecat_workflow" "workflow" {
   filename     = each.value.file
   alias        = each.key
   yaml         = file(each.value.path)
+  definition_json = jsonencode(
+    yamldecode(file(each.value.path)).definition
+  )
 
   depends_on = [
     tracecat_agent_preset.preset,

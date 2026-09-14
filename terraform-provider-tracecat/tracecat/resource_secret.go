@@ -79,8 +79,9 @@ func resolveSecret(ctx context.Context, c *Client, d *schema.ResourceData) error
 		return err
 	}
 	name := d.Get("name").(string)
+	environment := d.Get("environment").(string)
 	for _, secret := range out {
-		if secret["name"] != name {
+		if secret["name"] != name || secret["environment"] != environment {
 			continue
 		}
 		if id := responseID(secret); id != "" {

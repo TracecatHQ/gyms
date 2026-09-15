@@ -18,6 +18,11 @@ stored or graded artifact.
 
 ## Quick start
 
+> [!IMPORTANT]
+> These labs require the Tracecat Enterprise `service_accounts` entitlement for
+> API access. They are intended only for training, experimentation, and
+> evaluation.
+
 Requirements: Terraform 1.11+, Go, Docker, `just`, `jq`, `curl`, Git LFS, and
 Ruby.
 
@@ -28,10 +33,11 @@ start Tracecat:
 just tracecat-up
 ```
 
-In Tracecat, configure the model providers named in `.env` and create an
-organization service-account API key with workspace administration scopes. The
-pinned beta requires the `service_accounts` entitlement. Put the key in `.env`,
-then run:
+Startup waits for Tracecat to become healthy and configures its default tier
+with only the `service_accounts` entitlement needed for API access. In
+Tracecat, configure the model providers named in `.env` and create an
+organization service-account API key with workspace administration scopes. Put
+the key in `.env`, then run:
 
 ```bash
 just init 001
@@ -44,6 +50,10 @@ just judge 001 RUN_ID=<candidate-run-id>
 just status 001 RUN_ID=<judge-run-id>
 just export 001 RUN_ID=<candidate-run-id>
 ```
+
+Use one applied lab workspace per Tracecat deployment. Tracecat 1.0.0-rc.1
+requires the `multi_workspace` entitlement to create another workspace, and the
+labs intentionally do not enable it.
 
 Both triggers return a native Tracecat workflow execution ID and run
 asynchronously. Wait for Candidate Run to complete before starting Judge Run,

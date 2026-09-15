@@ -36,7 +36,7 @@ init lab="": provider
       terraform -chdir="{{ root }}/$current/terraform" init -upgrade -plugin-dir="{{ root }}/.terraform.d/plugins"
     done
 
-# Cache and start the exact public Tracecat release.
+# Cache and start the exact public Tracecat release, then enable API access.
 tracecat-up:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -47,7 +47,26 @@ tracecat-up:
       git clone --depth 1 --branch "$version" https://github.com/TracecatHQ/tracecat.git "$checkout"
     fi
     test "$(git -C "$checkout" describe --tags --exact-match)" = "$version" || { echo "Cached Tracecat checkout does not match $version; remove .cache/tracecat to change versions." >&2; exit 2; }
-    docker compose --project-directory "$checkout" --env-file "$checkout/.env.example" --env-file "{{ root }}/.env" -f "$checkout/docker-compose.yml" up -d
+    compose=(docker compose --project-directory "$checkout" --env-file "$checkout/.env.example" --env-file "{{ root }}/.env" -f "$checkout/docker-compose.yml")
+    "${compose[@]}" up --wait --wait-timeout 180
+    entitlements="$(
+      "${compose[@]}" exec -T postgres_db psql --username postgres --dbname postgres --quiet --tuples-only --no-align --set ON_ERROR_STOP=1 <<'SQL'
+    DO $seed$
+    BEGIN
+      IF (SELECT count(*) FROM tier WHERE is_default IS TRUE AND is_active IS TRUE) <> 1 THEN
+        RAISE EXCEPTION 'expected exactly one active default tier';
+      END IF;
+      UPDATE tier
+      SET entitlements = '{"service_accounts": true}'::jsonb
+      WHERE is_default IS TRUE AND is_active IS TRUE;
+    END
+    $seed$;
+    SELECT entitlements::text
+    FROM tier
+    WHERE is_default IS TRUE AND is_active IS TRUE;
+    SQL
+    )"
+    test "$entitlements" = '{"service_accounts": true}' || { echo "Failed to seed the service_accounts entitlement" >&2; exit 2; }
 
 tracecat-down:
     #!/usr/bin/env bash
@@ -164,6 +183,9 @@ export lab RUN_ID:
 check:
     #!/usr/bin/env bash
     set -euo pipefail
+    grep -Fxq 'TRACECAT_VERSION=1.0.0-rc.1' "{{ root }}/.env.example"
+    ! grep -q '^TRACECAT__FEATURE_FLAGS=' "{{ root }}/.env.example"
+    grep -Fxq 'TRACECAT__EE_MULTI_TENANT=true' "{{ root }}/.env.example"
     found=0
     for lab_dir in "{{ root }}"/[0-9][0-9][0-9]; do
       [[ -d "$lab_dir/terraform" ]] || continue
